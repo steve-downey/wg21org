@@ -1,0 +1,17 @@
+#+STARTUP: showeverything
+
+#+BIBLIOGRAPHY: index.bib
+
+* Heading 1
+
+Refer to [cite:@P1255R12].
+
+
+
+
+
+* References
+
+#+cite_export: basic author author-year
+
+#+PRINT_BIBLIOGRAPHY:

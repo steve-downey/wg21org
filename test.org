@@ -1,0 +1,51 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline author:t
+#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:t todo:t |:t
+
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:auto html-preamble:t
+#+OPTIONS: html-scripts:t html-style:t html5-fancy:nil tex:t
+#+HTML_DOCTYPE: xhtml-strict
+#+HTML_CONTAINER: div
+#+DESCRIPTION:
+#+HTML_LINK_HOME:
+#+HTML_LINK_UP:
+#+HTML_MATHJAX:
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://sdowney.org/css/smd-zenburn.css" />
+#+HTML_HEAD_EXTRA:
+#+INFOJS_OPT:
+
+#+LATEX_COMPILER: lualatex
+#+LATEX_CLASS: memoir
+#+LATEX_CLASS_OPTIONS: [a4paper,10pt,oneside,openany,final,article]
+#+LATEX_HEADER: \settocdepth{chapter}
+#+LATEX_HEADER: \usepackage{fontspec}
+#+LATEX_HEADER: \setromanfont{Source Serif Pro}
+#+LATEX_HEADER: \setsansfont{Source Sans Pro}
+#+LATEX_HEADER: \setmonofont{Source Code Pro}
+#+LATEX_HEADER:\newfontfamily\unifont[Ligatures=TeX]{DejaVu Sans Mono}
+#+LATEX_HEADER: \setlength{\parindent}{0in}
+#+STARTUP: showeverything
+
+#+BIBLIOGRAPHY: index.bib
+
+* Heading 1
+
+Refer to [cite:@P1255R12].
+
+Refer to [cite:@P1255R0].
+
+Refer to [cite:@P1255R1].
+
+Refer to [cite:@P1255R2].
+
+Also I should mention [cite:@N4919]
+
+Sometimes we have multiple sources at once, like [cite:@N4919; @P1255R12]
+
+
+* References
+
+#+CITE_EXPORT: csl chicago-author-date.csl
+
+#+PRINT_BIBLIOGRAPHY:
