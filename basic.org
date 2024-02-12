@@ -65,9 +65,18 @@ And put this cool _word_ in.
 
 * Comparison Table
 #+begin_cmptbl
+#+begin_cmptblbeforehead
+*Before*
+#+end_cmptblbeforehead
+#+begin_cmptblafterhead
+*After*
+#+end_cmptblafterhead
+#+BEGIN_EXPORT latex
+  \\
+#+END_EXPORT
 #+begin_cmptblbefore
 #+begin_src C++
-int a = cool_sum(\{1, 2, 3\});
+int a = cool_sum({1, 2, 3});
 #+end_src
 #+end_cmptblbefore
 #+begin_cmptblafter
@@ -81,7 +90,7 @@ int a = cool_sum({1, 2, 3});
 
 #+begin_cmptblbefore
 #+begin_src C++
-int a = cool_sum(\{1, 2, 3\});
+int a = cool_sum({1, 2, 3});
 #+end_src
 #+end_cmptblbefore
 #+begin_cmptblafter
