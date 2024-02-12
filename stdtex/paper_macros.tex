@@ -1,0 +1,58 @@
+
+\usepackage{amssymb,graphicx,stackengine,xcolor}
+\protected\def\ucr{\scalebox{1}{\stackinset{c}{}{c}{-.2pt}{%
+      \textcolor{white}{\sffamily\bfseries\small ?}}{%
+      \rotatebox{45}{$\blacksquare$}}}}
+
+\newenvironment{wording}{
+  \chapterstyle{cppstd}
+  \newcounter{scratchChapter}\setcounter{scratchChapter}{\value{chapter}}
+  \settocdepth{part}
+  \renewcommand\thesection{\ucr.\arabic{section}}
+  \renewcommand\thesubsection{\makebox{$\ucr$}.\makebox{$\ucr$}.\arabic{subsection}}
+} {
+  \setcounter{chapter}{\value{scratchChapter}}
+  \settocdepth{section}
+
+}
+
+
+\newenvironment{cmptbl}
+  {%
+  \begin{tabular}{ lr }
+  }
+  {%
+  \end{tabular}
+  }
+
+\newenvironment{cmptblbeforehead}
+  {%
+  \begin{minipage}[t]{0.45\columnwidth}
+  }
+  {%
+  \end{minipage}
+  }
+
+\newenvironment{cmptblafterhead}
+  {%
+  \begin{minipage}[t]{0.45\columnwidth}
+  }
+  {%
+  \end{minipage}
+  }
+
+\newenvironment{cmptblbefore}
+  {%
+  \begin{minipage}[t]{0.45\columnwidth}
+  }
+  {%
+  \end{minipage}
+  }
+
+\newenvironment{cmptblafter}
+  {%
+  \begin{minipage}[t]{0.45\columnwidth}
+  }
+  {%
+  \end{minipage}
+  }
