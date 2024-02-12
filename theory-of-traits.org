@@ -1,0 +1,181 @@
+#+BLOG: sdowney
+#+POSTID: 343
+#+BLOG: sdowney
+#+OPTIONS: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline author:t
+#+OPTIONS: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+OPTIONS: email:nil f:t inline:t num:nil p:nil pri:nil prop:nil stat:t tags:t
+#+OPTIONS: tasks:t tex:t timestamp:t title:t toc:nil todo:t |:t
+#+TITLE: Some Informal Remarks Towards a New Theory of Trait Customization
+#+DATE: <2023-12-24 Sun>
+#+AUTHOR: Steve Downey
+#+EMAIL: sdowney@sdowney.org
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:auto html-preamble:t
+#+OPTIONS: html-scripts:t html-style:t html5-fancy:nil tex:t
+#+HTML_DOCTYPE: xhtml-strict
+#+HTML_CONTAINER: div
+#+DESCRIPTION:
+#+KEYWORDS:
+#+HTML_LINK_HOME:
+#+HTML_LINK_UP:
+#+HTML_MATHJAX:
+#+html_head: <link rel="stylesheet" type="text/css" href="http://sdowney.org/css/modus-operandi-tinted.css" />
+#+HTML_HEAD_EXTRA:
+#+SUBTITLE:
+#+INFOJS_OPT:
+#+LATEX_HEADER:
+#+BABEL: :results output graphics :tangle yes
+#+STARTUP: showeverything
+
+* A Possible Technique
+
+#+begin_src c++
+constexpr bool g(int lhs, int rhs) {
+    auto& op = partial_eq<int>;
+    return op.ne(lhs, rhs);
+}
+#+end_src
+
+
+[[https://godbolt.org/z/Ge43cWfn8][Compiler Explorer with Supporting Code]]
+
+
+A trait is defined as a template variable that implements the required operations. Implementation of those operations is possible via a variety of techniques, but existence is concept checkable. It might prove useful to explicitly opt in to a sufficiently generic trait.
+
+The technique satisfies the openness requirement, that the trait can be created independently of the type that models the trait. There can still only be one definition, but this enables opting std:: types into new traits, for example.
+
+It also doesn't universally grab an operation name. The trait variable is namespaceable.
+
+Syntax isn't really awesome, but not utterly unworkable.
+
+* Background
+Several years ago, Barry Revzin in "[[https://brevzin.github.io/c++/2020/12/01/tag-invoke/][Why tag_invoke is not the solution I want"]] outlined the characteristics that a good customization interface would have. Quoting
+
+#+begin_quote
+1. The ability to see clearly, in code, what the interface is that can (or needs to) be customized.
+1. The ability to provide default implementations that can be overridden, not just non-defaulted functions.
+1. The ability to opt in explicitly to the interface.
+1. The inability to incorrectly opt in to the interface (for instance, if the interface has a function that takes an int, you cannot opt in by accidentally taking an unsigned int).
+1. The ability to easily invoke the customized implementation. Alternatively, the inability to accidentally invoke the base implementation.
+1. The ability to easily verify that a type implements an interface.
+#+end_quote
+
+I believe that with some support on the implementation side, and some ~concept~ definitions to assert correct usage, having an explicit object that implements the required traits for a concept can satisfy more of the requirements than ~tag_invoke~ or ~std::~ customization points. The trade-off is that usage of the trait is explicit and not dependent on arguments to the trait, which means that it is more verbose and possible to get wrong in both subtle and gross ways.
+
+* ~concept_map~
+In the original proposal for C++ concepts, there was a facility called ~concept_map~s where
+#+begin_quote
+Concept maps describe how a set of template arguments satisfy the requirements stated in the body of a concept definition.
+#+end_quote
+
+#+begin_src c++
+class student_record {
+  public:
+    string id;
+    string name;
+    string address;
+};
+
+concept EqualityComparable<typename T> {
+    bool operator==(T, T);
+}
+
+concept_map EqualityComparable<student_record> {
+    bool operator==(const student_record& a, const student_record& b) {
+        return a.id == b.id;
+    }
+};
+
+template<typename T> requires EqualityComparable<T>
+void f(T);
+
+f(student_record()); // okay, have concept_map EqualityComparable<student_record>
+#+end_src
+
+[[https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2008/n2617.pdf][n2617]]
+
+This allowed for customizing how the various requirements for a concept were implemented for a particular type.
+
+This was lost in Concepts Lite, a.k.a C++20 Concepts.
+
+Other generic type systems have implemented something like this feature, as well as definition checking. In particular, Rust Traits are an analagous feature.
+
+* Rust Traits
+
+#+begin_quote
+A trait is a collection of methods defined for an unknown type: ~Self~. They can access other methods declared in the same trait.
+#+end_quote
+
+An example that Revzin mentions, and that my first example alludes to is PartialEq:
+#+begin_src rust
+pub trait PartialEq<Rhs: ?Sized = Self> {
+    /// This method tests for `self` and `other` values to be equal, and is used
+    /// by `==`.
+    fn eq(&self, other: &Rhs) -> bool;
+
+    /// This method tests for `!=`. The default implementation is almost always
+    /// sufficient, and should not be overridden without very good reason.
+    fn ne(&self, other: &Rhs) -> bool {
+        !self.eq(other)
+    }
+}
+#+end_src
+From [[https://doc.rust-lang.org/src/core/cmp.rs.html#219]]
+
+In Rust this is built into the language, and operators like == are automatically rewritten into ~eq~ and ~ne~. At least that's my understanding. We're not going to get that in C++, ever. With both Rust and Concept Maps, though, we do get new named operations that can be used unqualified in generic code and the compiler will be directed to the correct implementation.
+
+Giving up on that is key to a way forward in C++.
+
+* A trait object
+The technique I'm considering and describing here is modeled loosly after the implementation of Haskell typeclasses in GHC. For a particular instance of a typeclass, a record holding the operations based on the actual type in use is created and made available, and the named operations are lifted into scope and the functions in the record called when used. It is as if a virtual function table was implemented with name lookup rather than index.
+
+In C++, particularly in current post-C++20 C++, we can look up an object via a template variable. The implementations of different specializations of a template variable do not need to be connected in any way. We have to provide a definition, since to make it look like a declaration it's necessary to provide some type such as false_type. Alternatively, we could declare it as an int, but mark it as ~extern~ and not define it. I'm still researching alternatives.
+
+#+begin_src C++
+template<class T> auto someTrait = std::false_type{};
+
+template <typename T>
+extern int otherTrait;
+#+end_src
+
+These are useful if there is no good generic definition of the trait.
+
+If there is a good generic definition of a trait, the trait variable is straightforward:
+#+begin_src c++
+constexpr inline struct {
+    constexpr auto eq(auto rhs, auto lhs) const {return rhs == lhs;}
+    constexpr auto ne(auto rhs, auto lhs) const {return !eq(lhs, rhs);}
+} partial_eq_default;
+
+template<class T>
+constexpr inline auto partial_eq = partial_eq_default;
+#+end_src
+
+In this case, though, there probably ought to be an opt in so that the trait can be checked by concept.
+
+An opt in mechanism is a bit verbose, but not necessarily complicated:
+#+begin_src c++
+template<class T> constexpr auto partial_eq_type = false;
+template<> constexpr auto partial_eq_type<int> = true;
+template<> constexpr auto partial_eq_type<double> = true;
+
+template<typename T>
+concept is_partial_eq =
+  partial_eq_type<T> &&
+    requires(T lhs, T rhs) {
+    partial_eq<T>.eq(lhs, rhs);
+    partial_eq<T>.ne(lhs, rhs);
+};
+
+constexpr bool h(is_partial_eq auto lhs, is_partial_eq auto rhs) {
+    return partial_eq<decltype(lhs)>.eq(lhs, rhs);
+}
+#+end_src
+
+I have not done a good job at allocating names to the various bits and pieces. Please excuse this.
+
+* What have I missed?
+
+We've been making variable templates more capable in many ways, and the concept checks to ensure correctness are new, but has anyone else explored this and found insurmountable problems?
