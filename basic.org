@@ -1,0 +1,165 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline author:t
+#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:t todo:t |:t
+#+options: html5-fancy:t
+#+title: WG21 Org-mode
+#+date: <2024-02-11 Sun>
+#+author: Steve Downey
+#+email: sdowney@sdowney.org
+#+select_tags: export
+#+language: en
+#+exclude_tags: noexport
+#+creator: Emacs 28.0.60 (Org mode 9.4.6)
+#+HTML_DOCTYPE: html5
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
+#+OPTIONS: html-scripts:t html-style:t html5-fancy:t tex:t
+
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://sdowney.org/css/modus-operandi-tinted.css"/>
+#+HTML_HEAD_EXTRA: <style>.cmptbl {display: grid; grid-template-columns: 1fr 1fr;  border: 1px solid black;justify-content: center;grid-row-gap: 12px;}</style>
+#+HTML_HEAD_EXTRA: <style>.cmptblbeforehead {border: 1px solid black;grid-gap: 20px;text-align:center}</style>
+#+HTML_HEAD_EXTRA: <style>.cmptblafterhead {border: 1px solid black;grid-gap: 20px;text-align:center}</style>
+#+HTML_HEAD_EXTRA: <style>.cmptblcell {}</style>
+#+HTML_HEAD_EXTRA: <style>.cmptblbefore {}</style>
+#+HTML_HEAD_EXTRA: <style>.cmptblafter {}</style>
+#+HTML_HEAD_EXTRA: <style>.addedblock {color: green;}</style>
+#+HTML_HEAD_EXTRA: <style>.removedblock {color: red; text-decoration-line: line-through;}</style>
+
+#+LATEX_COMPILER: lualatex
+#+LATEX_CLASS: memoir
+#+LATEX_CLASS_OPTIONS: [a4paper,10pt,oneside,openany,final,article]
+#+LATEX_HEADER: \include{common.tex}
+#+LATEX_HEADER: \settocdepth{chapter}
+#+LATEX_HEADER: \usepackage{fontspec}
+#+LATEX_HEADER: \setromanfont{Source Serif Pro}
+#+LATEX_HEADER: \setsansfont{Source Sans Pro}
+#+LATEX_HEADER: \setmonofont{Source Code Pro}
+#+LATEX_HEADER:\newfontfamily\unifont[Ligatures=TeX]{DejaVu Sans Mono}
+#+LATEX_HEADER: \setlength{\parindent}{0in}
+
+
+- Document number:
+- Date:  {{{date(%Y-%m-%d)}}}
+- Author: Steve Downey <sdowney2@bloomberg.net>, <sdowney@gmail.com>
+- Audience: WG21 Emacs Authors
+
+#+begin_abstract
+Abstract: Making emacs org-mode more usable for writing WG21 papers.
+#+end_abstract
+
+
+
+
+* Delete blocks and text
+#+begin_removedblock
+Remove this terrible old stuff.
+#+end_removedblock
+And the bad +word+ from this sentence.
+
+* Insert blocks and text
+#+begin_addedblock
+Add this wonderful new text
+#+end_addedblock
+And put this cool _word_ in.
+
+
+* Comparison Table
+#+begin_cmptbl
+#+begin_cmptblbeforehead
+*Before*
+#+end_cmptblbeforehead
+#+begin_cmptblafterhead
+*After*
+#+end_cmptblafterhead
+#+BEGIN_EXPORT latex
+  \\
+#+END_EXPORT
+#+begin_cmptblbefore
+#+begin_src C++
+int a = cool_sum({1, 2, 3});
+#+end_src
+#+end_cmptblbefore
+#+begin_cmptblafter
+#+begin_src C++
+int a = cool_sum({1, 2, 3});
+#+end_src
+#+end_cmptblafter
+#+BEGIN_EXPORT latex
+  \\
+#+END_EXPORT
+
+#+begin_cmptblbefore
+#+begin_src C++
+int a = cool_sum({1, 2, 3});
+#+end_src
+#+end_cmptblbefore
+#+begin_cmptblafter
+#+begin_src C++
+int a = cool_sum({1, 2, 3});
+#+end_src
+#+end_cmptblafter
+#+BEGIN_EXPORT latex
+  \\
+#+END_EXPORT
+#+end_cmptbl
+
+
+# \begin{cmptbl}
+#   \begin{cmptblbefore}
+# int a = cool\_sum(\{1, 2, 3\});
+#   \end{cmptblbefore}
+# &
+#     \begin{cmptblafter}
+# int a = 1 + 2 + 3;
+#     \end{cmptblafter}
+# \end{cmptbl}
+
+
+# #+begin_cmptbl
+# #+begin_cmptblbeforehead
+# *Before*
+# #+end_cmptblbeforehead
+# #+BEGIN_EXPORT latex
+#   &
+# #+END_EXPORT
+# #+begin_cmptblafterhead
+# *After*
+# #+end_cmptblafterhead
+
+# #+begin_cmptblbefore
+# #+begin_src C++
+# int a = 1 + 2 + 3;
+# #+end_src
+# #+end_cmptblbefore
+# #+BEGIN_EXPORT latex
+#   &
+# #+END_EXPORT
+
+# #+begin_cmptblafter
+# #+begin_src C++
+# int a = cool_sum({1, 2, 3});
+# #+end_src
+# #+end_cmptblafter
+
+# #+begin_cmptblbefore
+# #+begin_src C++
+# int a = 1 + 2 + 3 + 4 + 5 + 6;
+# #+end_src
+# #+end_cmptblbefore
+# #+BEGIN_EXPORT latex
+#   &
+# #+END_EXPORT
+
+# #+begin_cmptblafter
+# #+begin_src C++
+# int a = cool_sum({1, 2, 3, 4, 5, 6});
+# #+end_src
+# #+end_cmptblafter
+# #+end_cmptbl
+
+
+* Difference
+#+begin_SRC diff
+-before
++after
+#+end_SRC
