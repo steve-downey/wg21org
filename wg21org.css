@@ -128,15 +128,17 @@
 		margin-top: 0;
 	}
 
-	ul, ol {
-		margin-left: 0;
-		padding-left: 2em;
-	}
+ul,ol,dl{
+    line-height:24px;
+    list-style-image:none;
+    /* list-style:none; */
+    margin:0px 0px 24px 0px;
+    padding:0;
+}
 
-	li {
-		margin: 0.25em 0 0.5em;
-		padding: 0;
-	}
+li{
+    margin-left: 24px;
+}
 
 	dl dd {
 		margin: 0 0 .5em 2em;
@@ -249,10 +251,8 @@
   p.verse { margin-left: 3%; }
   pre.src:hover:before { display: inline; margin-top: 14px;}
 
-  table { border-collapse:collapse; }
   caption.t-above { caption-side: top; }
   caption.t-bottom { caption-side: bottom; }
-  td, th { vertical-align:top;  }
   th.org-right  { text-align: center;  }
   th.org-left   { text-align: center;   }
   th.org-center { text-align: center; }
@@ -296,6 +296,202 @@
   .org-svg { }
 
 /******************************************************************************/
+/*                                    Tables                                  */
+/******************************************************************************/
+
+	th, td {
+		text-align: left;
+		text-align: start;
+	}
+
+table {
+    width: 100%;
+}
+
+table, th, td {
+    border: 1px solid #666;
+}
+
+th, td {
+    padding: 0.5em;
+    text-align: left;
+}
+
+tbody tr:nth-child(odd) {
+    background-color: #eee;
+}
+
+/** Property/Descriptor Definition Tables *************************************/
+
+	table.def {
+		/* inherits .def box styling, see above */
+		width: 100%;
+		border-spacing: 0;
+	}
+
+	table.def td,
+	table.def th {
+		padding: 0.5em;
+		vertical-align: baseline;
+		border-bottom: 1px solid #bbd7e9;
+		border-bottom: 1px solid var(--defrow-border);
+	}
+
+	table.def > tbody > tr:last-child th,
+	table.def > tbody > tr:last-child td {
+		border-bottom: 0;
+	}
+
+	table.def th {
+		font-style: italic;
+		font-weight: normal;
+		padding-left: 1em;
+		width: 3em;
+	}
+
+	/* For when values are extra-complex and need formatting for readability */
+	table td.pre {
+		white-space: pre-wrap;
+	}
+
+	/* A footnote at the bottom of a def table */
+	table.def td.footnote {
+		padding-top: 0.6em;
+	}
+	table.def td.footnote::before {
+		content: " ";
+		display: block;
+		height: 0.6em;
+		width: 4em;
+		border-top: thin solid;
+	}
+
+/** Data tables (and properly marked-up index tables) *************************/
+	/*
+		<table class="data"> highlights structural relationships in a table
+		when correct markup is used (e.g. thead/tbody, th vs. td, scope attribute)
+
+		Use class="complex data" for particularly complicated tables --
+		(This will draw more lines: busier, but clearer.)
+
+		Use class="long" on table cells with paragraph-like contents
+		(This will adjust text alignment accordingly.)
+		Alternately use class="longlastcol" on tables, to have the last column assume "long".
+	*/
+
+	table {
+		word-wrap: normal;
+		overflow-wrap: normal;
+		hyphens: manual;
+	}
+
+	table.data,
+	table.index {
+		margin: 1em auto;
+		border-collapse: collapse;
+		border: hidden;
+		width: 100%;
+	}
+	table.data caption,
+	table.index caption {
+		max-width: 50em;
+		margin: 0 auto 1em;
+	}
+
+	table.data td,  table.data th,
+	table.index td, table.index th {
+		padding: 0.5em 1em;
+		border-width: 1px;
+		border-color: silver;
+		border-color: var(--datacell-border);
+		border-top-style: solid;
+	}
+
+	table.data thead td:empty {
+		padding: 0;
+		border: 0;
+	}
+
+	table.data  thead,
+	table.index thead,
+	table.data  tbody,
+	table.index tbody {
+		border-bottom: 2px solid;
+	}
+
+	table.data colgroup,
+	table.index colgroup {
+		border-left: 2px solid;
+	}
+
+	table.data  tbody th:first-child,
+	table.index tbody th:first-child  {
+		border-right: 2px solid;
+		border-top: 1px solid silver;
+		border-top: 1px solid var(--datacell-border);
+		padding-right: 1em;
+	}
+
+	table.data th[colspan],
+	table.data td[colspan] {
+		text-align: center;
+	}
+
+	table.complex.data th,
+	table.complex.data td {
+		border: 1px solid silver;
+		border: 1px solid var(--datacell-border);
+		text-align: center;
+	}
+
+	table.data.longlastcol td:last-child,
+	table.data td.long {
+		vertical-align: baseline;
+		text-align: left;
+	}
+
+	table.data img {
+		vertical-align: middle;
+	}
+
+
+/*
+Alternate table alignment rules
+
+	table.data,
+	table.index {
+		text-align: center;
+	}
+
+	table.data  thead th[scope="row"],
+	table.index thead th[scope="row"] {
+		text-align: right;
+	}
+
+	table.data  tbody th:first-child,
+	table.index tbody th:first-child  {
+		text-align: right;
+	}
+
+Possible extra rowspan handling
+
+	table.data  tbody th[rowspan]:not([rowspan='1']),
+	table.index tbody th[rowspan]:not([rowspan='1']),
+	table.data  tbody td[rowspan]:not([rowspan='1']),
+	table.index tbody td[rowspan]:not([rowspan='1']) {
+		border-left: 1px solid silver;
+	}
+
+	table.data  tbody th[rowspan]:first-child,
+	table.index tbody th[rowspan]:first-child,
+	table.data  tbody td[rowspan]:first-child,
+	table.index tbody td[rowspan]:first-child{
+		border-left: 0;
+		border-right: 1px solid silver;
+	}
+*/
+
+/******************************************************************************/
 /*                                    ToC                                     */
 /******************************************************************************/
 #table-of-contents{
@@ -306,7 +502,7 @@
     overflow-x:hidden;
     overflow-y:scroll;
     height:100%;
-    background:#343131;
+    /* background:#343131; */
     z-index:200;
     scrollbar-base-color: #1F1D1D;
     scrollbar-arrow-color: #b3b3b3;
@@ -343,7 +539,7 @@
     border-bottom:solid 1px #404040}
 
 #table-of-contents li.current{
-    background:#e3e3e3}
+    /* background:#e3e3e3 */}
 
 #table-of-contents li.current a{
     color:gray;
@@ -351,7 +547,7 @@
     padding:0.4045em 2.427em}
 
 #table-of-contents li.current a:hover{
-    background:#d6d6d6}
+    /* background:#d6d6d6 */}
 
 #table-of-contents li a{
     /* color:#404040; */
@@ -364,7 +560,7 @@
     padding-left:1.618em -4px}
 
 #table-of-contents li.on a:hover,#table-of-contents li.current>a:hover{
-    background:#fcfcfc}
+    /* background:#fcfcfc */}
 
 #table-of-contents li ul li a{
     /* background:#c9c9c9; */
@@ -381,7 +577,7 @@
 
 #table-of-contents li ul li a{
     margin-bottom:0;
-    color:#b3b3b3;
+    /* color:#b3b3b3; */
     font-weight:normal}
 
 #table-of-contents a{
@@ -391,7 +587,7 @@
     display:block;
     position:relative;
     font-size:90%;
-    color:#b3b3b3;
+    /* color:#b3b3b3; */
     direction: ltr;
 }
 
