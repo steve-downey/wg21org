@@ -1,34 +1,106 @@
 /******************************************************************************/
+/*                                 Org Base                                   */
+/******************************************************************************/
+
+/* #content { max-width: 60em; margin: auto; } */
+/* .title  { text-align: center; */
+/*            margin-bottom: .2em; } */
+/* .subtitle { text-align: center; */
+/*             font-size: medium; */
+/*             font-weight: bold; */
+/*             margin-top:0; } */
+.todo   { font-family: monospace; color: red; }
+.done   { font-family: monospace; color: green; }
+.priority { font-family: monospace; color: orange; }
+.tag    { background-color: #eee; font-family: monospace;
+          padding: 2px; font-size: 80%; font-weight: normal; }
+.timestamp { color: #bebebe; }
+.timestamp-kwd { color: #5f9ea0; }
+.org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+.org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+.org-center { margin-left: auto; margin-right: auto; text-align: center; }
+.underline { text-decoration: underline; }
+/* #postamble p, #preamble p { font-size: 90%; margin: .2em; } */
+/* p.verse { margin-left: 3%; } */
+/* pre.src:hover:before { display: inline; margin-top: 14px;} */
+
+/* caption.t-above { caption-side: top; } */
+/* caption.t-bottom { caption-side: bottom; } */
+th.org-right  { text-align: center;  }
+th.org-left   { text-align: center;   }
+th.org-center { text-align: center; }
+td.org-right  { text-align: right;  }
+td.org-left   { text-align: left;   }
+td.org-center { text-align: center; }
+/* dt { font-weight: bold; } */
+.footpara { display: inline; }
+.footdef  { margin-bottom: 1em; }
+.figure { paddin1em; }
+.figure p { text-align: center; }
+.equation-container {
+    display: table;
+    text-align: center;
+    width: 100%;
+}
+.equation {
+    vertical-align: middle;
+}
+.equation-label {
+    display: table-cell;
+    text-align: right;
+    vertical-align: middle;
+}
+/* .inlinetask { */
+/*   padding: 10px; */
+/*   border: 2px solid gray; */
+/*   margin: 10px; */
+/*   background: #ffffcc; */
+/* } */
+#org-div-home-and-up
+{ text-align: right; font-size: 70%; white-space: nowrap; }
+/* textarea { overflow-x: auto; } */
+.linenr { font-size: smaller }
+/* .code-highlighted { background-color: #ffff00; } */
+.org-info-js_info-navigation { border-style: none; }
+#org-info-js_console-label
+{ font-size: 10px; font-weight: bold; white-space: nowrap; }
+.org-info-js_search-highlight
+{ background-color: #ffff00; color: #000000; font-weight: bold; }
+.org-svg { }
+
+
+/******************************************************************************/
 /*                                    Body                                    */
 /******************************************************************************/
 
-	html {
-	}
+html {
+}
 
-	body {
-		counter-reset: example figure issue;
+body {
+	counter-reset: example figure issue;
 
-		/* Layout */
-		max-width: 50em;			  /* limit line length to 50em for readability   */
-		margin: 0 auto;				/* center text within page                    */
-		padding: 1.6em 1.5em 2em 50px; /* assume 16px font size for downlevel clients */
-		padding: 1.6em 1.5em 2em calc(26px + 1.5em); /* leave space for status flag    */
+	/* Layout */
+	max-width: 50em;			  /* limit line length to 50em for readability   */
+    margin-left: 300px;
+	/* margin: 0 auto;				/\* center text within page                    *\/ */
+	padding: 1.6em 1.5em 2em 50px; /* assume 16px font size for downlevel clients */
+	padding: 1.6em 1.5em 2em calc(26px + 1.5em); /* leave space for status flag    */
 
-		/* Typography */
-		line-height: 1.5;
-		font-family: sans-serif;
-		widows: 2;
-		orphans: 2;
-		word-wrap: break-word;
-		overflow-wrap: break-word;
-		hyphens: auto;
+	/* Typography */
+	line-height: 1.5;
+	font-family: sans-serif;
+	widows: 2;
+	orphans: 2;
+	word-wrap: break-word;
+	overflow-wrap: break-word;
+	hyphens: auto;
 
-		color: black;
-		color: var(--text);
-		background: white top left fixed no-repeat;
-		background: var(--bg) top left fixed no-repeat;
-		background-size: 25px auto;
-	}
+	color: black;
+	color: var(--text);
+	background: white top left fixed no-repeat;
+	background: var(--bg) top left fixed no-repeat;
+	background-size: 25px auto;
+}
 
 /******************************************************************************/
 /*                         Front Matter & Navigation                          */
@@ -36,21 +108,23 @@
 
 /** Header ********************************************************************/
 
-	div.head { margin-bottom: 1em; }
-	div.head hr { border-style: solid; }
+div.head { margin-bottom: 1em; }
+div.head hr { border-style: solid; }
 
-	div.head h1 {
-		font-weight: bold;
-		margin: 0 0 .1em;
-		font-size: 220%;
-	}
+div.head h1 {
+	font-weight: bold;
+	margin: 0 0 .1em;
+	font-size: 220%;
+}
 
-	div.head h2 { margin-bottom: 1.5em;}
+div.head h2 { margin-bottom: 1.5em;}
 
 /** Copyright *****************************************************************/
 
-	p.copyright,
-	p.copyright small { font-size: small; }
+p.copyright,
+p.copyright small { font-size: small; }
+
+
 
 
 /******************************************************************************/
@@ -59,74 +133,79 @@
 
 /** Headings ******************************************************************/
 
-	h1, h2, h3, h4, h5, h6, dt {
-		page-break-after: avoid;
-		page-break-inside: avoid;
-		font: 100% sans-serif;   /* Reset all font styling to clear out UA styles */
-		font-family: inherit;	/* Inherit the font family. */
-		line-height: 1.2;		/* Keep wrapped headings compact */
-		hyphens: manual;		/* Hyphenated headings look weird */
-	}
+h1, h2, h3, h4, h5, h6, dt {
+	page-break-after: avoid;
+	page-break-inside: avoid;
+	font: 100% sans-serif;   /* Reset all font styling to clear out UA styles */
+	font-family: inherit;	/* Inherit the font family. */
+	line-height: 1.2;		/* Keep wrapped headings compact */
+	hyphens: manual;		/* Hyphenated headings look weird */
+}
 
-	h2, h3, h4, h5, h6 {
-		margin-top: 3rem;
-	}
+h2, h3, h4, h5, h6 {
+	margin-top: 3rem;
+}
 
-	h1, h2, h3 {
-		color: #005A9C;
-		color: var(--heading-text);
-	}
+h1, h2, h3 {
+	color: #005A9C;
+	color: var(--heading-text);
+}
 
-	h1 { font-size: 170%; }
-	h2 { font-size: 140%; }
-	h3 { font-size: 120%; }
-	h4 { font-weight: bold; }
-	h5 { font-style: italic; }
-	h6 { font-variant: small-caps; }
-	dt { font-weight: bold; }
+h1 { font-size: 170%; }
+h2 { font-size: 140%; }
+h3 { font-size: 120%; }
+h4 { font-weight: bold; }
+h5 { font-style: italic; }
+h6 { font-variant: small-caps; }
+dt { font-weight: bold; }
+h1 {
+	font-weight: bold;
+	margin: 0 0 .1em;
+	font-size: 220%;
+}
 
 /** Subheadings ***************************************************************/
 
-	h1 + h2,
-	#profile-and-date {
-		/* #profile-and-date is a subtitle in an H2 under the H1 */
-		margin-top: 0;
-	}
-	h2 + h3,
-	h3 + h4,
-	h4 + h5,
-	h5 + h6 {
-		margin-top: 1.2em; /* = 1 x line-height */
-	}
+h1 + h2,
+#profile-and-date {
+	/* #profile-and-date is a subtitle in an H2 under the H1 */
+	margin-top: 0;
+}
+h2 + h3,
+h3 + h4,
+h4 + h5,
+h5 + h6 {
+	margin-top: 1.2em; /* = 1 x line-height */
+}
 
 /** Section divider ***********************************************************/
 
-	:not(.head) > :not(.head) + hr {
-		font-size: 1.5em;
-		text-align: center;
-		margin: 1em auto;
-		height: auto;
-		color: black;
-		color: var(--hr-text);
-		border: transparent solid 0;
-		background: transparent;
-	}
-	:not(.head) > hr::before {
-		content: "\2727\2003\2003\2727\2003\2003\2727";
-	}
+:not(.head) > :not(.head) + hr {
+	font-size: 1.5em;
+	text-align: center;
+	margin: 1em auto;
+	height: auto;
+	color: black;
+	color: var(--hr-text);
+	border: transparent solid 0;
+	background: transparent;
+}
+:not(.head) > hr::before {
+	content: "\2727\2003\2003\2727\2003\2003\2727";
+}
 
 /******************************************************************************/
 /*                            Paragraphs and Lists                            */
 /******************************************************************************/
 
-	p {
-		margin: 1em 0;
-	}
+p {
+	margin: 1em 0;
+}
 
-	dd > p:first-child,
-	li > p:first-child {
-		margin-top: 0;
-	}
+dd > p:first-child,
+li > p:first-child {
+	margin-top: 0;
+}
 
 ul,ol,dl{
     line-height:24px;
@@ -140,57 +219,79 @@ li{
     margin-left: 24px;
 }
 
-	dl dd {
-		margin: 0 0 .5em 2em;
-	}
+dl dd {
+	margin: 0 0 .5em 2em;
+}
 
-	.head dd + dd { /* compact for header */
-		margin-top: -.5em;
-	}
+.head dd + dd { /* compact for header */
+	margin-top: -.5em;
+}
 
 
 /** Change Marking ************************************************************/
 
-	del {
-		color: #aa0000;
-		color: var(--del-text);
-		background: transparent;
-		background: var(--del-bg);
-		text-decoration: line-through;
-	}
-	ins {
-		color: #006100;
-		color: var(--ins-text);
-		background: transparent;
-		background: var(--ins-bg);
-		text-decoration: underline;
-	}
+del {
+	color: #aa0000;
+	color: var(--del-text);
+	background: transparent;
+	background: var(--del-bg);
+	text-decoration: line-through;
+}
+ins {
+	color: #006100;
+	color: var(--ins-text);
+	background: transparent;
+	background: var(--ins-bg);
+	text-decoration: underline;
+}
 
 /** General monospace/pre rules ***********************************************/
 
-	pre, code, samp {
-		font-family: "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", Monaco, monospace;
-		font-size: .8em;
-		hyphens: none;
-		text-transform: none;
-		text-align: left;
-		text-align: start;
-		font-variant: normal;
-		orphans: 3;
-		widows: 3;
-		page-break-before: avoid;
-	}
-	pre code,
-	code code {
-		font-size: 100%;
-	}
+pre, code, samp {
+	font-family: "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", Monaco, monospace;
+	font-size: .8em;
+	hyphens: none;
+	text-transform: none;
+	text-align: left;
+	text-align: start;
+	font-variant: normal;
+	orphans: 3;
+	widows: 3;
+	page-break-before: avoid;
+}
+pre code,
+code code {
+	font-size: 100%;
+}
 
-	pre {
-		margin-top: 1em;
-		margin-bottom: 1em;
-		overflow: auto;
-	}
+pre {
+	margin-top: 1em;
+	margin-bottom: 1em;
+	overflow: auto;
+}
 
+code{
+    background: rgba(0, 0, 0, .03);
+    border:solid 1px #e1e4e5;
+    /* color:#000;  for clickable code */
+    /* font-size:75%; */
+    max-width:100%;
+    overflow-x:auto;
+    padding:0 5px;
+    white-space:nowrap;
+    padding: .1em;
+    border-radius: .3em;
+}
+pre {
+    background: rgba(0, 0, 0, .03);
+    border: 1px solid #e6e6e6;
+    border-radius: 3px;
+    display: block;
+    padding: 1em;
+    margin: .5em 0;
+    overflow: auto;
+    border-radius: 0;
+}
 
 /******************************************************************************/
 /*                                    Links                                   */
@@ -198,298 +299,113 @@ li{
 
 /** General Hyperlinks ********************************************************/
 
-	/* We hyperlink a lot, so make it less intrusive */
-	a[href] {
-		color: #034575;
-		color: var(--a-normal-text);
-		text-decoration: underline #707070;
-		text-decoration: underline var(--a-normal-underline);
-		text-decoration-skip-ink: none;
-	}
-	a:visited {
-		color: #034575;
-		color: var(--a-visited-text);
-		text-decoration-color: #bbb;
-		text-decoration-color: var(--a-visited-underline);
-	}
+/* We hyperlink a lot, so make it less intrusive */
+a[href] {
+	color: #034575;
+	color: var(--a-normal-text);
+	text-decoration: underline #707070;
+	text-decoration: underline var(--a-normal-underline);
+	text-decoration-skip-ink: none;
+}
+a:visited {
+	color: #034575;
+	color: var(--a-visited-text);
+	text-decoration-color: #bbb;
+	text-decoration-color: var(--a-visited-underline);
+}
 
-	/* Indicate interaction with the link */
-	a[href]:focus,
-	a[href]:hover {
-		text-decoration-thickness: 2px;
-	}
-	a[href]:active {
-		color: #c00;
-		color: var(--a-active-text);
-		text-decoration-color: #c00;
-		text-decoration-color: var(--a-active-underline);
-	}
+/* Indicate interaction with the link */
+a[href]:focus,
+a[href]:hover {
+	text-decoration-thickness: 2px;
+}
+a[href]:active {
+	color: #c00;
+	color: var(--a-active-text);
+	text-decoration-color: #c00;
+	text-decoration-color: var(--a-active-underline);
+}
 
-/******************************************************************************/
-/*                                 Org Base                                   */
-/******************************************************************************/
-
-  #content { max-width: 60em; margin: auto; }
-  .title  { text-align: center;
-             margin-bottom: .2em; }
-  .subtitle { text-align: center;
-              font-size: medium;
-              font-weight: bold;
-              margin-top:0; }
-  .todo   { font-family: monospace; color: red; }
-  .done   { font-family: monospace; color: green; }
-  .priority { font-family: monospace; color: orange; }
-  .tag    { background-color: #eee; font-family: monospace;
-            padding: 2px; font-size: 80%; font-weight: normal; }
-  .timestamp { color: #bebebe; }
-  .timestamp-kwd { color: #5f9ea0; }
-  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
-  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
-  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
-  .underline { text-decoration: underline; }
-  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
-  p.verse { margin-left: 3%; }
-  pre.src:hover:before { display: inline; margin-top: 14px;}
-
-  caption.t-above { caption-side: top; }
-  caption.t-bottom { caption-side: bottom; }
-  th.org-right  { text-align: center;  }
-  th.org-left   { text-align: center;   }
-  th.org-center { text-align: center; }
-  td.org-right  { text-align: right;  }
-  td.org-left   { text-align: left;   }
-  td.org-center { text-align: center; }
-  dt { font-weight: bold; }
-  .footpara { display: inline; }
-  .footdef  { margin-bottom: 1em; }
-  .figure { padding: 1em; }
-  .figure p { text-align: center; }
-  .equation-container {
-    display: table;
-    text-align: center;
-    width: 100%;
-  }
-  .equation {
-    vertical-align: middle;
-  }
-  .equation-label {
-    display: table-cell;
-    text-align: right;
-    vertical-align: middle;
-  }
-  .inlinetask {
-    padding: 10px;
-    border: 2px solid gray;
-    margin: 10px;
-    background: #ffffcc;
-  }
-  #org-div-home-and-up
-   { text-align: right; font-size: 70%; white-space: nowrap; }
-  textarea { overflow-x: auto; }
-  .linenr { font-size: smaller }
-  .code-highlighted { background-color: #ffff00; }
-  .org-info-js_info-navigation { border-style: none; }
-  #org-info-js_console-label
-    { font-size: 10px; font-weight: bold; white-space: nowrap; }
-  .org-info-js_search-highlight
-    { background-color: #ffff00; color: #000000; font-weight: bold; }
-  .org-svg { }
 
 /******************************************************************************/
 /*                                    Tables                                  */
 /******************************************************************************/
 
-	th, td {
-		text-align: left;
-		text-align: start;
-	}
-
-table {
-    width: 100%;
-}
-
-table, th, td {
-    border: 1px solid #666;
-}
-
 th, td {
-    padding: 0.5em;
-    text-align: left;
+	text-align: left;
+	text-align: start;
 }
 
 tbody tr:nth-child(odd) {
     background-color: #eee;
 }
 
-/** Property/Descriptor Definition Tables *************************************/
+table tr:nth-child(even) td{
+    background-color:white;
+}
 
-	table.def {
-		/* inherits .def box styling, see above */
-		width: 100%;
-		border-spacing: 0;
-	}
+table {
+	word-wrap: normal;
+	overflow-wrap: normal;
+	hyphens: manual;
+}
 
-	table.def td,
-	table.def th {
-		padding: 0.5em;
-		vertical-align: baseline;
-		border-bottom: 1px solid #bbd7e9;
-		border-bottom: 1px solid var(--defrow-border);
-	}
+table {
+	margin: 1em auto;
+	border-collapse: collapse;
+	border: hidden;
+	/* width: 100%; */
+}
+table caption {
+	max-width: 50em;
+	margin: 0 auto 1em;
+}
 
-	table.def > tbody > tr:last-child th,
-	table.def > tbody > tr:last-child td {
-		border-bottom: 0;
-	}
+table td,  table th {
+	padding: 0.5em 1em;
+	border-width: 1px;
+	border-color: silver;
+	border-color: var(--datacell-border);
+	border-top-style: solid;
+}
 
-	table.def th {
-		font-style: italic;
-		font-weight: normal;
-		padding-left: 1em;
-		width: 3em;
-	}
+table thead td:empty {
+	padding: 0;
+	border: 0;
+}
 
-	/* For when values are extra-complex and need formatting for readability */
-	table td.pre {
-		white-space: pre-wrap;
-	}
+table  thead,
+table  tbody {
+	border-bottom: 2px solid;
+}
 
-	/* A footnote at the bottom of a def table */
-	table.def td.footnote {
-		padding-top: 0.6em;
-	}
-	table.def td.footnote::before {
-		content: " ";
-		display: block;
-		height: 0.6em;
-		width: 4em;
-		border-top: thin solid;
-	}
+table colgroup {
+	border-left: 2px solid;
+}
 
-/** Data tables (and properly marked-up index tables) *************************/
-	/*
-		<table class="data"> highlights structural relationships in a table
-		when correct markup is used (e.g. thead/tbody, th vs. td, scope attribute)
+table  tbody th:first-child {
+	border-right: 2px solid;
+	border-top: 1px solid silver;
+	border-top: 1px solid var(--datacell-border);
+	padding-right: 1em;
+}
 
-		Use class="complex data" for particularly complicated tables --
-		(This will draw more lines: busier, but clearer.)
-
-		Use class="long" on table cells with paragraph-like contents
-		(This will adjust text alignment accordingly.)
-		Alternately use class="longlastcol" on tables, to have the last column assume "long".
-	*/
-
-	table {
-		word-wrap: normal;
-		overflow-wrap: normal;
-		hyphens: manual;
-	}
-
-	table.data,
-	table.index {
-		margin: 1em auto;
-		border-collapse: collapse;
-		border: hidden;
-		width: 100%;
-	}
-	table.data caption,
-	table.index caption {
-		max-width: 50em;
-		margin: 0 auto 1em;
-	}
-
-	table.data td,  table.data th,
-	table.index td, table.index th {
-		padding: 0.5em 1em;
-		border-width: 1px;
-		border-color: silver;
-		border-color: var(--datacell-border);
-		border-top-style: solid;
-	}
-
-	table.data thead td:empty {
-		padding: 0;
-		border: 0;
-	}
-
-	table.data  thead,
-	table.index thead,
-	table.data  tbody,
-	table.index tbody {
-		border-bottom: 2px solid;
-	}
-
-	table.data colgroup,
-	table.index colgroup {
-		border-left: 2px solid;
-	}
-
-	table.data  tbody th:first-child,
-	table.index tbody th:first-child  {
-		border-right: 2px solid;
-		border-top: 1px solid silver;
-		border-top: 1px solid var(--datacell-border);
-		padding-right: 1em;
-	}
-
-	table.data th[colspan],
-	table.data td[colspan] {
-		text-align: center;
-	}
-
-	table.complex.data th,
-	table.complex.data td {
-		border: 1px solid silver;
-		border: 1px solid var(--datacell-border);
-		text-align: center;
-	}
-
-	table.data.longlastcol td:last-child,
-	table.data td.long {
-		vertical-align: baseline;
-		text-align: left;
-	}
-
-	table.data img {
-		vertical-align: middle;
-	}
+table th[colspan],
+table td[colspan] {
+	text-align: center;
+}
 
 
-/*
-Alternate table alignment rules
+table.longlastcol td:last-child,
+table td.long {
+	vertical-align: baseline;
+	text-align: left;
+}
 
-	table.data,
-	table.index {
-		text-align: center;
-	}
+table img {
+	vertical-align: middle;
+}
 
-	table.data  thead th[scope="row"],
-	table.index thead th[scope="row"] {
-		text-align: right;
-	}
-
-	table.data  tbody th:first-child,
-	table.index tbody th:first-child  {
-		text-align: right;
-	}
-
-Possible extra rowspan handling
-
-	table.data  tbody th[rowspan]:not([rowspan='1']),
-	table.index tbody th[rowspan]:not([rowspan='1']),
-	table.data  tbody td[rowspan]:not([rowspan='1']),
-	table.index tbody td[rowspan]:not([rowspan='1']) {
-		border-left: 1px solid silver;
-	}
-
-	table.data  tbody th[rowspan]:first-child,
-	table.index tbody th[rowspan]:first-child,
-	table.data  tbody td[rowspan]:first-child,
-	table.index tbody td[rowspan]:first-child{
-		border-left: 0;
-		border-right: 1px solid silver;
-	}
-*/
 
 /******************************************************************************/
 /*                                    ToC                                     */
@@ -560,7 +476,8 @@ Possible extra rowspan handling
     padding-left:1.618em -4px}
 
 #table-of-contents li.on a:hover,#table-of-contents li.current>a:hover{
-    /* background:#fcfcfc */}
+    /* background:#fcfcfc */
+}
 
 #table-of-contents li ul li a{
     /* background:#c9c9c9; */
@@ -592,8 +509,8 @@ Possible extra rowspan handling
 }
 
 #table-of-contents a:hover{
-    color: #ffffff !important;
-    background-color:#4e4a4a;
+    /* color: #ffffff !important; */
+    background-color:#b0b0b0;
     cursor:pointer}
 
 #table-of-contents h2{
@@ -604,6 +521,7 @@ Possible extra rowspan handling
     display:block;
     color:#fcfcfc;
     font-size: 100%;
+    margin-top: 1em;
     margin-bottom:0.809em}
 
 /******************************************************************************/
@@ -626,7 +544,7 @@ Possible extra rowspan handling
         -ms-filter:none !important}
 
     a,a:visited{
-          text-decoration:underline}
+        text-decoration:underline}
 
     pre.src,blockquote{
         page-break-inside:avoid}
@@ -728,62 +646,318 @@ Possible extra rowspan handling
 /*                             Overflow Control                               */
 /******************************************************************************/
 
-	.figure .caption, .sidefigure .caption, figcaption {
-		/* in case figure is overlarge, limit caption to 50em */
-		max-width: 50rem;
-		margin-left: auto;
-		margin-right: auto;
-	}
-	.overlarge {
-		/* Magic to create good item positioning:
+.figure .caption, .sidefigure .caption, figcaption {
+	/* in case figure is overlarge, limit caption to 50em */
+	max-width: 50rem;
+	margin-left: auto;
+	margin-right: auto;
+}
+.overlarge {
+	/* Magic to create good item positioning:
 		  "content column" is 50ems wide at max; less on smaller screens.
 		  Extra space (after ToC + content) is empty on the right.
 
 		  1. When item < content column, centers item in column.
 		  2. When content < item < available, left-aligns.
 		  3. When item > available, fills available + scroll bar.
-		*/
-		display: grid;
-		grid-template-columns: minmax(0, 50em);
-	}
-	.overlarge > table {
-		/* limit preferred width of table */
-		max-width: 50em;
-		margin-left: auto;
-		margin-right: auto;
-	}
+   */
+	display: grid;
+	grid-template-columns: minmax(0, 50em);
+}
+.overlarge > table {
+	/* limit preferred width of table */
+	max-width: 50em;
+	margin-left: auto;
+	margin-right: auto;
+}
 
-	@media (min-width: 55em) {
-		.overlarge {
-			margin-right: calc(13px + 26.5rem - 50vw);
-			max-width: none;
-		}
+@media (min-width: 55em) {
+	.overlarge {
+		margin-right: calc(13px + 26.5rem - 50vw);
+		max-width: none;
 	}
-	@media screen and (min-width: 78em) {
-		body:not(.toc-inline) .overlarge {
-			/* 30.5em body padding 50em content area */
-			margin-right: calc(40em - 50vw) !important;
-		}
+}
+@media screen and (min-width: 78em) {
+	body:not(.toc-inline) .overlarge {
+		/* 30.5em body padding 50em content area */
+		margin-right: calc(40em - 50vw) !important;
 	}
-	@media screen and (min-width: 90em) {
-		body:not(.toc-inline) .overlarge {
-			/* 4em html margin 30.5em body padding 50em content area */
-			margin-right: calc(84.5em - 100vw) !important;
-		}
+}
+@media screen and (min-width: 90em) {
+	body:not(.toc-inline) .overlarge {
+		/* 4em html margin 30.5em body padding 50em content area */
+		margin-right: calc(84.5em - 100vw) !important;
 	}
+}
 
-	@media not print {
-		.overlarge {
-			overflow-x: auto;
-			/* See Lea Verou's explanation background-attachment:
-			* http://lea.verou.me/2012/04/background-attachment-local/
-			*
+@media not print {
+	.overlarge {
+		overflow-x: auto;
+		/* See Lea Verou's explanation background-attachment:
+		 * http://lea.verou.me/2012/04/background-attachment-local/
+		 *
 			background: top left  / 4em 100% linear-gradient(to right,  #ffffff, rgba(255, 255, 255, 0)) local,
 						top right / 4em 100% linear-gradient(to left, #ffffff, rgba(255, 255, 255, 0)) local,
 						top left  / 1em 100% linear-gradient(to right,  #c3c3c5, rgba(195, 195, 197, 0)) scroll,
 						top right / 1em 100% linear-gradient(to left, #c3c3c5, rgba(195, 195, 197, 0)) scroll,
 						white;
 			background-repeat: no-repeat;
-			*/
-		}
+	   */
 	}
+}
+
+/******************************************************************************/
+/*                                    Misc                                    */
+/******************************************************************************/
+
+
+/* style-colors */
+
+/* Any --*-text not paired with a --*-bg is assumed to have a transparent bg */
+:root {
+    color-scheme: light dark;
+
+    --text: black;
+    --bg: white;
+
+    --unofficial-watermark: url(https://www.w3.org/StyleSheets/TR/2016/logos/UD-watermark);
+
+    --logo-bg: #1a5e9a;
+    --logo-active-bg: #c00;
+    --logo-text: white;
+
+    --tocnav-normal-text: #707070;
+    --tocnav-normal-bg: var(--bg);
+    --tocnav-hover-text: var(--tocnav-normal-text);
+    --tocnav-hover-bg: #f8f8f8;
+    --tocnav-active-text: #c00;
+    --tocnav-active-bg: var(--tocnav-normal-bg);
+
+    --tocsidebar-text: var(--text);
+    --tocsidebar-bg: #f7f8f9;
+    --tocsidebar-shadow: rgba(0,0,0,.1);
+    --tocsidebar-heading-text: hsla(203,20%,40%,.7);
+
+    --toclink-text: var(--text);
+    --toclink-underline: #3980b5;
+    --toclink-visited-text: var(--toclink-text);
+    --toclink-visited-underline: #054572;
+
+    --heading-text: #005a9c;
+
+    --hr-text: var(--text);
+
+    --algo-border: #def;
+
+    --del-text: red;
+    --del-bg: transparent;
+    --ins-text: #080;
+    --ins-bg: transparent;
+
+    --a-normal-text: #034575;
+    --a-normal-underline: #bbb;
+    --a-visited-text: var(--a-normal-text);
+    --a-visited-underline: #707070;
+    --a-hover-bg: rgba(75%, 75%, 75%, .25);
+    --a-active-text: #c00;
+    --a-active-underline: #c00;
+
+    --blockquote-border: silver;
+    --blockquote-bg: transparent;
+    --blockquote-text: currentcolor;
+
+    --issue-border: #e05252;
+    --issue-bg: #fbe9e9;
+    --issue-text: var(--text);
+    --issueheading-text: #831616;
+
+    --example-border: #e0cb52;
+    --example-bg: #fcfaee;
+    --example-text: var(--text);
+    --exampleheading-text: #574b0f;
+
+    --note-border: #52e052;
+    --note-bg: #e9fbe9;
+    --note-text: var(--text);
+    --noteheading-text: hsl(120, 70%, 30%);
+    --notesummary-underline: silver;
+
+    --assertion-border: #aaa;
+    --assertion-bg: #eee;
+    --assertion-text: black;
+
+    --advisement-border: orange;
+    --advisement-bg: #fec;
+    --advisement-text: var(--text);
+    --advisementheading-text: #b35f00;
+
+    --warning-border: red;
+    --warning-bg: hsla(40,100%,50%,0.95);
+    --warning-text: var(--text);
+
+    --amendment-border: #330099;
+    --amendment-bg: #F5F0FF;
+    --amendment-text: var(--text);
+    --amendmentheading-text: #220066;
+
+    --def-border: #8ccbf2;
+    --def-bg: #def;
+    --def-text: var(--text);
+    --defrow-border: #bbd7e9;
+
+    --datacell-border: silver;
+
+    --indexinfo-text: #707070;
+
+    --indextable-hover-text: black;
+    --indextable-hover-bg: #f7f8f9;
+
+    --outdatedspec-bg: rgba(0, 0, 0, .5);
+    --outdatedspec-text: black;
+    --outdated-bg: maroon;
+    --outdated-text: white;
+    --outdated-shadow: red;
+
+    --editedrec-bg: darkorange;
+}
+/* style-counters */
+
+body {
+    counter-reset: example figure issue;
+}
+.issue {
+    counter-increment: issue;
+}
+.issue:not(.no-marker)::before {
+    content: "Issue " counter(issue);
+}
+
+.example {
+    counter-increment: example;
+}
+.example:not(.no-marker)::before {
+    content: "Example " counter(example);
+}
+.invalid.example:not(.no-marker)::before,
+.illegal.example:not(.no-marker)::before {
+    content: "Invalid Example" counter(example);
+}
+
+figcaption {
+    counter-increment: figure;
+}
+figcaption:not(.no-marker)::before {
+    content: "Figure " counter(figure) " ";
+}
+
+pre.src {
+    position: relative;
+    overflow: auto;
+}
+
+pre.src:before {
+    display: none;
+    position: absolute;
+    top: -8px;
+    right: 12px;
+    padding: 3px;
+    color: #555;
+    background-color: #f2f2f299;
+}
+
+pre.src:hover:before { display: inline; margin-top: 14px;}
+/* Languages per Org manual */
+pre.src-asymptote:before { content: 'Asymptote'; }
+pre.src-awk:before { content: 'Awk'; }
+pre.src-authinfo::before { content: 'Authinfo'; }
+pre.src-C:before { content: 'C'; }
+/* pre.src-C++ doesn't work in CSS */
+pre.src-clojure:before { content: 'Clojure'; }
+pre.src-css:before { content: 'CSS'; }
+pre.src-D:before { content: 'D'; }
+pre.src-ditaa:before { content: 'ditaa'; }
+pre.src-dot:before { content: 'Graphviz'; }
+pre.src-calc:before { content: 'Emacs Calc'; }
+pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+pre.src-fortran:before { content: 'Fortran'; }
+pre.src-gnuplot:before { content: 'gnuplot'; }
+pre.src-haskell:before { content: 'Haskell'; }
+pre.src-hledger:before { content: 'hledger'; }
+pre.src-java:before { content: 'Java'; }
+pre.src-js:before { content: 'Javascript'; }
+pre.src-latex:before { content: 'LaTeX'; }
+pre.src-ledger:before { content: 'Ledger'; }
+pre.src-lisp:before { content: 'Lisp'; }
+pre.src-lilypond:before { content: 'Lilypond'; }
+pre.src-lua:before { content: 'Lua'; }
+pre.src-matlab:before { content: 'MATLAB'; }
+pre.src-mscgen:before { content: 'Mscgen'; }
+pre.src-ocaml:before { content: 'Objective Caml'; }
+pre.src-octave:before { content: 'Octave'; }
+pre.src-org:before { content: 'Org mode'; }
+pre.src-oz:before { content: 'OZ'; }
+pre.src-plantuml:before { content: 'Plantuml'; }
+pre.src-processing:before { content: 'Processing.js'; }
+pre.src-python:before { content: 'Python'; }
+pre.src-R:before { content: 'R'; }
+pre.src-ruby:before { content: 'Ruby'; }
+pre.src-sass:before { content: 'Sass'; }
+pre.src-scheme:before { content: 'Scheme'; }
+pre.src-screen:before { content: 'Gnu Screen'; }
+pre.src-sed:before { content: 'Sed'; }
+pre.src-sh:before { content: 'shell'; }
+pre.src-sql:before { content: 'SQL'; }
+pre.src-sqlite:before { content: 'SQLite'; }
+/* additional languages in org.el's org-babel-load-languages alist */
+pre.src-forth:before { content: 'Forth'; }
+pre.src-io:before { content: 'IO'; }
+pre.src-J:before { content: 'J'; }
+pre.src-makefile:before { content: 'Makefile'; }
+pre.src-maxima:before { content: 'Maxima'; }
+pre.src-perl:before { content: 'Perl'; }
+pre.src-picolisp:before { content: 'Pico Lisp'; }
+pre.src-scala:before { content: 'Scala'; }
+pre.src-shell:before { content: 'Shell Script'; }
+pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+/* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+pre.src-cpp:before  { content: 'C++'; }
+pre.src-abc:before  { content: 'ABC'; }
+pre.src-coq:before  { content: 'Coq'; }
+pre.src-groovy:before  { content: 'Groovy'; }
+/* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+pre.src-bash:before  { content: 'bash'; }
+pre.src-csh:before  { content: 'csh'; }
+pre.src-ash:before  { content: 'ash'; }
+pre.src-dash:before  { content: 'dash'; }
+pre.src-ksh:before  { content: 'ksh'; }
+pre.src-mksh:before  { content: 'mksh'; }
+pre.src-posh:before  { content: 'posh'; }
+/* Additional Emacs modes also supported by the LaTeX listings package */
+pre.src-ada:before { content: 'Ada'; }
+pre.src-asm:before { content: 'Assembler'; }
+pre.src-caml:before { content: 'Caml'; }
+pre.src-delphi:before { content: 'Delphi'; }
+pre.src-html:before { content: 'HTML'; }
+pre.src-idl:before { content: 'IDL'; }
+pre.src-mercury:before { content: 'Mercury'; }
+pre.src-metapost:before { content: 'MetaPost'; }
+pre.src-modula-2:before { content: 'Modula-2'; }
+pre.src-pascal:before { content: 'Pascal'; }
+pre.src-ps:before { content: 'PostScript'; }
+pre.src-prolog:before { content: 'Prolog'; }
+pre.src-simula:before { content: 'Simula'; }
+pre.src-tcl:before { content: 'tcl'; }
+pre.src-tex:before { content: 'TeX'; }
+pre.src-plain-tex:before { content: 'Plain TeX'; }
+pre.src-verilog:before { content: 'Verilog'; }
+pre.src-vhdl:before { content: 'VHDL'; }
+pre.src-xml:before { content: 'XML'; }
+pre.src-nxml:before { content: 'XML'; }
+/* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+pre.src-conf:before { content: 'Configuration File'; }
+
+/* end */

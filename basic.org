@@ -13,7 +13,7 @@
 #+creator: Emacs 28.0.60 (Org mode 9.4.6)
 #+HTML_DOCTYPE: html5
 #+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
-#+OPTIONS: html-scripts:t html-style:nil html5-fancy:t tex:t
+#+OPTIONS: html-scripts:nil html-style:nil html5-fancy:t tex:t
 
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
 # #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./readtheorg.css"/>

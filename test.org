@@ -11,8 +11,28 @@
 #+HTML_LINK_HOME:
 #+HTML_LINK_UP:
 #+HTML_MATHJAX:
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://sdowney.org/css/smd-zenburn.css" />
-#+HTML_HEAD_EXTRA:
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
+#+OPTIONS: html-scripts:nil html-style:nil html5-fancy:t tex:t
+
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
+# #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./readtheorg.css"/>
+# #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./bikeshed.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
+
+#+HTML_HEAD: <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+#+HTML_HEAD: <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+# #+HTML_HEAD: <script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/lib/js/jquery.stickytableheaders.min.js"></script>
+# #+HTML_HEAD: <script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/js/readtheorg.js"></script>
+
+#+HTML_HEAD_EXTRA: <style>.cmptbl {display: grid; grid-template-columns: 1fr 1fr;justify-content: center;grid-row-gap: 12px;}</style>
+#+HTML_HEAD_EXTRA: <style>.cmptblbeforehead {border: 1px solid black;grid-gap: 20px;text-align:center}</style>
+#+HTML_HEAD_EXTRA: <style>.cmptblafterhead {border: 1px solid black;grid-gap: 20px;text-align:center}</style>
+#+HTML_HEAD_EXTRA: <style>.cmptblcell {}</style>
+#+HTML_HEAD_EXTRA: <style>.cmptblbefore {}</style>
+#+HTML_HEAD_EXTRA: <style>.cmptblafter {}</style>
+#+HTML_HEAD_EXTRA: <style>.addedblock {color: green; text-decoration-line: underline;}</style>
+#+HTML_HEAD_EXTRA: <style>.removedblock {color: red; text-decoration-line: line-through;}</style>
+
 #+INFOJS_OPT:
 
 #+LATEX_COMPILER: lualatex

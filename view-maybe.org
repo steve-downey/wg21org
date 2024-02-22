@@ -19,7 +19,7 @@
 #+DATE: <2019-06-17 Mon>
 #+STARTUP: showall
 #+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
-#+OPTIONS: html-scripts:t html-style:t html5-fancy:nil tex:t
+#+OPTIONS: html-scripts:t html-style:nil html5-fancy:nil tex:t
 #+HTML_DOCTYPE: xhtml-strict
 #+HTML_CONTAINER: div
 #+DESCRIPTION:
@@ -32,16 +32,21 @@
 #+SUBTITLE:
 #+INFOJS_OPT:
 
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
 
 - Document number: P1255R5
 - Date:  {{{date(%Y-%m-%d)}}}
 - Author: Steve Downey <sdowney2@bloomberg.net>, <sdowney@gmail.com>
 - Audience: LEWG
 
+  This is the export time: {{{time(%Y-%m-%d %T)}}}
+
 #+BEGIN_ABSTRACT
 Abstract: This paper proposes ~view::maybe~ a range adaptor that produces a view with cardinality 0 or 1 which adapts nullable types such as ~std::optional~ and pointer to object types.
 #+END_ABSTRACT
 
+#+TOC: headlines 2
 
 * Changes
 ** Changes since R4
@@ -277,35 +282,35 @@ constexpr explicit maybe_view(Maybe const& maybe)
 #+end_src
 
 /Effects/: Initializes value_ with maybe.
-🔗
+
 #+begin_src C++
 constexpr explicit maybe_view(Maybe&& maybe)
     noexcept(std::is_nothrow_move_constructible_v<Maybe>);
 #+end_src
 
 /Effects/: Initializes value_ with src_C++[:exports code]{std::move(maybe)}.
-🔗
+
 #+begin_src C++
 template<class... Args>
 constexpr maybe_view(in_place_t, Args&&... args);
 #+end_src
 
 /Effects/: Initializes value_ as if by src_C++[:exports code]{value_{in_place, std::forward<Args>(args)...}}.
-🔗
+
 #+begin_src C++
 constexpr T* begin() noexcept;
 constexpr const T* begin() const noexcept;
 #+end_src
 
 /Effects/: Equivalent to: src_C++[:exports code]{return data();}.
-🔗
+
 #+begin_src C++
 constexpr T* end() noexcept;
 constexpr const T* end() const noexcept;
 #+end_src
 
 /Effects/: Equivalent to: src_C++[:exports code]{return data() + size();}.
-🔗
+
 #+begin_src C++
 static constexpr ptrdiff_t size() noexcept;
 #+end_src
@@ -318,7 +323,7 @@ static constexpr ptrdiff_t size() noexcept;
             return bool(value_.get());
         }
 #+end_src
-🔗
+
 #+begin_src C++
 constexpr T* data() noexcept;
 #+end_src
@@ -361,5 +366,5 @@ A pure library extension, affecting no other parts of the library or language.
 
 
 # Local Variables:
-# org-html-htmlize-output-type: inline-css
+# org-html-htmlize-output-type: css
 # End:

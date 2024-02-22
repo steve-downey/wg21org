@@ -13,10 +13,10 @@
 #+creator: Emacs 28.0.60 (Org mode 9.4.6)
 #+HTML_DOCTYPE: html5
 #+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
-#+OPTIONS: html-scripts:t html-style:t html5-fancy:t tex:t
+#+OPTIONS: html-scripts:t html-style:nil html5-fancy:t tex:t
 
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./readtheorg.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
 # #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./bikeshed.css"/>
 # #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
@@ -49,13 +49,11 @@
 
 This is an Org mode document.
 
+This is the export time: {{{time(%Y-%m-%d %T)}}}
+
 *Org mode* is a easy-to-write /plain text/ formatting syntax for authoring LaTeX
 documents, creating Web pages and much more!
 
-#+begin_html
-<script src="http://platform.twitter.com/widgets.js"></script>
-<a href="https://twitter.com/share" class="twitter-share-button" data-via="f_niessen">Tweet</a>
-#+end_html
 
 * Basics
 
