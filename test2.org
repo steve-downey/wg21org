@@ -1,6 +1,6 @@
 #+STARTUP: showeverything
 
-#+BIBLIOGRAPHY: index.bib
+#+BIBLIOGRAPHY: wg21.bib
 
 * Heading 1
 

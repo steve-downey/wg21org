@@ -47,7 +47,7 @@
 #+LATEX_HEADER: \setlength{\parindent}{0in}
 #+STARTUP: showeverything
 
-#+BIBLIOGRAPHY: index.bib
+#+BIBLIOGRAPHY: wg21.bib
 
 * Heading 1
 
