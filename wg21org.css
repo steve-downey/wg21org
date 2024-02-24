@@ -143,7 +143,7 @@ h1, h2, h3, h4, h5, h6, dt {
 }
 
 h2, h3, h4, h5, h6 {
-	margin-top: 3rem;
+	margin-top: 1rem;
 }
 
 h1, h2, h3 {
@@ -959,5 +959,15 @@ pre.src-nxml:before { content: 'XML'; }
 /* add a generic configuration mode; LaTeX export needs an additional
      (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
 pre.src-conf:before { content: 'Configuration File'; }
+
+
+.cmptbl {display: grid; grid-template-columns: 1fr 1fr;justify-content: center;grid-row-gap: 12px;}
+.cmptblbeforehead {border: 1px solid black;grid-gap: 20px;text-align:center}
+.cmptblafterhead {border: 1px solid black;grid-gap: 20px;text-align:center}
+.cmptblcell {}
+.cmptblbefore {}
+.cmptblafter {}
+.addedblock {color: green; text-decoration-line: underline;}
+.removedblock {color: red; text-decoration-line: line-through;}
 
 /* end */

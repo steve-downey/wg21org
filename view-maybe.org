@@ -15,11 +15,10 @@
 #+DESCRIPTION:
 #+KEYWORDS:
 #+SUBTITLE:
-#+LATEX_COMPILER: pdflatex
 #+DATE: <2019-06-17 Mon>
 #+STARTUP: showall
 #+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
-#+OPTIONS: html-scripts:t html-style:nil html5-fancy:nil tex:t
+#+OPTIONS: html-scripts:n html-style:nil html5-fancy:nil tex:t
 #+HTML_DOCTYPE: xhtml-strict
 #+HTML_CONTAINER: div
 #+DESCRIPTION:
@@ -32,12 +31,28 @@
 #+SUBTITLE:
 #+INFOJS_OPT:
 
+#+BIBLIOGRAPHY: wg21.bib
+
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
 
+#+LATEX_COMPILER: lualatex
+#+LATEX_CLASS: memoir
+#+LATEX_CLASS_OPTIONS: [a4paper,10pt,oneside,openany,final,article]
+#+LATEX_HEADER: \include{common.tex}
+#+LATEX_HEADER: \settocdepth{chapter}
+#+LATEX_HEADER: \usepackage{fontspec}
+#+LATEX_HEADER: \setromanfont{Source Serif Pro}
+#+LATEX_HEADER: \setsansfont{Source Sans Pro}
+#+LATEX_HEADER: \setmonofont{Source Code Pro}
+#+LATEX_HEADER:\newfontfamily\unifont[Ligatures=TeX]{DejaVu Sans Mono}
+#+LATEX_HEADER: \setlength{\parindent}{0in}
+
+#+MACRO: newline @@latex:\hspace{0pt}\\@@
+
 - Document number: P1255R5
-- Date:  {{{date(%Y-%m-%d)}}}
-- Author: Steve Downey <sdowney2@bloomberg.net>, <sdowney@gmail.com>
+- Date:  {{{modification-time(%Y-%m-%d, VC)}}}
+- Author: {{{author}}} {{{email}}}
 - Audience: LEWG
 
   This is the export time: {{{time(%Y-%m-%d %T)}}}
@@ -50,37 +65,122 @@ Abstract: This paper proposes ~view::maybe~ a range adaptor that produces a view
 
 * Changes
 ** Changes since R4
-*** Use std::uwrap_ref and std::is_reference_wrapper_v
-*** Remove conditional ~noexcept~ness
+- Use std::uwrap_ref and std::is_reference_wrapper_v
+- Remove conditional ~noexcept~ness
 
 ** Changes since R3
-*** Always Capture
-*** Support reference_wrapper
+- Always Capture
+- Support reference_wrapper
 
 ** Changes since R2
-*** Reflects current code as reviewed
-*** Nullable concept specification
+- Reflects current code as reviewed
+- Nullable concept specification
    Remove Readable as part of the specification, use the useful requirements from Readable
-*** Wording for view::maybe as proposed
-*** Appendix A: wording for a view_maybe that always captures
+- Wording for view::maybe as proposed
+- Appendix A: wording for a view_maybe that always captures
 
 ** Changes since R1
-*** Refer to view::all
+- Refer to view::all
    Behavior of capture vs refer is similar to how view::all works over the expression it is given
-*** Use wording 'range adaptor object'
+- Use wording 'range adaptor object'
    Match current working paper language
 
 ** Changes since R0
-*** Remove customization point objects
+- Remove customization point objects
    Removed view::maybe_has_value and view::maybe_value, instead requiring that the nullable type be dereferenceable and contextually convertible to bool.
-*** Concept ~Nullable~, for exposition
+- Concept ~Nullable~, for exposition
    Concept Nullable, which is Readable and contextually convertible to bool
-*** Capture rvalues by decay copy
+- Capture rvalues by decay copy
    Hold a copy when constructing a view over a nullable rvalue.
-*** Remove maybe_view as a specified type
+- Remove maybe_view as a specified type
    Introduced two exposition types, one safely holding a copy, the other referring to the nullable
 
-* Before / After Table
+* Delete blocks and text
+#+begin_removedblock
+Remove this terrible old stuff.
+#+end_removedblock
+And the bad +word+ from this sentence.
+
+* Insert blocks and text
+#+begin_addedblock
+Add this wonderful new text
+#+end_addedblock
+And put this cool _word_ in.
+
+
+* Comparison Table
+#+begin_cmptbl
+#+begin_cmptblbeforehead
+*Before*
+#+end_cmptblbeforehead
+#+begin_cmptblafterhead
+*After*
+#+end_cmptblafterhead
+#+BEGIN_EXPORT latex
+  \\
+#+END_EXPORT
+#+begin_cmptblbefore
+#+begin_src C++
+before: int a = cool_sum({1, 2, 3});
+#+end_src
+#+end_cmptblbefore
+#+begin_cmptblafter
+#+begin_src C++
+after: int a = cool_sum({1, 2, 3});
+#+end_src
+#+end_cmptblafter
+#+BEGIN_EXPORT latex
+  \\
+#+END_EXPORT
+#+begin_cmptblbefore
+#+begin_src C++
+template <class Ref, class CRef>
+concept readable_references =
+    is_lvalue_reference_v<Ref> &&
+    is_object_v<remove_reference_t<Ref>> &&
+    is_lvalue_reference_v<CRef> &&
+    is_object_v<remove_reference_t<CRef>> &&
+    convertible_to<add_pointer_t<CRef>,
+                   const remove_reference_t<Ref>*>;
+
+template <class T>
+concept nullable_object =
+    is_object_v<T> &&
+    requires(T& t, const T& ct) {
+    bool(t);
+    bool(ct);
+    ,*(t);
+    ,*(ct);
+};
+#+end_src
+#+end_cmptblbefore
+#+begin_cmptblafter
+#+begin_src C++
+template <class Ref, class CRef>
+concept readable_references =
+    is_lvalue_reference_v<Ref> &&
+    is_object_v<remove_reference_t<Ref>> &&
+    is_lvalue_reference_v<CRef> &&
+    is_object_v<remove_reference_t<CRef>> &&
+    convertible_to<add_pointer_t<CRef>,
+                   const remove_reference_t<Ref>*>;
+
+template <class T>
+concept nullable_object =
+    is_object_v<T> &&
+    requires(T& t, const T& ct) {
+    bool(t);
+    bool(ct);
+    ,*(t);
+    ,*(ct);
+};
+#+end_src
+#+end_cmptblafter
+#+BEGIN_EXPORT latex
+  \\
+#+END_EXPORT
+#+end_cmptbl
+
 
 
 * Motivation
@@ -359,10 +459,13 @@ The name ~view::maybe~ denotes a customization point object ([customization.poin
 * Impact on the standard
 A pure library extension, affecting no other parts of the library or language.
 
-* References
-  [P0896R3] Eric Niebler, Casey Carter, Christopher Di Bella. The One Ranges Proposal URL: https://wg21.link/p0896r3
+[cite/n:@P0896R3]
+[cite/n:@P0323R7]
 
-  [P0323R7] Vicente Botet, JF Bastien. std::expected URL: https://wg21.link/p0323r7
+* References
+#+CITE_EXPORT: csl chicago-author-date.csl
+
+#+PRINT_BIBLIOGRAPHY:
 
 
 # Local Variables:
