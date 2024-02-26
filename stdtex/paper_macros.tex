@@ -1,5 +1,4 @@
 
-\counterwithout{section}{chapter}
 
 \usepackage{amssymb,graphicx,stackengine,xcolor}
 \protected\def\ucr{\scalebox{1}{\stackinset{c}{}{c}{-.2pt}{%
@@ -76,3 +75,25 @@
     \end{minipage}
   \end{flushright}
   }
+
+\newcommand*{\docnumber}[1]{\def\thedocnumber{#1}}
+\newcommand*{\audience}[1]{\def\theaudience{#1}}
+\newcommand*{\target}[1]{\def\thetarget{#1}}
+\newcommand*{\category}[1]{\def\thecategory{#1}}
+\newcommand*{\email}[1]{\def\theemail{#1}}
+
+\renewcommand{\maketitle}{%
+  \null \vskip 1em%
+  {\center \LARGE \thetitle  \par}%
+  \begin{flushright}%
+    \begin{tabular}{ll}%
+      Document \#:&\thedocnumber\\%
+      Date:       &\thedate\\%
+      Audience:   &\theaudience\\%
+      Reply-to:   &\theauthor\ \textless\href{mailto:\theemail}{\theemail}\textgreater%
+
+
+
+    \end{tabular}%
+  \end{flushright}%
+}
