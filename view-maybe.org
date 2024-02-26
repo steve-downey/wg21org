@@ -8,10 +8,6 @@
 #+LANGUAGE: en
 #+SELECT_TAGS: export
 #+EXCLUDE_TAGS: noexport
-#+LATEX_CLASS: article
-#+LATEX_CLASS_OPTIONS:
-#+LATEX_HEADER:
-#+LATEX_HEADER_EXTRA:
 #+DESCRIPTION:
 #+KEYWORDS:
 #+SUBTITLE:
@@ -40,15 +36,16 @@
 #+LATEX_CLASS: memoir
 #+LATEX_CLASS_OPTIONS: [a4paper,10pt,oneside,openany,final,article]
 #+LATEX_HEADER: \include{common.tex}
-#+LATEX_HEADER: \settocdepth{chapter}
-#+LATEX_HEADER: \usepackage{fontspec}
-#+LATEX_HEADER: \setromanfont{Source Serif Pro}
-#+LATEX_HEADER: \setsansfont{Source Sans Pro}
-#+LATEX_HEADER: \setmonofont{Source Code Pro}
-#+LATEX_HEADER:\newfontfamily\unifont[Ligatures=TeX]{DejaVu Sans Mono}
-#+LATEX_HEADER: \setlength{\parindent}{0in}
+#+LATEX_HEADER: \settocdepth{subsection}
+# #+LATEX_HEADER: \settocdepth{chapter}
+# #+LATEX_HEADER: \usepackage{fontspec}
+# #+LATEX_HEADER: \setromanfont{Source Serif Pro}
+# #+LATEX_HEADER: \setsansfont{Source Sans Pro}
+# #+LATEX_HEADER: \setmonofont{Source Code Pro}
+# #+LATEX_HEADER:\newfontfamily\unifont[Ligatures=TeX]{DejaVu Sans Mono}
+# #+LATEX_HEADER: \setlength{\parindent}{0in}
 
-#+MACRO: newline @@latex:\hspace{0pt}\\@@
+# #+MACRO: newline @@latex:\hspace{0pt}\\@@
 
 - Document number: P1255R5
 - Date:  {{{modification-time(%Y-%m-%d, VC)}}}
@@ -57,9 +54,9 @@
 
   This is the export time: {{{time(%Y-%m-%d %T)}}}
 
-#+BEGIN_ABSTRACT
+#+begin_abstract
 Abstract: This paper proposes ~view::maybe~ a range adaptor that produces a view with cardinality 0 or 1 which adapts nullable types such as ~std::optional~ and pointer to object types.
-#+END_ABSTRACT
+#+end_abstract
 
 #+TOC: headlines 2
 
