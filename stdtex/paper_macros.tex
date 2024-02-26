@@ -1,4 +1,6 @@
 
+\counterwithout{section}{chapter}
+
 \usepackage{amssymb,graphicx,stackengine,xcolor}
 \protected\def\ucr{\scalebox{1}{\stackinset{c}{}{c}{-.2pt}{%
       \textcolor{white}{\sffamily\bfseries\small ?}}{%
@@ -19,7 +21,7 @@
 
 \newenvironment{cmptbl}
   {%
-  \begin{tabular}{ lr }
+    \begin{tabular}{l|l}
   }
   {%
   \end{tabular}
@@ -55,4 +57,22 @@
   }
   {%
   \end{minipage}
+  }
+
+\newenvironment{cmptblcell}
+  {%
+  \begin{minipage}[t]{0.45\columnwidth}
+  }
+  {%
+  \end{minipage}
+  }
+
+\newenvironment{docinfo}
+  {%
+  \begin{flushright}
+    \begin{minipage}[t]{0.5\columnwidth}
+  }
+  {%
+    \end{minipage}
+  \end{flushright}
   }
