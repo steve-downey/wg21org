@@ -1,17 +1,20 @@
-#+OPTIONS: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline author:nil
-#+OPTIONS: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:nil e:t
-#+OPTIONS: email:nil f:t inline:t num:2 p:nil pri:nil prop:nil stat:t tags:t
-#+OPTIONS: tasks:t tex:t timestamp:t title:t toc:nil todo:t |:t
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline author:t
+#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:t todo:t |:t
+#+options: html5-fancy:t
 #+TITLE: A view of 0 or 1 elements: ~view::maybe~
 #+AUTHOR: Steve Downey
-#+EMAIL: sdowney2@bloomberg.net, sdowney@gmail.com
+#+EMAIL: sdowney@gmail.com
 #+LANGUAGE: en
+#+DOCNUMBER: D1255R00
+#+AUDIENCE: LEWG
 #+SELECT_TAGS: export
 #+EXCLUDE_TAGS: noexport
 #+DESCRIPTION:
 #+KEYWORDS:
 #+SUBTITLE:
-#+DATE: <2019-06-17 Mon>
+#+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
 #+STARTUP: showall
 #+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
 #+OPTIONS: html-scripts:n html-style:nil html5-fancy:nil tex:t
@@ -35,147 +38,158 @@
 #+LATEX_COMPILER: lualatex
 #+LATEX_CLASS: memoir
 #+LATEX_CLASS_OPTIONS: [a4paper,10pt,oneside,openany,final,article]
-#+LATEX_HEADER: \include{common.tex}
-#+LATEX_HEADER: \settocdepth{subsection}
-# #+LATEX_HEADER: \settocdepth{chapter}
-# #+LATEX_HEADER: \usepackage{fontspec}
-# #+LATEX_HEADER: \setromanfont{Source Serif Pro}
-# #+LATEX_HEADER: \setsansfont{Source Sans Pro}
-# #+LATEX_HEADER: \setmonofont{Source Code Pro}
-# #+LATEX_HEADER:\newfontfamily\unifont[Ligatures=TeX]{DejaVu Sans Mono}
-# #+LATEX_HEADER: \setlength{\parindent}{0in}
+#+LATEX_HEADER: \include{common}
+#+LATEX_HEADER:\usepackage{fontspec}
+#+LATEX_HEADER:\setromanfont{Source Serif Pro}
+#+LATEX_HEADER:\setsansfont{Source Sans Pro}
+#+LATEX_HEADER:\setmonofont{Source Code Pro}
 
-# #+MACRO: newline @@latex:\hspace{0pt}\\@@
-
-- Document number: P1255R5
-- Date:  {{{modification-time(%Y-%m-%d, VC)}}}
-- Author: {{{author}}} {{{email}}}
-- Audience: LEWG
-
-  This is the export time: {{{time(%Y-%m-%d %T)}}}
+#+latex_engraved_theme: modus-operandi
 
 #+begin_abstract
 Abstract: This paper proposes ~view::maybe~ a range adaptor that produces a view with cardinality 0 or 1 which adapts nullable types such as ~std::optional~ and pointer to object types.
 #+end_abstract
 
-#+TOC: headlines 2
+
 
 * Changes
 ** Changes since R4
-- Use std::uwrap_ref and std::is_reference_wrapper_v
-- Remove conditional ~noexcept~ness
+- Use ~std::uwrap_ref~ and ~std::is_reference_wrapper_v~
+- Remove conditional ~noexcept~
 
 ** Changes since R3
 - Always Capture
-- Support reference_wrapper
+- Support reference\_wrapper
 
 ** Changes since R2
 - Reflects current code as reviewed
 - Nullable concept specification
    Remove Readable as part of the specification, use the useful requirements from Readable
 - Wording for view::maybe as proposed
-- Appendix A: wording for a view_maybe that always captures
+- Appendix A: wording for a ~view_maybe~ that always captures
 
 ** Changes since R1
 - Refer to view::all
-   Behavior of capture vs refer is similar to how view::all works over the expression it is given
+   Behavior of capture vs refer is similar to how ~view::all~ works over the expression it is given
 - Use wording 'range adaptor object'
    Match current working paper language
 
 ** Changes since R0
 - Remove customization point objects
-   Removed view::maybe_has_value and view::maybe_value, instead requiring that the nullable type be dereferenceable and contextually convertible to bool.
+   Removed ~view::maybe_has_value~ and ~view::maybe_value~, instead requiring that the nullable type be dereferenceable and contextually convertible to bool.
 - Concept ~Nullable~, for exposition
    Concept Nullable, which is Readable and contextually convertible to bool
 - Capture rvalues by decay copy
    Hold a copy when constructing a view over a nullable rvalue.
-- Remove maybe_view as a specified type
+- Remove ~maybe_view~ as a specified type
    Introduced two exposition types, one safely holding a copy, the other referring to the nullable
-
-* Delete blocks and text
-#+begin_removedblock
-Remove this terrible old stuff.
-#+end_removedblock
-And the bad +word+ from this sentence.
-
-* Insert blocks and text
-#+begin_addedblock
-Add this wonderful new text
-#+end_addedblock
-And put this cool _word_ in.
 
 
 * Comparison Table
 #+begin_cmptbl
-#+begin_cmptblbeforehead
+#+begin_cmptblcell before
 *Before*
-#+end_cmptblbeforehead
-#+begin_cmptblafterhead
+#+end_cmptblcell
+#+begin_cmptblcell after
 *After*
-#+end_cmptblafterhead
-#+BEGIN_EXPORT latex
-  \\
-#+END_EXPORT
-#+begin_cmptblbefore
+#+end_cmptblcell
+#+begin_cmptblcell before
 #+begin_src C++
-before: int a = cool_sum({1, 2, 3});
+auto opt = possible_value();
+if (opt) {
+  // a few dozen lines ...
+  use(*opt); // is *opt Safe ?
+}
 #+end_src
-#+end_cmptblbefore
-#+begin_cmptblafter
+#+end_cmptblcell
+#+begin_cmptblcell after
 #+begin_src C++
-after: int a = cool_sum({1, 2, 3});
+for (auto&& opt :
+     views::nullable(possible_value())) {
+  // a few dozen lines ...
+  use(opt); // opt is Safe
+}
 #+end_src
-#+end_cmptblafter
-#+BEGIN_EXPORT latex
-  \\
-#+END_EXPORT
-#+begin_cmptblbefore
-#+begin_src C++
-template <class Ref, class CRef>
-concept readable_references =
-    is_lvalue_reference_v<Ref> &&
-    is_object_v<remove_reference_t<Ref>> &&
-    is_lvalue_reference_v<CRef> &&
-    is_object_v<remove_reference_t<CRef>> &&
-    convertible_to<add_pointer_t<CRef>,
-                   const remove_reference_t<Ref>*>;
+#+end_cmptblcell
 
-template <class T>
-concept nullable_object =
-    is_object_v<T> &&
-    requires(T& t, const T& ct) {
-    bool(t);
-    bool(ct);
-    ,*(t);
-    ,*(ct);
+#+begin_cmptblcell before
+#+begin_src C++
+
+std::optional o{7};
+if (o) {
+  ,*o = 9;
+  std::cout << "o=" << *o << " prints 9\n";
+}
+std::cout << "o=" << *o << " prints 9\n";
+#+end_src
+#+end_cmptblcell
+#+begin_cmptblcell after
+#+begin_src C++
+std::optional o{7};
+for (auto&& i :
+     views::nullable(std::ref(o))) {
+  i = 9;
+  std::cout << "i=" << i << " prints 9\n";
+}
+std::cout << "o=" << *o << " prints 9\n";
+#+end_src
+#+end_cmptblcell
+#+begin_cmptblcell before
+#+begin_src C++
+std::vector<int> v{2, 3, 4, 5, 6, 7, 8, 9, 1};
+auto test = [](int i) -> std::optional<int> {
+  switch (i) {
+  case 1:
+  case 3:
+  case 7:
+  case 9:
+    return i;
+  default:
+    return {};
+  }
+};
+
+auto&& r =
+    v | ranges::views::transform(test) |
+    ranges::views::transform(
+        views::nullable) |
+    ranges::views::join |
+    ranges::views::transform([](int i) {
+      std::cout << i;
+      return i;
+    });
+
+for (auto&& i : r) {
 };
 #+end_src
-#+end_cmptblbefore
-#+begin_cmptblafter
+#+end_cmptblcell
+#+begin_cmptblcell after
 #+begin_src C++
-template <class Ref, class CRef>
-concept readable_references =
-    is_lvalue_reference_v<Ref> &&
-    is_object_v<remove_reference_t<Ref>> &&
-    is_lvalue_reference_v<CRef> &&
-    is_object_v<remove_reference_t<CRef>> &&
-    convertible_to<add_pointer_t<CRef>,
-                   const remove_reference_t<Ref>*>;
+std::vector<int> v{2, 3, 4, 5, 6, 7, 8, 9, 1};
 
-template <class T>
-concept nullable_object =
-    is_object_v<T> &&
-    requires(T& t, const T& ct) {
-    bool(t);
-    bool(ct);
-    ,*(t);
-    ,*(ct);
+auto test = [](int i) -> maybe_view<int> {
+  switch (i) {
+  case 1:
+  case 3:
+  case 7:
+  case 9:
+    return maybe_view{i};
+  default:
+    return maybe_view<int>{};
+  }
+};
+
+auto&& r = v | ranges::views::transform(test) |
+           ranges::views::join |
+           ranges::views::transform([](int i) {
+             std::cout << i;
+             return i;
+           });
+
+for (auto&& i : r) {
 };
 #+end_src
-#+end_cmptblafter
-#+BEGIN_EXPORT latex
-  \\
-#+END_EXPORT
+#+end_cmptblcell
 #+end_cmptbl
 
 
@@ -262,20 +276,20 @@ Add a range adaptor object ~view::maybe~, returning a view over a nullable objec
 The basis of the design is to hybridize ~view::single~ and ~view::empty~. If the underlying object claims to hold a value, as determined by checking if the object when converted to bool is true, ~begin~ and ~end~ of the view are equivalent to the address of the held value within the underlying object and one past the underlying object.  If the underlying object does not have a value, ~begin~ and ~end~ return ~nullptr~.
 
 * LEWG Attention
-Call LEWG's attention to the use of `ptrdiff_t` as the return type of `size` (which is consistent with `single_view`).
+Call LEWG's attention to the use of ~ptrdiff_t~ as the return type of ~size~ (which is consistent with ~single_view~).
 The author has a weak preference for a signed type here, but a strong preference for consistency with other Range types.
 
 * Synopsis
 ** Maybe View
 ~view::maybe~ returns a View over a Nullable that is either empty if the nullable is empty, or provides access to the contents of the nullable object.
 
-The name view::maybe denotes a range adaptor object ([range.adaptor.object]). For some subexpression E, the expression view::maybe(E) is expression-equivalent to:
+The name ~view::maybe~ denotes a range adaptor object ([range.adaptor.object]). For some subexpression E, the expression ~view::maybe(E)~ is expression-equivalent to:
 
-  -- maybe_view{E}, the  View specified below, if the expression is well formed, where decay-copy(E) is moved into the maybe_view
+  -- ~maybe_view{E}~, the  View specified below, if the expression is well formed, where decay-copy(E) is moved into the ~maybe_view~
 
-  -- otherwise view::maybe(E) is ill-formed.
+  -- otherwise ~view::maybe(E)~ is ill-formed.
 
-[Note: Whenever view::maybe(E) is a valid expression, it is a prvalue whose type models View. — end note ]
+[Note: Whenever ~view::maybe(E)~ is a valid expression, it is a prvalue whose type models View. — end note ]
 
 ** Concept /Nullable/
 Types that:
@@ -286,20 +300,20 @@ Types that:
 
   -- have const references which are dereferenceable
 
-  -- the iter_reference_t of the type and the iter_reference_t of the const type, will :
+  -- the ~iter_reference_t~ of the type and the ~iter_reference_t~ of the const type, will :
 
-      -- satisfy is_lvalue_reference
+      -- satisfy ~is_lvalue_reference~
 
-      -- satisfy is_object when the reference is removed
+      -- satisfy ~is_object~ when the reference is removed
 
       -- for const pointers to the referred to types, satisfy ConvertibleTo
 model the exposition only Nullable concept
 
- -- Or are a reference_wrapper around a type that satifies Nullable
+ -- Or are a ~reference_wrapper~ around a type that satifies Nullable
 
-Given a value i of type I, I models Nullable only if the expression *i is equality-preserving. [ Note: The expression *i is indirectly required to be valid via the exposition-only dereferenceable concept ([iterator.synopsis]). — end note ]
+Given a value i of type I, I models Nullable only if the expression *i is equality-preserving. [Note: The expression *i is indirectly required to be valid via the exposition-only dereferenceable concept ([iterator.synopsis]). — end note]
 
-#+BEGIN_SRC C++
+#+begin_src c++
 namespace std::ranges {
 
 // For Exposition
@@ -328,8 +342,9 @@ concept bool WrappedNullable =
     is_reference_wrapper_v<T>
     && Nullable<typename T::type>;
 
-#+END_SRC
-** /maybe_view/
+#+end_src
+
+** ~maybe_view~
 #+begin_src C++
 template <typename Maybe>
 requires ranges::CopyConstructible<Maybe> &&
@@ -464,6 +479,8 @@ A pure library extension, affecting no other parts of the library or language.
 
 #+PRINT_BIBLIOGRAPHY:
 
+
+Exported: {{{time(%Y-%m-%d %T)}}}
 
 # Local Variables:
 # org-html-htmlize-output-type: css

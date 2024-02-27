@@ -6,7 +6,7 @@
   (let ((side (org-element-property :parameters special-block)))
     (if (string= (downcase side) "before")
         (concat (org-latex-special-block special-block contents info) "\n &\n")
-      (concat (org-latex-special-block special-block contents info) " \\\\ \\hline\n")
+      (concat (org-latex-special-block special-block contents info) " \\\\ \\midrule\n")
       )))
 
 
@@ -156,6 +156,16 @@ holding export options."
      ;; Document end.
      "\\end{document}")))
 
+
+(eval-after-load "ox-latex"
+  '(add-to-list 'org-latex-classes
+                '("memoir" "\\documentclass{memoir}"
+                  ("\\chapter{%s}" . "\\chapter*{%s}")
+                  ("\\section{%s}" . "\\section*{%s}")
+                  ("\\subsection{%s}" . "\\subsection*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                  ("\\paragraph{%s}" . "\\paragraph*{%s}")
+                  ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))))
 
 
 
