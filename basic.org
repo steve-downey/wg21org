@@ -4,9 +4,17 @@
 #+options: tasks:t tex:t timestamp:t title:t toc:t todo:t |:t
 #+options: html5-fancy:t
 #+title: WG21 Org-mode
-#+date: <2024-02-19 Mon>
+#+date: {{{modification-time(%Y-%m-%d, VC)}}}
 #+author: Steve Downey
 #+email: sdowney@sdowney.org
+#+DOCNUMBER: DnnnnRi
+#+AUDIENCE: LEWG
+#+SOURCE_REPO: https://github.com/steve-downey/wg21org
+#+MACRO: filename (eval (magit-git-string "ls-files" ( buffer-file-name)))
+#+source_file: {{{filename}}}
+#+MACRO: gitver (eval (magit-git-string "describe" "--always" "--long" "--all" "--dirty" "--tags"))
+#+source_version: {{{gitver}}}
+
 #+select_tags: export
 #+language: en
 #+exclude_tags: noexport
@@ -35,12 +43,6 @@
 #+LATEX_HEADER: \setlength{\parindent}{0in}
 #+latex_engraved_theme: modus-operandi
 
-#+begin_docinfo
-- Document number:
-- Date:  {{{date(%Y-%m-%d)}}}
-- Author: {{{author}}} {{{email}}}
-- Audience: WG21 Emacs Authors
-#+end_docinfo
 
 #+begin_abstract
 Abstract: Making emacs org-mode more usable for writing WG21 papers.
