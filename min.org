@@ -1,4 +1,4 @@
-#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline author:t
+#+options: ':nil *:t -:t ::t <:t H:5 \n:nil ^:t arch:headline author:t
 #+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
 #+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
 #+options: tasks:t tex:t timestamp:t title:t toc:t todo:t |:t
@@ -15,6 +15,8 @@
 #+HTML_DOCTYPE: html5
 #+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
 #+OPTIONS: html-scripts:nil html-style:nil html5-fancy:t tex:t
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
 
 #+STARTUP: showeverything
 
@@ -31,8 +33,6 @@
 
 #+DOCNUMBER: D1234
 #+AUDIENCE: SG16
-
-
 
 #+begin_abstract
 Abstract: Making emacs org-mode more usable for writing WG21 papers.
@@ -336,6 +336,8 @@ text
 text
 ****** Heading 6a
 text
+
+#+INCLUDE: "toc.css" export html
 
 # Local Variables:
 # org-latex-toc-command: "\\tableofcontents*\n\n"

@@ -66,10 +66,25 @@
     (:audience "AUDIENCE" nil wg21-audience nil))
 
   :translate-alist '((special-block . my-html-special-block)
+                     (inner-template . my-wg21-html-inner-template)
+                     (keyword . my-wg21-html-keyword)
                      (template . my-wg21-html-template))
 
   :menu-entry '(?w "WG21 Papers" ((?h "wg21 html" my-wg21-export-to-html))))
 
+
+(defun my-wg21-html-inner-template (contents info)
+  "Return body of document string after HTML conversion.
+CONTENTS is the transcoded contents string.  INFO is a plist
+holding export options."
+  (concat
+   ;; Table of contents.
+   (let ((depth (plist-get info :with-toc)))
+     (when depth (my-wg21-html-toc depth info)))
+   ;; Document contents.
+   contents
+   ;; Footnotes section.
+   (org-html-footnote-section info)))
 
 (defun my-wg21-html-template (contents info)
   "Return complete document string after HTML conversion.
@@ -132,6 +147,104 @@ holding export options."
 
 
 
+
+;;; Tables of Contents
+
+(defun org-html-format-headline-default-function
+    (todo _todo-type priority text tags info)
+  "Default format function for a headline.
+See `org-html-format-headline-function' for details and the
+description of TODO, PRIORITY, TEXT, TAGS, and INFO arguments."
+  (let ((todo (org-html--todo todo info))
+	    (priority (org-html--priority priority info))
+	    (tags (org-html--tags tags info)))
+    (concat todo (and todo " ")
+	        priority (and priority " ")
+	        text
+	        (and tags "&#xa0;&#xa0;&#xa0;") tags)))
+
+
+;;;<a href="#example-hello-world"><span class="secno">1.3.1</span> <span class="content">Hello world</span></a>
+(defun my-wg21-html--format-toc-headline (headline info)
+  "Return an appropriate table of contents entry for HEADLINE.
+INFO is a plist used as a communication channel."
+  (let* ((headline-number (org-export-get-headline-number headline info))
+	     (todo (and (plist-get info :with-todo-keywords)
+		            (let ((todo (org-element-property :todo-keyword headline)))
+		              (and todo (org-export-data todo info)))))
+	     (todo-type (and todo (org-element-property :todo-type headline)))
+	     (priority (and (plist-get info :with-priority)
+			            (org-element-property :priority headline)))
+	     (text (org-export-data-with-backend
+		        (org-export-get-alt-title headline info)
+		        (org-export-toc-entry-backend 'html)
+		        info))
+	     (tags (and (eq (plist-get info :with-tags) t)
+		            (org-export-get-tags headline info))))
+    (format "<a href=\"#%s\"><span class=\"secno\">%s</span> <span class=\"content\">%s</span></a>"
+	        ;; Label.
+	        (org-html--reference headline info)
+	        ;; Number.
+	        (and (not (org-export-low-level-p headline info))
+		         (org-export-numbered-headline-p headline info)
+		         (concat (mapconcat #'number-to-string headline-number ".")
+			             " "))
+            ;; Content
+	        text)))
+
+(defun my-wg21-html-toc (depth info &optional scope)
+  "Build a table of contents.
+DEPTH is an integer specifying the depth of the table.  INFO is
+a plist used as a communication channel.  Optional argument SCOPE
+is an element defining the scope of the table.  Return the table
+of contents as a string, or nil if it is empty."
+  (let ((toc-entries
+	     (mapcar (lambda (headline)
+		           (cons (my-wg21-html--format-toc-headline headline info)
+			             (org-export-get-relative-level headline info)))
+		         (org-export-collect-headlines info depth scope))))
+    (when toc-entries
+      (let ((toc (concat ;; "<div id=\"toc\" role=\"doc-toc\">"
+			             (org-html--toc-text toc-entries)
+			             ;; "</div>\n"
+                         "\n"
+                         )))
+	    (if scope toc
+	      (let ((outer-tag (if (org-html--html5-fancy-p info)
+			                   "nav"
+			                 "div")))
+	        (concat (format "<%s id=\"toc\" role=\"doc-toc\">\n" outer-tag)
+		            (let ((top-level (plist-get info :html-toplevel-hlevel)))
+		              (format "<h%d>%s</h%d>\n"
+			                  top-level
+			                  (org-html--translate "Table of Contents" info)
+			                  top-level))
+		            toc
+		            (format "</%s>\n" outer-tag))))))))
+
+(defun my-wg21-html-keyword (keyword _contents info)
+  "Transcode a KEYWORD element from Org to HTML.
+CONTENTS is nil.  INFO is a plist holding contextual information."
+  (let ((key (org-element-property :key keyword))
+	    (value (org-element-property :value keyword)))
+    (cond
+     ((string= key "HTML") value)
+     ((string= key "TOC")
+      (let ((case-fold-search t))
+	    (cond
+	     ((string-match "\\<headlines\\>" value)
+	      (let ((depth (and (string-match "\\<[0-9]+\\>" value)
+			                (string-to-number (match-string 0 value))))
+		        (scope
+		         (cond
+		          ((string-match ":target +\\(\".+?\"\\|\\S-+\\)" value) ;link
+		           (org-export-resolve-link
+		            (org-strip-quotes (match-string 1 value)) info))
+		          ((string-match-p "\\<local\\>" value) keyword)))) ;local
+	        (my-wg21-html-toc depth info scope)))
+	     ((string= "listings" value) (org-html-list-of-listings info))
+	     ((string= "tables" value) (org-html-list-of-tables info))))))))
+
 
 (provide 'ox-wg21html)
 ;;; ox-wg21html.el ends here

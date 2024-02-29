@@ -23,7 +23,8 @@
 #+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
 #+OPTIONS: html-scripts:nil html-style:nil html5-fancy:t tex:t
 
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
+# #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./bikeshed.css"/>
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
 
 # #+HTML_HEAD: <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
