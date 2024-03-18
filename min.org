@@ -341,4 +341,4 @@ text
 
 # Local Variables:
 # org-latex-toc-command: "\\tableofcontents*\n\n"
-# End
+# End:
