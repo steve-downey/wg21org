@@ -1,6 +1,29 @@
-(require 'ox-latex)
+;; ox-wg21latex.el --- org exporter for WG21 papers in Latex format
+
+;; Copyright (C) 2024 Steve Downey
+
+;; Author: Steve Downey <sdowney@gmail.com>
+
+;; URL:
+
+;; This file is not part of GNU Emacs.
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;;; Commentary:
 
 ;;; Code:
+
+(require 'ox-latex)
+
 (defun my-latex-cmptblcell-block (special-block contents info)
   "Process my cmptblcell block.  SPECIAL-BLOCK CONTENTS INFO."
   (let ((side (org-element-property :parameters special-block)))
@@ -16,24 +39,6 @@
      (if (string= (downcase block-type) "cmptblcell")
          (progn (my-latex-cmptblcell-block special-block contents info))
        (org-latex-special-block special-block contents info))))
-
-
-(defun my-wg21-export-to-latex
-    (&optional async subtreep visible-only body-only ext-plist)
-  "Export current buffer."
-  (interactive)
-  (let ((file (org-export-output-file-name ".tex" subtreep)))
-    (org-export-to-file 'wg21-latex file
-      async subtreep visible-only body-only ext-plist)))
-
-(defun my-wg21-export-to-pdf
-    (&optional async subtreep visible-only body-only ext-plist)
-  "Export current buffer as PDF."
-  (interactive)
-  (let ((file (org-export-output-file-name ".tex" subtreep)))
-    (org-export-to-file 'wg21-latex file
-      async subtreep visible-only body-only ext-plist
-      #'org-latex-compile)))
 
 (defcustom wg21-document-number "Dnnnn"
   "doc string"
@@ -62,8 +67,14 @@ the #+TOC keyword."
   :translate-alist '((special-block . my-latex-special-block)
                      (template . my-wg21-latex-template))
 
-  :menu-entry '(?w "WG21 Papers" ((?t "wg21 latex .tex" my-wg21-export-to-latex)
-                                  (?p "wg21 latex .pdf" my-wg21-export-to-pdf))))
+  :menu-entry '(?w "WG21 Papers"
+                   ((?L "As LaTeX buffer" my-wg21-export-as-latex)
+	                (?l "As LaTeX file" my-wg21-export-to-latex)
+	                (?p "As PDF file" my-wg21-export-to-pdf)
+	                (?O "As PDF file and open"
+	                    (lambda (a s v b)
+	                      (if a (my-wg21-export-to-pdf t s v b)
+		                    (org-open-file (my-wg21-export-to-pdf nil s v b))))))))
 
 
 (defun my-wg21-latex-template (contents info)
@@ -168,6 +179,122 @@ holding export options."
                   ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))))
 
 
+
+;;; End-user functions
+
+;;;###autoload
+(defun my-wg21-export-as-latex
+    (&optional async subtreep visible-only body-only ext-plist)
+  "Export current buffer as a LaTeX buffer.
+
+If narrowing is active in the current buffer, only export its
+narrowed part.
+
+If a region is active, export that region.
+
+A non-nil optional argument ASYNC means the process should happen
+asynchronously.  The resulting buffer should be accessible
+through the `org-export-stack' interface.
+
+When optional argument SUBTREEP is non-nil, export the sub-tree
+at point, extracting information from the headline properties
+first.
+
+When optional argument VISIBLE-ONLY is non-nil, don't export
+contents of hidden elements.
+
+When optional argument BODY-ONLY is non-nil, only write code
+between \"\\begin{document}\" and \"\\end{document}\".
+
+EXT-PLIST, when provided, is a property list with external
+parameters overriding Org default settings, but still inferior to
+file-local settings.
+
+Export is done in a buffer named \"*Org WG21 LaTeX Export*\", which
+will be displayed when `org-export-show-temporary-export-buffer'
+is non-nil."
+  (interactive)
+  (org-export-to-buffer 'latex "*Org WG21 LaTeX Export*"
+    async subtreep visible-only body-only ext-plist (lambda () (LaTeX-mode))))
+
+;;;###autoload
+(defun my-wg21-convert-region-to-latex ()
+  "Assume the current region has Org syntax, and convert it to LaTeX.
+This can be used in any buffer.  For example, you can write an
+itemized list in Org syntax in an LaTeX buffer and use this
+command to convert it."
+  (interactive)
+  (org-export-replace-region-by 'wg21-latex))
+
+(defalias 'org-export-region-to-latex #'my-wg21-latex-convert-region-to-latex)
+
+;;;###autoload
+(defun my-wg21-export-to-latex
+    (&optional async subtreep visible-only body-only ext-plist)
+  "Export current buffer to a LaTeX file.
+
+If narrowing is active in the current buffer, only export its
+narrowed part.
+
+If a region is active, export that region.
+
+A non-nil optional argument ASYNC means the process should happen
+asynchronously.  The resulting file should be accessible through
+the `org-export-stack' interface.
+
+When optional argument SUBTREEP is non-nil, export the sub-tree
+at point, extracting information from the headline properties
+first.
+
+When optional argument VISIBLE-ONLY is non-nil, don't export
+contents of hidden elements.
+
+When optional argument BODY-ONLY is non-nil, only write code
+between \"\\begin{document}\" and \"\\end{document}\".
+
+EXT-PLIST, when provided, is a property list with external
+parameters overriding Org default settings, but still inferior to
+file-local settings."
+  (interactive)
+  (let ((outfile (org-export-output-file-name ".tex" subtreep)))
+    (org-export-to-file 'wg21-latex outfile
+      async subtreep visible-only body-only ext-plist)))
+
+;;;###autoload
+(defun my-wg21-export-to-pdf
+    (&optional async subtreep visible-only body-only ext-plist)
+  "Export current buffer to LaTeX then process through to PDF.
+
+If narrowing is active in the current buffer, only export its
+narrowed part.
+
+If a region is active, export that region.
+
+A non-nil optional argument ASYNC means the process should happen
+asynchronously.  The resulting file should be accessible through
+the `org-export-stack' interface.
+
+When optional argument SUBTREEP is non-nil, export the sub-tree
+at point, extracting information from the headline properties
+first.
+
+When optional argument VISIBLE-ONLY is non-nil, don't export
+contents of hidden elements.
+
+When optional argument BODY-ONLY is non-nil, only write code
+between \"\\begin{document}\" and \"\\end{document}\".
+
+EXT-PLIST, when provided, is a property list with external
+parameters overriding Org default settings, but still inferior to
+file-local settings.
+
+Return PDF file's name."
+  (interactive)
+  (let ((outfile (org-export-output-file-name ".tex" subtreep)))
+    (org-export-to-file 'wg21-latex outfile
+      async subtreep visible-only body-only ext-plist
+      #'org-latex-compile)))
+
 
 (provide 'ox-wg21latex)
 ;;; ox-wg21latex.el ends here

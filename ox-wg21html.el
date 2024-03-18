@@ -1,19 +1,41 @@
-(require 'ox-html)
+;; ox-wg21html.el --- org exporter for WG21 papers in Latex format
+
+;; Copyright (C) 2024 Steve Downey
+
+;; Author: Steve Downey <sdowney@gmail.com>
+
+;; URL:
+
+;; This file is not part of GNU Emacs.
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;;; Commentary:
 
 ;;; Code:
+
+(require 'ox-html)
 
 (defun my-html-special-block (special-block contents info)
   "Process my special block.  SPECIAL-BLOCK CONTENTS INFO."
    (org-html-special-block special-block contents info))
 
 
-(defun my-wg21-export-to-html
-    (&optional async subtreep visible-only body-only ext-plist)
-  "Export current buffer."
-  (interactive)
-  (let ((file (org-export-output-file-name ".html" subtreep)))
-    (org-export-to-file 'wg21-html file
-      async subtreep visible-only body-only ext-plist)))
+;; (defun my-wg21-export-to-html
+;;     (&optional async subtreep visible-only body-only ext-plist)
+;;   "Export current buffer."
+;;   (interactive)
+;;   (let ((file (org-export-output-file-name ".html" subtreep)))
+;;     (org-export-to-file 'wg21-html file
+;;       async subtreep visible-only body-only ext-plist)))
 
 
 (defcustom wg21-document-number "Dnnnn"
@@ -70,7 +92,13 @@
                      (keyword . my-wg21-html-keyword)
                      (template . my-wg21-html-template))
 
-  :menu-entry '(?w "WG21 Papers" ((?h "wg21 html" my-wg21-export-to-html))))
+  :menu-entry '(?w "Export WG21 Paper"
+                   ((?H "As HTML buffer" my-wg21-export-as-html)
+	                (?h "As HTML file" my-wg21-export-to-html)
+	                (?o "As HTML file and open"
+	                    (lambda (a s v b)
+	                      (if a (my-wg21-export-to-html t s v b)
+		                    (org-open-file (my-wg21-export-to-html nil s v b))))))))
 
 
 (defun my-wg21-html-inner-template (contents info)
@@ -244,6 +272,113 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
 	        (my-wg21-html-toc depth info scope)))
 	     ((string= "listings" value) (org-html-list-of-listings info))
 	     ((string= "tables" value) (org-html-list-of-tables info))))))))
+
+
+
+;;; End-user functions
+
+;;;###autoload
+(defun my-wg21-export-as-html
+    (&optional async subtreep visible-only body-only ext-plist)
+  "Export current buffer to an HTML buffer.
+
+If narrowing is active in the current buffer, only export its
+narrowed part.
+
+If a region is active, export that region.
+
+A non-nil optional argument ASYNC means the process should happen
+asynchronously.  The resulting buffer should be accessible
+through the `org-export-stack' interface.
+
+When optional argument SUBTREEP is non-nil, export the sub-tree
+at point, extracting information from the headline properties
+first.
+
+When optional argument VISIBLE-ONLY is non-nil, don't export
+contents of hidden elements.
+
+When optional argument BODY-ONLY is non-nil, only write code
+between \"<body>\" and \"</body>\" tags.
+
+EXT-PLIST, when provided, is a property list with external
+parameters overriding Org default settings, but still inferior to
+file-local settings.
+
+Export is done in a buffer named \"*Org HTML Export*\", which
+will be displayed when `org-export-show-temporary-export-buffer'
+is non-nil."
+  (interactive)
+  (org-export-to-buffer 'html "*Org HTML Export*"
+    async subtreep visible-only body-only ext-plist
+    (lambda () (set-auto-mode t))))
+
+;;;###autoload
+(defun my-wg21-convert-region-to-html ()
+  "Assume the current region has Org syntax, and convert it to HTML.
+This can be used in any buffer.  For example, you can write an
+itemized list in Org syntax in an HTML buffer and use this command
+to convert it."
+  (interactive)
+  (org-export-replace-region-by 'html))
+
+(defalias 'my-wg21-export-region-to-html #'my-wg21-convert-region-to-html)
+
+;;;###autoload
+(defun my-wg21-export-to-html
+    (&optional async subtreep visible-only body-only ext-plist)
+  "Export current buffer to a HTML file.
+
+If narrowing is active in the current buffer, only export its
+narrowed part.
+
+If a region is active, export that region.
+
+A non-nil optional argument ASYNC means the process should happen
+asynchronously.  The resulting file should be accessible through
+the `org-export-stack' interface.
+
+When optional argument SUBTREEP is non-nil, export the sub-tree
+at point, extracting information from the headline properties
+first.
+
+When optional argument VISIBLE-ONLY is non-nil, don't export
+contents of hidden elements.
+
+When optional argument BODY-ONLY is non-nil, only write code
+between \"<body>\" and \"</body>\" tags.
+
+EXT-PLIST, when provided, is a property list with external
+parameters overriding Org default settings, but still inferior to
+file-local settings.
+
+Return output file's name."
+  (interactive)
+  (let* ((extension (concat
+		             (when (> (length org-html-extension) 0) ".")
+		             (or (plist-get ext-plist :html-extension)
+			             org-html-extension
+			             "html")))
+	     (file (org-export-output-file-name extension subtreep))
+	     (org-export-coding-system org-html-coding-system))
+    (org-export-to-file 'html file
+      async subtreep visible-only body-only ext-plist)))
+
+;;;###autoload
+(defun my-wg21-publish-to-html (plist filename pub-dir)
+  "Publish an org file to HTML.
+
+FILENAME is the filename of the Org file to be published.  PLIST
+is the property list for the given project.  PUB-DIR is the
+publishing directory.
+
+Return output file name."
+  (org-publish-org-to 'wg21-html filename
+		              (concat (when (> (length org-html-extension) 0) ".")
+			                  (or (plist-get plist :html-extension)
+				                  org-html-extension
+				                  "html"))
+		              plist pub-dir))
 
 
 (provide 'ox-wg21html)
