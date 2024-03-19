@@ -1446,6 +1446,7 @@ pre.src-conf:before { content: 'Configuration File'; }
 .cmptblbefore {}
 .cmptblafter {}
 .addedblock {color: green; text-decoration-line: underline;}
+.underline {color: green; text-decoration-line: underline;}
 .removedblock {color: red; text-decoration-line: line-through;}
 
 /* end */
