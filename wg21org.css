@@ -1440,11 +1440,7 @@ pre.src-conf:before { content: 'Configuration File'; }
 
 
 .cmptbl {display: grid; grid-template-columns: 1fr 1fr;justify-content: center;grid-row-gap: 12px;}
-.cmptblbeforehead {border: 1px solid black;grid-gap: 20px;text-align:center}
-.cmptblafterhead {border: 1px solid black;grid-gap: 20px;text-align:center}
-.cmptblcell {}
-.cmptblbefore {}
-.cmptblafter {}
+.cmptblcell {border: 1px solid black;grid-gap: 20px;text-align:center}
 .addedblock {color: green; text-decoration-line: underline;}
 .underline {color: green; text-decoration-line: underline;}
 .removedblock {color: red; text-decoration-line: line-through;}
