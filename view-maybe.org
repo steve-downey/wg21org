@@ -15,25 +15,19 @@
 #+KEYWORDS:
 #+SUBTITLE:
 #+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
+
 #+STARTUP: showall
+
+#+HTML_DOCTYPE: html5
 #+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
-#+OPTIONS: html-scripts:n html-style:nil html5-fancy:nil tex:t
-#+HTML_DOCTYPE: xhtml-strict
-#+HTML_CONTAINER: div
-#+DESCRIPTION:
-#+KEYWORDS:
-#+HTML_LINK_HOME:
-#+HTML_LINK_UP:
-#+HTML_MATHJAX:
-#+HTML_HEAD:
-#+HTML_HEAD_EXTRA:
-#+SUBTITLE:
-#+INFOJS_OPT:
+#+OPTIONS: html-scripts:nil html-style:nil html5-fancy:t tex:t
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./readtheorg.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./cmptbl.css"/>
+
 
 #+BIBLIOGRAPHY: wg21.bib
 
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
 
 #+LATEX_COMPILER: lualatex
 #+LATEX_CLASS: memoir
@@ -481,6 +475,8 @@ A pure library extension, affecting no other parts of the library or language.
 
 
 Exported: {{{time(%Y-%m-%d %T)}}}
+
+# #+INCLUDE: "toc.css" export html
 
 # Local Variables:
 # org-html-htmlize-output-type: css

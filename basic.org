@@ -24,8 +24,10 @@
 #+OPTIONS: html-scripts:nil html-style:nil html5-fancy:t tex:t
 
 # #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./bikeshed.css"/>
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
+# #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./bikeshed.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-vivendi-tinted.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./readtheorg.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./cmptbl.css"/>
 
 # #+HTML_HEAD: <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
 # #+HTML_HEAD: <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>

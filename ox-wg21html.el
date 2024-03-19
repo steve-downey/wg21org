@@ -48,6 +48,11 @@
   :group 'my-export-wg21
   :type 'string)
 
+(defcustom wg21-toc-div-id "toc"
+  "doc string"
+  :group 'my-export-wg21
+  :type 'string)
+
 (defun wg21-html-spec-metadata (contents info)
 ;;   (let ((audience (plist-get info :audience))
 ;;         (docnumber (plist-get info :docnumber))
@@ -85,7 +90,8 @@
     (:source_repo "SOURCE_REPO" nil "" nil)
     (:source_file "SOURCE_FILE" nil "" parse)
     (:source_version "SOURCE_VERSION" nil "" parse)
-    (:audience "AUDIENCE" nil wg21-audience nil))
+    (:audience "AUDIENCE" nil wg21-audience nil)
+    (:toc-div-id "TOC_DIV_ID" nil wg21-toc-div-id nil))
 
   :translate-alist '((special-block . my-html-special-block)
                      (inner-template . my-wg21-html-inner-template)
@@ -220,6 +226,30 @@ INFO is a plist used as a communication channel."
             ;; Content
 	        text)))
 
+(defun my-wg21-html--toc-text (toc-entries)
+  "Return innards of a table of contents, as a string.
+TOC-ENTRIES is an alist where key is an entry title, as a string,
+and value is its relative level, as an integer."
+  (let* ((prev-level (1- (cdar toc-entries)))
+	     (start-level prev-level))
+    (concat
+     (mapconcat
+      (lambda (entry)
+	    (let ((headline (car entry))
+	          (level (cdr entry)))
+	      (concat
+	       (let* ((cnt (- level prev-level))
+		          (times (if (> cnt 0) (1- cnt) (- cnt))))
+	         (setq prev-level level)
+	         (concat
+	          (org-html--make-string
+	           times (cond ((> cnt 0) "\n<ul class=\"toc\">\n<li>")
+			               ((< cnt 0) "</li>\n</ul>\n")))
+	          (if (> cnt 0) "\n<ul class=\"toc\">\n<li>" "</li>\n<li>")))
+	       headline)))
+      toc-entries "")
+     (org-html--make-string (- prev-level start-level) "</li>\n</ul>\n"))))
+
 (defun my-wg21-html-toc (depth info &optional scope)
   "Build a table of contents.
 DEPTH is an integer specifying the depth of the table.  INFO is
@@ -233,17 +263,18 @@ of contents as a string, or nil if it is empty."
 		         (org-export-collect-headlines info depth scope))))
     (when toc-entries
       (let ((toc (concat ;; "<div id=\"toc\" role=\"doc-toc\">"
-			             (org-html--toc-text toc-entries)
-			             ;; "</div>\n"
-                         "\n"
-                         )))
+			      (my-wg21-html--toc-text toc-entries)
+			      ;; "</div>\n"
+                  "\n"
+                  )))
 	    (if scope toc
 	      (let ((outer-tag (if (org-html--html5-fancy-p info)
 			                   "nav"
-			                 "div")))
-	        (concat (format "<%s id=\"toc\" role=\"doc-toc\">\n" outer-tag)
+			                 "div"))
+                (toc-div-id (plist-get info :toc-div-id)))
+	        (concat (format "<%s id=\"%s\" role=\"doc-toc\">\n" outer-tag (org-export-data toc-div-id info))
 		            (let ((top-level (plist-get info :html-toplevel-hlevel)))
-		              (format "<h%d>%s</h%d>\n"
+		              (format "<h%d class=\"no-num no-toc no-ref\" id=\"contents\">%s</h%d>\n"
 			                  top-level
 			                  (org-html--translate "Table of Contents" info)
 			                  top-level))
@@ -309,7 +340,7 @@ Export is done in a buffer named \"*Org HTML Export*\", which
 will be displayed when `org-export-show-temporary-export-buffer'
 is non-nil."
   (interactive)
-  (org-export-to-buffer 'html "*Org HTML Export*"
+  (org-export-to-buffer 'wg21-html "*WG21 HTML Export*"
     async subtreep visible-only body-only ext-plist
     (lambda () (set-auto-mode t))))
 
@@ -320,7 +351,7 @@ This can be used in any buffer.  For example, you can write an
 itemized list in Org syntax in an HTML buffer and use this command
 to convert it."
   (interactive)
-  (org-export-replace-region-by 'html))
+  (org-export-replace-region-by 'wg21-html))
 
 (defalias 'my-wg21-export-region-to-html #'my-wg21-convert-region-to-html)
 
@@ -361,7 +392,7 @@ Return output file's name."
 			             "html")))
 	     (file (org-export-output-file-name extension subtreep))
 	     (org-export-coding-system org-html-coding-system))
-    (org-export-to-file 'html file
+    (org-export-to-file 'wg21-html file
       async subtreep visible-only body-only ext-plist)))
 
 ;;;###autoload
