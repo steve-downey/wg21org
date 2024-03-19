@@ -76,7 +76,7 @@
      <dt>Document #: <dd> "(org-export-data docnumber info)"
      <dt>Date: <dd>" (org-export-data date info) "
      <dt>Audience: <dd>" (org-export-data audience info) "
-     <dt>Reply-to: <dd><a class=\"p-name fn u-email email\" href=\"mailto:" (org-export-data email info) "\">" (org-export-data author info) "</a>
+     <dt>Reply-to: <dd><a class=\"p-name fn u-email email\" href=\"mailto:" (org-export-data email info) "\">" (org-export-data author info) " &lt"(org-export-data email info)"&gt</a>
      <dt>Source: <dd><a href=\"" (org-export-data source_repo info) "\"/>" (org-export-data source_repo info) "</a>
                  <dd>" (org-export-data source_file info) "
                  <dd>" (org-export-data source_version info) "
