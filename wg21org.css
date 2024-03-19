@@ -437,7 +437,7 @@ pre {
 }
 
 code{
-    background: rgba(0, 0, 0, .03);
+    background: #fbf7f0 /* rgba(0, 0, 0, .03) */;
     border:solid 1px #e1e4e5;
     /* color:#000;  for clickable code */
     /* font-size:75%; */
@@ -449,7 +449,7 @@ code{
     border-radius: .3em;
 }
 pre {
-    background: rgba(0, 0, 0, .03);
+    background: #fbf7f0 /* rgba(0, 0, 0, .03) */;
     border: 1px solid #e6e6e6;
     border-radius: 3px;
     display: block;
