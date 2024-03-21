@@ -257,6 +257,12 @@ Last night on Mattermost Tomasz Kamiński proposed
 #+end_src
 https://godbolt.org/z/rWo7Wvd6b
 
-I believe this will enable all the use cases, in particular providing "or" reference access to the referred to object or a default instance. I do have a large number of use cases for that today, although implemented with pointers. Although unfortunately involving finding the allocator to use in a particular context.
+I believe that std::optional<T>::value_or returning a T is an unfortunate and unfixable mistake. Others believe that instead there ought to have been a ~value()~ returning ~T~, and a ~ref()~ returning ~T&~. The ship for changing those has long since sailed.
 
-Requiring copies is not a decision I think the standard library should enforce, given how easy it is to decay copy a reference.
+I believe the use case of alternative references is important, and should be supported. I have been conviced that ~value_or~ is not an available name for that function.
+
+However, given the state of ~std::optional<T>::value_or~, I think this function needs to be called ~reference_or~.
+
+We should instead remove ~value_or~. There is no clear correct answer that works generically. Conversions from ~std::optional<reference_wrapper<T>>~ already need to do some work, as do conversions from any other existing optional. Making that work clear is a benefit.
+
+As a fallback, have ~value_or~ return a prvalue, a ~T~. A ~T&~, instead of ~std::common_reference_t<T&, U>~, excludes to many reasonable cases.
