@@ -261,7 +261,7 @@ I believe that std::optional<T>::value_or returning a T is an unfortunate and un
 
 I believe the use case of alternative references is important, and should be supported. I have been conviced that ~value_or~ is not an available name for that function.
 
-However, given the state of ~std::optional<T>::value_or~, I think this function needs to be called ~reference_or~.
+However, given the state of ~std::optional<T>::value_or~, I think this function needs to be called ~ref_or~.
 
 We should instead remove ~value_or~. There is no clear correct answer that works generically. Conversions from ~std::optional<reference_wrapper<T>>~ already need to do some work, as do conversions from any other existing optional. Making that work clear is a benefit.
 
