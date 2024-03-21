@@ -132,8 +132,46 @@ Make no changes to the behavior or compilation of std::make_optional. It's not c
 
 * ~std::optional<T&>::value_or~
 There are different implementations in the optionals in the wild that both support references and support ~value_or~.
+** Standard for ~optional<T>::value_or~
+#+begin_src C++
+template<class U> constexpr T value_or(U&& v) const &;
+
+// Mandates: is_copy_constructible_v<T> && is_convertible_v<U&&, T> is true.
+// Effects: Equivalent to:
+//   return has_value() ? **this : static_cast<T>(std::forward<U>(v));
+
+template<class U> constexpr T value_or(U&& v) &&;
+
+// Mandates: is_move_constructible_v<T> && is_convertible_v<U&&, T> is true.
+// Effects: Equivalent to:
+//  return has_value() ? std::move(**this) : static_cast<T>(std::forward<U>(v));
+#+end_src
+
+Note that for ~optional<T>~ moving the value out of a held value in an rvalue-ref optional is entirely reasonable.
+
+It is not for a reference semantic optional.
+
 ** Boost
 #+begin_src C++
+
+template<class U> T optional<T>::value_or(U && v) const& ;
+
+// Effects: Equivalent to if (*this) return **this; else return std::forward<U>(v);.
+
+// Remarks: If T is not CopyConstructible or U && is not convertible to T, the
+// program is ill-formed.  Notes: On compilers that do not support
+// ref-qualifiers on member functions this overload is replaced with the
+// const-qualified member function. On compilers without rvalue reference
+// support the type of v becomes U const&.
+
+template<class U> T optional<T>::value_or(U && v) && ;
+
+// Effects: Equivalent to if (*this) return std::move(**this); else return std::forward<U>(v);.
+
+// Remarks: If T is not MoveConstructible or U && is not convertible to T, the
+// program is ill-formed.  Notes: On compilers that do not support
+// ref-qualifiers on member functions this overload is not present.
+
 template<class R> T& optional<T&>::value_or( R&& r ) const noexcept;
 
 // Effects: Equivalent to if (*this) return **this; else return r;.
@@ -142,13 +180,16 @@ template<class R> T& optional<T&>::value_or( R&& r ) const noexcept;
 
 ** Tl-optional
 #+begin_src C++
- template <class U> constexpr T value_or(U &&u) && noexcept;
+ template <class U> constexpr T optional<T&>::value_or(U &&u) && noexcept;
  #+end_src
 Returns a ~T~ rather than a ~T&~
 ** Flux
+This is from Tristan Brindle's tristanbrindle.com/flux/
+
 #+begin_src C++
 #define FLUX_FWD(x) static_cast<decltype(x)&&>(x)
 //...
+// optional<T&>
    [[nodiscard]]
     constexpr auto value_unchecked() const noexcept -> T& { return *ptr_; }
 
@@ -164,7 +205,29 @@ Flux returns references, but effectively returns a common reference type.
 
 Note that all implementations return a ~T&~ from ~value()~, as well as for ~operator*()~ for all template instantiations. Arguing that value_or should return T because `value` is plausible, but not supportable for existing APIs.
 
-TL-optional is the odd impl out here, but with only 3 impls at hand, one would be.
+** Think-Cell
+https://github.com/think-cell/think-cell-library/
+
+value_or of both ~optional<T>~ and ~optional<T&>~ returns ~tc::common_reference<decltype(value()), U&&>~, which is like std::common_reference, but doesn't compile for e.g. long and unsigned long).
+
+see:
+- [[https://github.com/think-cell/think-cell-library/blob/b9c84dd7fc926fad80829ed49705fa51afe36e87/tc/optional.h#L270][tc optional value_or]]
+- [[https://github.com/think-cell/think-cell-library/blob/b9c84dd7fc926fad80829ed49705fa51afe36e87/tc/base/conditional.h#L18][Macro definition used]]
+- [[https://github.com/think-cell/think-cell-library/blob/b9c84dd7fc926fad80829ed49705fa51afe36e87/tc/base/type_traits_fwd.h#L822][tc common reference]]
+
+
+** Summary
+| Impl       | Behavior                                               |
+|------------+--------------------------------------------------------|
+| Standard   | optional<T>::value_or returns a T                      |
+| Boost      | optional<T>::value_or returns a T                      |
+|            | optional<T&>::value_or returns a T&                    |
+| TL         | optional<T>::value_or returns a T                      |
+|            | optional<T&>::value_or returns a T                     |
+| Flux       | returns result of ternary, similar to common_reference |
+| Think-cell | returns common_reference, with some caveats            |
+
+
 
 
 ** Proposal
