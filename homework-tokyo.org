@@ -24,7 +24,7 @@
 #+OPTIONS: ^:nil
 
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="https://sdowney.org/css/wg21org.css"/>
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="https://sdowney.org/css//modus-operandi-tinted.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="https://sdowney.org/css/modus-operandi-tinted.css"/>
 
 #+BIBLIOGRAPHY: wg21.bib
 
