@@ -15,19 +15,21 @@
 #+MACRO: gitver (eval (magit-git-string "describe" "--always" "--long" "--all" "--dirty" "--tags"))
 #+source_version: {{{gitver}}}
 
+#+STARTUP: showall
+
 #+select_tags: export
 #+language: en
 #+exclude_tags: noexport
 #+creator: Emacs 28.0.60 (Org mode 9.4.6)
 #+HTML_DOCTYPE: html5
 #+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
-#+OPTIONS: html-scripts:nil html-style:nil html5-fancy:t tex:t
+#+OPTIONS: html-scripts:t html-style:nil html5-fancy:t tex:t
 
-# #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
 # #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./bikeshed.css"/>
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-vivendi-tinted.css"/>
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./readtheorg.css"/>
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./cmptbl.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
+# #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./readtheorg.css"/>
+# #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./cmptbl.css"/>
 
 # #+HTML_HEAD: <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
 # #+HTML_HEAD: <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
@@ -50,9 +52,6 @@
 #+begin_abstract
 Abstract: Making emacs org-mode more usable for writing WG21 papers.
 #+end_abstract
-
-
-
 
 * Delete blocks and text
 #+begin_removedblock

@@ -20,10 +20,16 @@
 
 #+HTML_DOCTYPE: html5
 #+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
-#+OPTIONS: html-scripts:nil html-style:nil html5-fancy:t tex:t
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./readtheorg.css"/>
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./cmptbl.css"/>
+#+OPTIONS: html-scripts:t html-style:t html5-fancy:t tex:t
+
+# #+TOC_DIV_ID: toc
+# #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
+# #+TOC_DIV_ID: table-of-contents
+# #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./readtheorg.css"/>
+# #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./cmptbl.css"/>
+
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-vivendi-tinted.css"/>
+
 
 
 #+BIBLIOGRAPHY: wg21.bib

@@ -1,4 +1,5 @@
 #+options: html5-fancy:t
+#+OPTIONS: ^:nil
 #+TITLE: A Comparison of ~optional~ as range and ~maybe~
 #+AUTHOR: Steve Downey
 #+EMAIL: sdowney@gmail.com
@@ -31,3 +32,15 @@
 #+begin_abstract
 Abstract: Adding ~begin()~ and ~end()~ support to ~std::optional~ satisfies the same uses cases as the proposed ~views::maybe~. There are some differences in ergonomics and ease of correct use, as ~std::optional~ fills a wide variety of use cases, some of which compete.
 #+end_abstract
+
+* Optional Does Not *Yet* Support References
+~optional<T&>~ [cite:@P2988R1] appears to be on track, but is not yet approved.
+
+~views::maybe~ does not have the same central issues as ~optional~ because it does not have assignment from the underlying type.
+
+
+* References
+
+#+CITE_EXPORT: csl chicago-author-date.csl
+
+#+PRINT_BIBLIOGRAPHY:
