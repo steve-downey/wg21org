@@ -243,13 +243,13 @@ Last night on Mattermost Tomasz Kamiński proposed
 
 *** Examples
 #+begin_src C++
-    optional_ref<int> o; // disengaged optional<int&>
+    optional<int&> o; // disengaged optional<int&>
     long i{42};
     auto&& val = o.value_or(i);
     static_assert(std::same_as<decltype(o.value()), int&>);
     static_assert(std::same_as<decltype(o.value_or(i)), long>);
 
-    optional_ref<base> b;
+    optional<base&> b;
     derived d;
     static_assert(std::same_as<decltype(b.value()), base&>);
     static_assert(std::same_as<decltype(b.value_or(d)), base&>);
@@ -257,12 +257,36 @@ Last night on Mattermost Tomasz Kamiński proposed
 #+end_src
 https://godbolt.org/z/rWo7Wvd6b
 
+*** Motivation for reference returning value_or
+#+begin_src C++
+
+struct Logger {
+    virtual void debug(std::string_view sv) = 0;
+};
+
+struct DefaultLogger : public Logger {
+    DefaultLogger() {}
+    DefaultLogger(const DefaultLogger & l) = delete;
+    virtual void debug(std::string_view sv) override {}
+};
+
+DefaultLogger& getDefaultLogger() {
+    static DefaultLogger dl;
+    return dl;
+}
+
+Logger& getLogger(optional<Logger&> logger) {
+    return l.value_or(getDefaultLogger());
+}
+#+end_src
+*** Discussion
 I believe that std::optional<T>::value_or returning a T is an unfortunate and unfixable mistake. Others believe that instead there ought to have been a ~value()~ returning ~T~, and a ~ref()~ returning ~T&~. The ship for changing those has long since sailed.
 
 I believe the use case of alternative references is important, and should be supported. I have been conviced that ~value_or~ is not an available name for that function.
 
 However, given the state of ~std::optional<T>::value_or~, I think this function needs to be called ~ref_or~.
 
+*** Proposal
 We should instead remove ~value_or~. There is no clear correct answer that works generically. Conversions from ~std::optional<reference_wrapper<T>>~ already need to do some work, as do conversions from any other existing optional. Making that work clear is a benefit.
 
 As a fallback, have ~value_or~ return a prvalue, a ~T~. A ~T&~, instead of ~std::common_reference_t<T&, U>~, excludes to many reasonable cases.
