@@ -1,8 +1,8 @@
-#+TITLE: Choices for ~make_optional~ and ~value()~
+#+TITLE: Choices for ~make_optional~ and ~value_or()~
 #+AUTHOR: Steve Downey
 #+EMAIL: sdowney@gmail.com
 #+LANGUAGE: en
-#+DOCNUMBER: D3199R0
+#+DOCNUMBER: P3199R0
 #+AUDIENCE: LEWG
 #+SELECT_TAGS: export
 #+EXCLUDE_TAGS: noexport
@@ -27,6 +27,7 @@
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="https://sdowney.org/css/modus-operandi-tinted.css"/>
 
 #+BIBLIOGRAPHY: wg21.bib
+#+BIBLIOGRAPHY: MyLibrary.bib
 
 #+begin_abstract
 Abstract: Homework: Review options for std::make_optional and std::optional<T&>::value_or()
@@ -133,6 +134,8 @@ Make no changes to the behavior or compilation of std::make_optional. It's not c
 * ~std::optional<T&>::value_or~
 There are different implementations in the optionals in the wild that both support references and support ~value_or~.
 ** Standard for ~optional<T>::value_or~
+[cite:@N4928]
+
 #+begin_src C++
 template<class U> constexpr T value_or(U&& v) const &;
 
@@ -152,6 +155,7 @@ Note that for ~optional<T>~ moving the value out of a held value in an rvalue-re
 It is not for a reference semantic optional.
 
 ** Boost
+[cite:@boost_detailed_nodate]
 #+begin_src C++
 
 template<class U> T optional<T>::value_or(U && v) const& ;
@@ -179,11 +183,13 @@ template<class R> T& optional<T&>::value_or( R&& r ) const noexcept;
 #+end_src
 
 ** Tl-optional
+[cite:@brand_tartanllamaoptional_nodate]
 #+begin_src C++
  template <class U> constexpr T optional<T&>::value_or(U &&u) && noexcept;
  #+end_src
 Returns a ~T~ rather than a ~T&~
 ** Flux
+[cite:@brindle_tcbrindleflux_nodate]
 This is from Tristan Brindle's tristanbrindle.com/flux/
 
 #+begin_src C++
@@ -206,6 +212,8 @@ Flux returns references, but effectively returns a common reference type.
 Note that all implementations return a ~T&~ from ~value()~, as well as for ~operator*()~ for all template instantiations. Arguing that value_or should return T because `value` is plausible, but not supportable for existing APIs.
 
 ** Think-Cell
+[cite:@gmbh_think-cellthink-cell-library_nodate]
+
 https://github.com/think-cell/think-cell-library/
 
 value_or of both ~optional<T>~ and ~optional<T&>~ returns ~tc::common_reference<decltype(value()), U&&>~, which is like std::common_reference, but doesn't compile for e.g. long and unsigned long).
@@ -290,3 +298,14 @@ However, given the state of ~std::optional<T>::value_or~, I think this function 
 We should instead remove ~value_or~. There is no clear correct answer that works generically. Conversions from ~std::optional<reference_wrapper<T>>~ already need to do some work, as do conversions from any other existing optional. Making that work clear is a benefit.
 
 As a fallback, have ~value_or~ return a prvalue, a ~T~. A ~T&~, instead of ~std::common_reference_t<T&, U>~, excludes to many reasonable cases.
+
+[cite/n:@P2988R1]
+
+* References
+#+CITE_EXPORT: csl chicago-author-date.csl
+
+#+PRINT_BIBLIOGRAPHY:
+
+Exported: {{{time(%Y-%m-%d %T)}}}
+
+#+INCLUDE: "toc.css" export html
