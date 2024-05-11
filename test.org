@@ -63,6 +63,7 @@ Also I should mention [cite:@N4919]
 
 Sometimes we have multiple sources at once, like [cite:@N4919; @P1255R12]
 
+#+transclude: [[file:~/src/sdowney/optional_ref/src/smd/optional/optional_ref_monadic.t.cpp::TEST(OptionalRefMonadicTest, Transform) {][TEST]]  :src c :thing-at-point sexp
 
 * References
 
