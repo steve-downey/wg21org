@@ -22,9 +22,10 @@
 #+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
 #+OPTIONS: html-scripts:t html-style:t html5-fancy:t tex:t
 #+OPTIONS: ^:nil
+#+OPTIONS: html-self-link-headlines:t
 
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="https://sdowney.org/css/wg21org.css"/>
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="https://sdowney.org/css/modus-operandi-tinted.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
 
 #+BIBLIOGRAPHY: wg21.bib
 #+BIBLIOGRAPHY: MyLibrary.bib
@@ -53,7 +54,7 @@ Check that the supplied value can be bound to a ~T&~.
 * ~std::make_optional~ in the context of ~optional<T&>~
 
 Current specification:
-#+begin_src C++
+#+begin_src cpp
 template<class T> constexpr optional<decay_t<T>> make_optional(T&& v);
 // Returns: optional<decay_t<T>>(std​::​forward<T>(v)).
 
@@ -69,7 +70,7 @@ template<class T, class U, class... Args>
 
 The second two forms are disallowed for std::optional<T&> because in_place with multiple arguments does not make sense.
 
-#+begin_src C++
+#+begin_src cpp
 #include <optional>
 
 struct MyStruct {};
@@ -113,7 +114,7 @@ I think it is clear that changing the return type for a ~make_optional~ on an ex
 
 It's not clear right now that people spelling the template with a ~T&~ are doing so with great deliberateness. There is certainly the possibility that users may be confused and try to get an ~optional<T&>~ out of ~make_optional~, but failure should be generally quickly visible as there is no viable path to construct or assign a ~optional<T>~ to an ~optional<T&>~. Conversions do permit an ~optional<T>~ to be initialized from an ~optional<T&>~, as ~optional~ is fairly permissive about conversions, and this seems mostly desirable.
 
-#+begin_src C++
+#+begin_src cpp
     std::optional<int> x;
     std::optional<int&> x2 = x;   //fails
     std::optional<int&> x3{x};    //fails
@@ -136,7 +137,7 @@ There are different implementations in the optionals in the wild that both suppo
 ** Standard for ~optional<T>::value_or~
 [cite:@N4928]
 
-#+begin_src C++
+#+begin_src cpp
 template<class U> constexpr T value_or(U&& v) const &;
 
 // Mandates: is_copy_constructible_v<T> && is_convertible_v<U&&, T> is true.
@@ -156,7 +157,7 @@ It is not for a reference semantic optional.
 
 ** Boost
 [cite:@boost_detailed_nodate]
-#+begin_src C++
+#+begin_src cpp
 
 template<class U> T optional<T>::value_or(U && v) const& ;
 
@@ -184,7 +185,7 @@ template<class R> T& optional<T&>::value_or( R&& r ) const noexcept;
 
 ** Tl-optional
 [cite:@brand_tartanllamaoptional_nodate]
-#+begin_src C++
+#+begin_src cpp
  template <class U> constexpr T optional<T&>::value_or(U &&u) && noexcept;
  #+end_src
 Returns a ~T~ rather than a ~T&~
@@ -192,7 +193,7 @@ Returns a ~T~ rather than a ~T&~
 [cite:@brindle_tcbrindleflux_nodate]
 This is from Tristan Brindle's tristanbrindle.com/flux/
 
-#+begin_src C++
+#+begin_src cpp
 #define FLUX_FWD(x) static_cast<decltype(x)&&>(x)
 //...
 // optional<T&>
@@ -240,7 +241,7 @@ see:
 
 ** Proposal
 Last night on Mattermost Tomasz Kamiński proposed
-#+begin_src C++
+#+begin_src cpp
     template <class U, class R = std::common_reference_t<T&, U&&>>
     auto value_or(U&& v) const -> R {
         static_assert(!std::reference_constructs_from_temporary_v<R, U>);
@@ -250,7 +251,7 @@ Last night on Mattermost Tomasz Kamiński proposed
 #+end_src
 
 *** Examples
-#+begin_src C++
+#+begin_src cpp
     optional<int&> o; // disengaged optional<int&>
     long i{42};
     auto&& val = o.value_or(i);
@@ -266,7 +267,7 @@ Last night on Mattermost Tomasz Kamiński proposed
 https://godbolt.org/z/rWo7Wvd6b
 
 *** Motivation for reference returning value_or
-#+begin_src C++
+#+begin_src cpp
 
 struct Logger {
     virtual void debug(std::string_view sv) = 0;
