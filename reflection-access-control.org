@@ -1,0 +1,35 @@
+#+TITLE: Reflection Should Not Subvert Access Control
+#+AUTHOR: Steve Downey
+#+EMAIL: sdowney@gmail.com
+#+LANGUAGE: en
+#+DOCNUMBER:
+#+AUDIENCE: LEWG
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+DESCRIPTION:
+#+KEYWORDS:
+#+SUBTITLE:
+#+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
+#+SOURCE_REPO: https://github.com/steve-downey/wg21org
+#+MACRO: filename (eval (magit-git-string "ls-files" ( buffer-file-name)))
+#+source_file: {{{filename}}}
+#+MACRO: gitver (eval (magit-git-string "describe" "--always" "--long" "--all" "--dirty" "--tags"))
+#+source_version: {{{gitver}}}
+
+#+STARTUP: showall
+
+#+HTML_DOCTYPE: html5
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
+#+OPTIONS: html-scripts:t html-style:t html5-fancy:t tex:t
+#+OPTIONS: ^:nil
+#+OPTIONS: html-self-link-headlines:t
+
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
+
+#+BIBLIOGRAPHY: wg21.bib
+#+BIBLIOGRAPHY: MyLibrary.bib
+
+#+begin_abstract
+Abstract: P2900 ignores access control when splicing. It should not.
+#+end_abstract
