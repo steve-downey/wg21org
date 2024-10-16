@@ -126,7 +126,7 @@ Access to the name src_C++[:exports code]{B::priv} to take its address is not ch
 I believe this is a defect, even if there is no clear point at which to fix the problem. I do not believe it was a design choice to allow general avoidance of access control.
 
 * There are use cases for writing to private members
-I believe these are not use cases that C++ should support. Deserialization is one that comes to mind, and it is an important tool, but it should be limited to contexts that have access to the members otherwise, through member functions of a type, or friends that the type declares.
+I believe these are not use cases that C++ should support. Deserialization is one that comes to mind, where writing to private data is imperitive. Serialization/Deserialization is an important use case for reflection.  It should be limited to code instantiated in contexts that have access to the members otherwise, without reflection, through member functions of a type, or friends that the type declares. While writing a deserializer for a type that doesn't support it now would be wonderful, the mechanism of writing to elements without checking access control is too blunt a tool, and too prone to casual misuse.
 
 There is no way to restrict a general facility for only good and approved purposes. Language mechanisms are neutral. The tools will be misused and useful mechanisms will have to be banned because of the potential for misuse. The programmer can not be trusted.
 
@@ -135,6 +135,8 @@ Even read access is not generally safe in a multithreaded environment, which is 
 
 * Private names become part of API
 The names of private data become part of the API of an object as changing them becomes a break in client code. Even without an ABI implication. Even if the client code can be changed, it increases the cost of any refactoring. Hyrum's Law gets a new tool to couple dependencies. That it is out of contract behavior, and that the implementor is entitled to break the code of the client, is of little use in practice.
+
+This is, admittedle, and exercise in line drawing. Access control is checked last, after name lookup, so private names can affect compilation today. However, someone checking for the existence of the name ~lock~ without using it in any way is not the same level of risk as someone looking for it and locking it from the outside.
 
 * Allowing unchecked access is a fundemental change to C++
 We have so far resisted the tempatation to deliberately provide tools to ignore access control.
