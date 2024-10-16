@@ -2,7 +2,7 @@
 #+AUTHOR: Steve Downey
 #+EMAIL: sdowney@gmail.com
 #+LANGUAGE: en
-#+DOCNUMBER:
+#+DOCNUMBER: D3473R0
 #+AUDIENCE: EWG, WG21
 #+SELECT_TAGS: export
 #+EXCLUDE_TAGS: noexport
@@ -71,7 +71,7 @@ Note that a “member access splice” like s.[:member_number(1):] is a more dir
 
 * Existing Examples of Access Violation
 
-It has been argued that C++ has existing mechanisms for access control avoidance. One in particular was presented.
+It has been argued that C++ has existing mechanisms for access control avoidance. One in particular was presented to me.
 
 #+begin_src C++
 class B {
@@ -138,7 +138,10 @@ Even read access is not generally safe in a multithreaded environment, which is 
 * Private names become part of API
 The names of private data become part of the API of an object as changing them becomes a break in client code. Even without an ABI implication. Even if the client code can be changed, it increases the cost of any refactoring. Hyrum's Law gets a new tool to couple dependencies. That it is out of contract behavior, and that the implementor is entitled to break the code of the client, is of little use in practice.
 
+* Allowing unchecked access is a fundemental change to C++
+We have so far resisted the tempatation to deliberately provide tools to ignore access control.
 
+We should contiue to do so.
 
 * References
 #+CITE_EXPORT: csl chicago-author-date.csl
