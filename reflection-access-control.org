@@ -126,22 +126,22 @@ Access to the name src_C++[:exports code]{B::priv} to take its address is not ch
 I believe this is a defect, even if there is no clear point at which to fix the problem. I do not believe it was a design choice to allow general avoidance of access control.
 
 * There are use cases for writing to private members
-I believe these are not use cases that C++ should support. Deserialization is one that comes to mind, where writing to private data is imperitive. Serialization/Deserialization is an important use case for reflection.  It should be limited to code instantiated in contexts that have access to the members otherwise, without reflection, through member functions of a type, or friends that the type declares. While writing a deserializer for a type that doesn't support it now would be wonderful, the mechanism of writing to elements without checking access control is too blunt a tool, and too prone to casual misuse.
+I believe these are not use cases that C++ should support. Deserialization is one that comes to mind, where writing to private data is imperative. Serialization/Deserialization is an important use case for reflection.  It should be limited to code instantiated in contexts that have access to the members otherwise, without reflection, through member functions of a type, or friends that the type declares. While writing a deserializer for a type that doesn't support it now would be wonderful, the mechanism of writing to elements without checking access control is too blunt a tool, and too prone to casual misuse.
 
-There is no way to restrict a general facility for only good and approved purposes. Language mechanisms are neutral. The tools will be misused and useful mechanisms will have to be banned because of the potential for misuse. The programmer can not be trusted.
+There is no way to restrict a general facility for only good and approved purposes. Language mechanisms are neutral. The tools will be misused and useful mechanisms will have to be banned because of the potential for misuse. The programmer cannot be trusted.
 
 * Read access is not Safe
-Even read access is not generally safe in a multithreaded environment, which is becoming more and more common. Reads from containers are unsafe, and usually undefined, in the face of any write operation. Reads from non-atomic data is also unsafe if the data is being written. Other laguanges mitigate this in various ways. Rust's type system makes read and write access safe. Java has monitors for classes and objects idiomatically used to control multithreaded access. C++ has no such conventions. This sort of bug is common today in ostream operators, of course, and in formatters. Making a formatter safe requires understanding of the type, and from the outside it will not be clear to a library what the required techniques are.
+Even read access is not generally safe in a multithreaded environment, which is becoming more and more common. Reads from containers are unsafe, and usually undefined, in the face of any write operation. Reads from non-atomic data is also unsafe if the data is being written. Other languages mitigate this in various ways. Rust's type system makes read and write access safe. Java has monitors for classes and objects idiomatically used to control multithreaded access. C++ has no such conventions. This sort of bug is common today in ostream operators, of course, and in formatters. Making a formatter safe requires understanding of the type, and from the outside it will not be clear to a library what the required techniques are.
 
 * Private names become part of API
-The names of private data become part of the API of an object as changing them becomes a break in client code. Even without an ABI implication. Even if the client code can be changed, it increases the cost of any refactoring. Hyrum's Law gets a new tool to couple dependencies. That it is out of contract behavior, and that the implementor is entitled to break the code of the client, is of little use in practice.
+The names of private data become part of the API of an object as changing them becomes a break in client code. Even without an ABI implication. Even if the client code can be changed, it increases the cost of any refactoring. Hyrum's Law gets a new tool to couple dependencies. That it is out of contract behavior, and that the implementer is entitled to break the code of the client, is of little use in practice.
 
-This is, admittedle, and exercise in line drawing. Access control is checked last, after name lookup, so private names can affect compilation today. However, someone checking for the existence of the name ~lock~ without using it in any way is not the same level of risk as someone looking for it and locking it from the outside.
+This is, admittedly, an exercise in line drawing. Access control is checked last, after name lookup, so private names can affect compilation today. However, someone checking for the existence of the name ~lock~ without using it in any way is not the same level of risk as someone looking for it and locking it from the outside.
 
-* Allowing unchecked access is a fundemental change to C++
-We have so far resisted the tempatation to deliberately provide tools to ignore access control.
+* Allowing unchecked access is a fundamental change to C++
+We have so far resisted the temptation to deliberately provide tools to ignore access control.
 
-We should contiue to do so.
+We should continue to do so.
 
 * References
 #+CITE_EXPORT: csl chicago-author-date.csl
