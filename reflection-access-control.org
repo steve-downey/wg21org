@@ -24,8 +24,8 @@
 #+OPTIONS: ^:nil
 #+OPTIONS: html-self-link-headlines:t
 
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="https://sdowney.org/css/wg21org.css"/>
+#+html_head: <link rel="stylesheet" type="text/css" href="https://sdowney.org/css/modus-operandi-tinted.css" />
 
 #+BIBLIOGRAPHY: wg21.bib
 #+BIBLIOGRAPHY: MyLibrary.bib
@@ -65,7 +65,7 @@ https://godbolt.org/z/6b1hf8631
 This example is just slightly modified from an example in 3.3 of P2966. https://godbolt.org/z/MEPb78ece
 
 #+begin_quote
-Note that a “member access splice” like s.[:member_number(1):] is a more direct member access mechanism than the traditional syntax. It doesn’t involve member name lookup, access checking, or — if the spliced reflection value represents a member function — overload resolution.
+Note that a “member access splice” like ~s.[:member_number(1):]~ is a more direct member access mechanism than the traditional syntax. It doesn’t involve member name lookup, access checking, or — if the spliced reflection value represents a member function — overload resolution.
 #+end_quote
 
 
@@ -121,7 +121,7 @@ int main() {
 #+end_src
 https://godbolt.org/z/1jqGMs1cr
 
-Access to the name B::priv to take its address is not checked when creating the explicit instantiation of Robber. This includes the instantiation of the friend function defined in the body of the template, ~get_private~, which has access to the template parameter object M, which holds the value of the member pointer to B::priv. Access control would normally apply to naming the type Robber<Getter, &B::priv>, but the friend function can be named without reference to the type that provided the definition. Access control is thereby skirted. The ~Getter~ type acts as a selection mechanism for overloads of ~get_private~, so that no access check is violated at the call site. The ~Robber~ type would not even need to be visible in the same TU.
+Access to the name src_C++[:exports code]{B::priv} to take its address is not checked when creating the explicit instantiation of src_C++[:exports code]{Robber}. This includes the instantiation of the friend function defined in the body of the template, ~get_private~, which has access to the template parameter object ~M~, which holds the value of the member pointer to src_C++[:exports code]{B::priv}. Access control would normally apply to naming the type src_C++[:exports code]{Robber<Getter, &B::priv>}, but the friend function can be named without reference to the type that provided the definition. Access control is thereby skirted. The ~Getter~ type acts as a selection mechanism for overloads of ~get_private~, so that no access check is violated at the call site. The ~Robber~ type would not even need to be visible in the same TU.
 
 I believe this is a defect, even if there is no clear point at which to fix the problem. I do not believe it was a design choice to allow general avoidance of access control.
 
