@@ -2,7 +2,7 @@
 #+AUTHOR: Steve Downey
 #+EMAIL: sdowney@gmail.com
 #+LANGUAGE: en
-#+DOCNUMBER: D3473R0
+#+DOCNUMBER: P3473R0
 #+AUDIENCE: EWG, WG21
 #+SELECT_TAGS: export
 #+EXCLUDE_TAGS: noexport
