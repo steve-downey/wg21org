@@ -1,0 +1,92 @@
+#+TITLE: "RFC 3514: The Security Flag" for C++
+#+AUTHOR: Steve Downey
+#+EMAIL: sdowney@gmail.com
+#+LANGUAGE: en
+#+DOCNUMBER: D3514R0
+#+AUDIENCE: LEWGI, WG21
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+DESCRIPTION:
+#+KEYWORDS:
+#+SUBTITLE: The Evil Bit
+#+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
+#+SOURCE_REPO: https://github.com/steve-downey/wg21org
+#+MACRO: filename (eval (magit-git-string "ls-files" ( buffer-file-name)))
+#+source_file: {{{filename}}}
+#+MACRO: gitver (eval (magit-git-string "describe" "--always" "--long" "--all" "--dirty" "--tags"))
+#+source_version: {{{gitver}}}
+
+#+STARTUP: showall
+
+#+HTML_DOCTYPE: html5
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
+#+OPTIONS: html-scripts:t html-style:t html5-fancy:t tex:t
+#+OPTIONS: ^:nil
+#+OPTIONS: html-self-link-headlines:t
+
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="https://sdowney.org/css/wg21org.css"/>
+#+html_head: <link rel="stylesheet" type="text/css" href="https://sdowney.org/css/modus-operandi-tinted.css" />
+
+#+BIBLIOGRAPHY: wg21.bib
+#+BIBLIOGRAPHY: MyLibrary.bib
+#+BIBLIOGRAPHY: rfc3514.bib
+
+#+begin_abstract
+Abstract: Compilers, interpreters, static analysis tools, and the like often have difficulty distinguishing between code that has malicious intent and code that is merely unusual. We define a security flag trait as a means of distinguishing the two cases. Prior art is established by [cite:@rfc3514]
+#+end_abstract
+
+* Introduction
+Detecting and determining malicious intent is a difficult problem. To solve this, we require that code with malicious intent provide a specialization of a variable template that can be checked by a concept. Benign types will specialize the boolean variable template to false, which will also be the default, malicious types will specialize the template to be true.
+
+
+* Comparison Table
+#+begin_cmptbl
+#+begin_cmptblcell before
+*Before*
+#+end_cmptblcell
+#+begin_cmptblcell after
+*After*
+#+end_cmptblcell
+#+begin_cmptblcell before
+#+begin_src C++
+template<typename T>
+int meow(T t);
+#+end_src
+#+end_cmptblcell
+#+begin_cmptblcell after
+#+begin_src C++
+template<typename T>
+int meow(T t) requires !std::security::evil<T>;
+#+end_src
+#+end_cmptblcell
+#+end_cmptbl
+
+* Implementation
+#+begin_src cpp
+namespace security {
+template< class T >
+constexpr bool evil_bit = false;
+
+template< class T >
+concept evil = evil_bit<std::remove_cvref_t<T>>;
+}
+#+end_src
+
+Note that as the evil bit is not a member of ~T~ the evil bit can be set externally to the type, in order support the marking of types that were implemented before the evil bit was standardardized.
+
+Malicious types that do not define ~evil_bit<T>~ to be true are IFNDR.
+
+* Experience
+The widespread adoption and improvements in Internet safety and security since RFC 3514 was proposed in 2003 speak for themselves.
+
+* Open Questions
+- Should ~evil_bit~ be set for deprecated facilities?
+- Should non-Unicode locales be marked ~evil~?
+- Should ~std::regex~?
+
+* References
+#+CITE_EXPORT: csl chicago-author-date.csl
+
+#+PRINT_BIBLIOGRAPHY:
+
+Exported: {{{time(%Y-%m-%d %T)}}}
