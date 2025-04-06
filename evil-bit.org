@@ -2,7 +2,7 @@
 #+AUTHOR: Steve Downey
 #+EMAIL: sdowney@gmail.com
 #+LANGUAGE: en
-#+DOCNUMBER: D3514R0
+#+DOCNUMBER: P3514R0
 #+AUDIENCE: LEWGI, WG21
 #+SELECT_TAGS: export
 #+EXCLUDE_TAGS: noexport
