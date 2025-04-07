@@ -11,10 +11,12 @@
 #+SUBTITLE: The Evil Bit
 #+DATE: 2025-04-01
 #+SOURCE_REPO: https://github.com/steve-downey/wg21org
-#+MACRO: filename (eval (magit-git-string "ls-files" ( buffer-file-name)))
+#+MACRO: filename (eval (magit-git-string "ls-files" (buffer-file-name)))
 #+source_file: {{{filename}}}
 #+MACRO: gitver (eval (magit-git-string "describe" "--always" "--long" "--all" "--dirty" "--tags"))
 #+source_version: {{{gitver}}}
+#+MACRO: git-commit (eval magit-buffer-revision)
+#+git_commit: {{{git-commit}}}
 
 #+STARTUP: showall
 
@@ -139,4 +141,7 @@ Similarly, although it would be desirable for contract checks to not be ~evil~, 
 
 #+PRINT_BIBLIOGRAPHY:
 
+
 Exported: {{{time(%Y-%m-%d %T)}}}
+#+MACRO: bloblink (eval (forge-get-url :blob magit-buffer-revision (magit-git-string "ls-files" (buffer-file-name))))
+{{{bloblink}}}

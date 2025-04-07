@@ -40,35 +40,35 @@
 (setq use-package-compute-statistics t)
 
 ;;; remove a package from the builtin list so it can be upgraded
-(defun exordium-ignore-builtin (pkg)
+(defun wg21org-ignore-builtin (pkg)
   (assq-delete-all pkg package--builtins)
   (assq-delete-all pkg package--builtin-versions))
 
 
 ;;; Org mode
 
-(defcustom exordium-enable-org-export t
+(defcustom wg21org-enable-org-export t
   "Configure org mode for code export and babel. Setting this to
   nil makes emacs starts a little bit faster, if you don't need
   to use this feature."
-  :group 'exordium
+  :group 'wg21org
   :type  'boolean)
 
-(defcustom exordium-no-org-babel-confirm nil
+(defcustom wg21org-no-org-babel-confirm nil
   "Disable confirmation requests when evaluating code blocks when
   using org-babel. Setting to non-nil could conceivably result in
   accidentally executing code."
-  :group 'exordium
+  :group 'wg21org
   :type  'boolean)
 
-(defcustom exordium-org-export-css nil
+(defcustom wg21org-org-export-css nil
   "Export from org mode using a css style sheet, rather than
   inline styles. This allows more control over the appearance, at
   the cost of having to maintain a stylesheet."
-  :group 'exordium
+  :group 'wg21org
   :type  'boolean)
 
-(defcustom exordium-org-export-css-stylesheet ""
+(defcustom wg21org-org-export-css-stylesheet ""
   "The stylesheet to use in html based org export. This will be
   loaded into `org-html-head' and exported. For example,
 
@@ -77,13 +77,13 @@
   To generate a basic css file that matches your theme, use
   `org-html-htmlize-generate-css' which will create a buffer with
   css definitions for all currently defined faces."
-  :group 'exordium
+  :group 'wg21org
   :type  'string)
 
 
-(exordium-ignore-builtin 'org)
+(wg21org-ignore-builtin 'org)
 
-(defun exordium--org-babel-after-execute ()
+(defun wg21org--org-babel-after-execute ()
   "Redisplay inline images in subtree if cursor in source block with :result graphics.
 
 Rationale:
@@ -116,17 +116,17 @@ This is a spin off https://stackoverflow.com/a/66911315/519827, but REFRESH is s
   (org-fontify-whole-heading-line t)
   (org-fontify-quote-and-verse-blocks t)
   (org-src-preserve-indentation t)
-  (org-confirm-babel-evaluate (not exordium-no-org-babel-confirm)
+  (org-confirm-babel-evaluate (not wg21org-no-org-babel-confirm)
                               "Turn off the confirmation for code eval when using org-babel.")
   (org-support-shift-select t)
   :config
   (add-hook 'org-mode-hook #'turn-on-visual-line-mode)
 
 
-  (add-hook 'org-babel-after-execute-hook #'exordium--org-babel-after-execute)
+  (add-hook 'org-babel-after-execute-hook #'wg21org--org-babel-after-execute)
 
-  ;; TODO: delete `exordium-enable-org-export'??
-  (when exordium-enable-org-export
+  ;; TODO: delete `wg21org-enable-org-export'??
+  (when wg21org-enable-org-export
     ;; Enable org-babel for perl, ruby, sh, python, emacs-lisp, C, C++, etc
     ;; TODO: add extra languages configurable by user
     (org-babel-do-load-languages
@@ -140,7 +140,7 @@ This is a spin off https://stackoverflow.com/a/66911315/519827, but REFRESH is s
        (dot        . t)
        (sql        . t)))))
 
-(exordium-ignore-builtin 'htmlize)
+(wg21org-ignore-builtin 'htmlize)
 
 (use-package htmlize
   :ensure t)
@@ -152,37 +152,37 @@ This is a spin off https://stackoverflow.com/a/66911315/519827, but REFRESH is s
 (use-package ox-html
   :ensure org
   :after (org)
-  :if exordium-org-export-css
+  :if wg21org-org-export-css
   :custom
   (org-html-htmlize-output-type 'css
                                 "Configure export using a css style sheet")
-  (org-html-head exordium-org-export-css-stylesheet
+  (org-html-head wg21org-org-export-css-stylesheet
                  "Configure export using a css style sheet"))
 
 (use-package ox-md
   :ensure org
   :after (org)
-  :if exordium-enable-org-export)
+  :if wg21org-enable-org-export)
 
 (use-package ox-beamer
   :ensure org
   :after (org)
-  :if exordium-enable-org-export)
+  :if wg21org-enable-org-export)
 
 (use-package ox-odt
   :ensure org
   :after (org)
-  :if exordium-enable-org-export)
+  :if wg21org-enable-org-export)
 
 (use-package ox-publish
   :ensure org
   :after (org)
-  :if exordium-enable-org-export)
+  :if wg21org-enable-org-export)
 
 (use-package ox-gfm
   :ensure t
   :after (org)
-  :if exordium-enable-org-export)
+  :if wg21org-enable-org-export)
 
 (use-package graphviz-dot-mode
   :config
@@ -260,3 +260,14 @@ This is a spin off https://stackoverflow.com/a/66911315/519827, but REFRESH is s
 
 (use-package magit
   :ensure t)
+
+;;; org links to magit/forge
+(use-package orgit
+  :after org magit
+  :ensure t
+  :defer t)
+
+(use-package orgit-forge
+  :after org forge
+  :ensure t
+  :defer t)

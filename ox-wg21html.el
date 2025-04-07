@@ -61,14 +61,16 @@
 ;; \\docnumber{" (org-export-data docnumber info) "}
 ;; \\email{" (org-export-data email info) "}
 ;; \\audience{" (org-export-data audience info) "}\n"))
-  (let ((audience (plist-get info :audience))
-        (docnumber (plist-get info :docnumber))
-        (author (plist-get info :author))
-        (date (plist-get info :date))
-        (source_file (plist-get info :source_file))
-        (source_repo (plist-get info :source_repo))
-        (source_version (plist-get info :source_version))
-        (email (plist-get info :email)))
+  (let* ((audience (plist-get info :audience))
+         (docnumber (plist-get info :docnumber))
+         (author (plist-get info :author))
+         (date (plist-get info :date))
+         (source_file (plist-get info :source_file))
+         (source_repo (plist-get info :source_repo))
+         (source_version (plist-get info :source_version))
+         (git_commit (plist-get info :git_commit))
+         (email (plist-get info :email))
+         (link (forge-get-url :blob git_commit source_file)))
     (concat
     "
    <div data-fill-with=\"spec-metadata\">
@@ -80,6 +82,7 @@
      <dt>Source: <dd><a href=\"" (org-export-data source_repo info) "\"/>" (org-export-data source_repo info) "</a>
                  <dd>" (org-export-data source_file info) "
                  <dd>" (org-export-data source_version info) "
+                 <dd><a href=\"" (org-export-data link info) "\"/>" (org-export-data link info) "</a>
     </dl>
    </div>\n"))
 )
