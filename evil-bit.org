@@ -141,7 +141,7 @@ Similarly, although it would be desirable for contract checks to not be ~evil~, 
 
 #+PRINT_BIBLIOGRAPHY:
 
-
 Exported: {{{time(%Y-%m-%d %T)}}}
-#+MACRO: bloblink (eval (forge-get-url :blob magit-buffer-revision (magit-git-string "ls-files" (buffer-file-name))))
+
+#+MACRO: bloblink (eval (forge-get-url :blob (nth 1 (split-string (magit-git-string "ls-files" "-s" (buffer-file-name)))) (magit-git-string "ls-files" (buffer-file-name)) nil nil 't))
 {{{bloblink}}}

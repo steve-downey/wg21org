@@ -82,7 +82,6 @@
      <dt>Source: <dd><a href=\"" (org-export-data source_repo info) "\"/>" (org-export-data source_repo info) "</a>
                  <dd>" (org-export-data source_file info) "
                  <dd>" (org-export-data source_version info) "
-                 <dd><a href=\"" (org-export-data link info) "\"/>" (org-export-data link info) "</a>
     </dl>
    </div>\n"))
 )
