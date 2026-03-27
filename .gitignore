@@ -23,3 +23,16 @@ tools/sections
 *.synctex*
 wg21.bib
 .deps/
+
+_minted*/
+
+# Output Files
+*.tex
+*.html
+*.pdf
+*.epub
+
+
+# Emacs
+emacs.d/eln-cache/
+emacs.d/elpa*/
