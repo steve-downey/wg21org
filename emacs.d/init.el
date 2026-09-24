@@ -1,43 +1,51 @@
+;;; init.el --- Init -*- no-byte-compile: t; lexical-binding: t; -*-
+;;; Commentary:
+;;; Configuration after UI is initialized
+;;; Code:
+
 ;; Save any custom set variable in exordium-custom-file rather than at the end of init.el:
 (setq custom-file (locate-user-emacs-file "custom.el"))
 
-(require 'package)
-(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
-(setq package-user-dir
-      (locate-user-emacs-file (concat "elpa-" emacs-version)))
+(defconst wg21org-elpa-name (concat "elpa-" emacs-version)
+  "The directory name to store elpa downloads in.")
+
+;; set up ELPA system
+(setq package-user-dir (expand-file-name wg21org-elpa-name
+                                         user-emacs-directory))
+(setq package-enable-at-startup t)
+(setq package-quickstart nil)
+(setq use-package-always-ensure t)
+(setq use-package-compute-statistics t)
+(setq package-archives '(("melpa" . "https://melpa.org/packages/")
+                         ("melpa-stable" . "https://stable.melpa.org/packages/")
+                         ("gnu" . "https://elpa.gnu.org/packages/")
+                         ("nongnu" . "https://elpa.nongnu.org/nongnu/")))
+
 
 (when (fboundp 'native-comp-available-p)
   (setq package-native-compile (native-comp-available-p)))
 (package-initialize)
 
-;; Load the packages we need if they are not installed already
-(let ((package-pinned-packages (append
-                                '((use-package             . "melpa")
-                                  (diminish                . "melpa")
-                                  (bind-key                . "melpa"))))
-      (has-refreshed nil))
+;; ;; Load the packages we need if they are not installed already
+;; (let ((package-pinned-packages (append
+;;                                 '((use-package             . "melpa")
+;;                                   (diminish                . "melpa")
+;;                                   (bind-key                . "melpa"))))
+;;       (has-refreshed nil))
 
-  (defun update-package (p  has-refreshed)
-    (unless (package-installed-p p)
-      (unless has-refreshed
-        (message "Refreshing package database...")
-        (package-refresh-contents)
-        (setq has-refreshed t)
-        (message "Done."))
-      (package-install p)))
+;;   (defun update-package (p  has-refreshed)
+;;     (unless (package-installed-p p)
+;;       (unless has-refreshed
+;;         (message "Refreshing package database...")
+;;         (package-refresh-contents)
+;;         (setq has-refreshed t)
+;;         (message "Done."))
+;;       (package-install p)))
 
-  (dolist (pkg package-pinned-packages)
-    (let ((p (car pkg)))
-      (update-package p has-refreshed))))
+;;   (dolist (pkg package-pinned-packages)
+;;     (let ((p (car pkg)))
+;;       (update-package p has-refreshed))))
 
-;; This is only needed once, near the top of the file
-(eval-when-compile
-  ;; Following line is not needed if use-package.el is in ~/.emacs.d
-  (require 'use-package))
-
-(require 'use-package-ensure)
-(setq use-package-always-ensure t)
-(setq use-package-compute-statistics t)
 
 ;;; remove a package from the builtin list so it can be upgraded
 (defun wg21org-ignore-builtin (pkg)
@@ -81,7 +89,7 @@
   :type  'string)
 
 
-(wg21org-ignore-builtin 'org)
+;;(wg21org-ignore-builtin 'org)
 
 (defun wg21org--org-babel-after-execute ()
   "Redisplay inline images in subtree if cursor in source block with :result graphics.
@@ -140,10 +148,9 @@ This is a spin off https://stackoverflow.com/a/66911315/519827, but REFRESH is s
        (dot        . t)
        (sql        . t)))))
 
-(wg21org-ignore-builtin 'htmlize)
+;;(wg21org-ignore-builtin 'htmlize)
 
-(use-package htmlize
-  :ensure t)
+(use-package htmlize)
 
 (use-package ox-html
   :ensure org
@@ -180,7 +187,6 @@ This is a spin off https://stackoverflow.com/a/66911315/519827, but REFRESH is s
   :if wg21org-enable-org-export)
 
 (use-package ox-gfm
-  :ensure t
   :after (org)
   :if wg21org-enable-org-export)
 
@@ -251,23 +257,28 @@ This is a spin off https://stackoverflow.com/a/66911315/519827, but REFRESH is s
   :after org)
 
 (use-package engrave-faces
-  :ensure t
   :init
   (setq org-latex-src-block-backend 'engraved)
   (setq org-latex-engraved-theme t))
 
 (use-package with-editor)
 
-(use-package magit
-  :ensure t)
+(use-package magit)
+
+(use-package forge)
 
 ;;; org links to magit/forge
 (use-package orgit
   :after org magit
-  :ensure t
   :defer t)
 
 (use-package orgit-forge
   :after org forge
-  :ensure t
   :defer t)
+
+(use-package citeproc :after org)
+
+(use-package rainbow-delimiters)
+(use-package prog-mode
+  :ensure nil
+  :hook ((prog-mode . rainbow-delimiters-mode)))

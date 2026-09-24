@@ -1,4 +1,4 @@
-;; ox-wg21latex.el --- org exporter for WG21 papers in Latex format
+;; ox-wg21latex.el --- org exporter for WG21 papers in Latex format  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2024 Steve Downey
 

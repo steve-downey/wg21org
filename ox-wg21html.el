@@ -1,4 +1,4 @@
-;; ox-wg21html.el --- org exporter for WG21 papers in Latex format
+;; ox-wg21html.el --- org exporter for WG21 papers in Latex format  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2024 Steve Downey
 
@@ -70,7 +70,7 @@
          (source_version (plist-get info :source_version))
          (git_commit (plist-get info :git_commit))
          (email (plist-get info :email))
-         (link (forge-get-url :blob git_commit source_file)))
+         (link (forge-get-url :blob (or git_commit "") (or source_file ""))))
     (concat
     "
    <div data-fill-with=\"spec-metadata\">
@@ -93,7 +93,8 @@
     (:source_file "SOURCE_FILE" nil "" parse)
     (:source_version "SOURCE_VERSION" nil "" parse)
     (:audience "AUDIENCE" nil wg21-audience nil)
-    (:toc-div-id "TOC_DIV_ID" nil wg21-toc-div-id nil))
+    (:toc-div-id "TOC_DIV_ID" nil wg21-toc-div-id nil)
+    (:html-wrap-src-lines nil nil org-html-wrap-src-lines))
 
   :translate-alist '((special-block . my-html-special-block)
                      (inner-template . my-wg21-html-inner-template)
