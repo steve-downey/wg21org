@@ -1281,8 +1281,42 @@ pre.src-nxml:before { content: 'XML'; }
 pre.src-conf:before { content: 'Configuration File'; }
 
 
-.cmptbl {display: grid; grid-template-columns: 1fr 1fr;justify-content: center;grid-row-gap: 12px;}
-.cmptblcell {border: 1px solid black;grid-gap: 20px;text-align:center}
+/* Comparison tables: before and after columns of equal width.  The
+   fixed layout keeps long code lines scrolling inside their cell
+   instead of widening the table past the page. */
+table.cmptbl {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    border: 1px solid #888;
+    margin: 1em 0;
+}
+table.cmptbl tr,
+table.cmptbl tr > td,
+table.cmptbl tr > th {
+    background: none;
+}
+table.cmptbl tr > td,
+table.cmptbl tr > th {
+    border: 1px solid #888;
+    padding: .5em;
+    vertical-align: top;
+}
+table.cmptbl tr > th {
+    text-align: center;
+}
+table.cmptbl th p {
+    margin: 0;
+}
+table.cmptbl td > :first-child {
+    margin-top: 0;
+}
+table.cmptbl td > :last-child {
+    margin-bottom: 0;
+}
+table.cmptbl pre {
+    margin: 0;
+}
 .addedblock {color: green; text-decoration-line: underline;}
 .underline {color: green; text-decoration-line: underline;}
 .removedblock {color: red; text-decoration-line: line-through;}

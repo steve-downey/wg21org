@@ -44,6 +44,13 @@ check: | $(DEPS_DIR)
 $(DEPS_DIR):
 	mkdir -p $@
 
+.PHONY: test
+test:
+	$(EMACS) --batch --init-directory=emacs.d \
+	--load emacs.d/export-init.el \
+	--load test/ox-wg21html-test.el \
+	-f ert-run-tests-batch-and-exit
+
 .PHONY: clean
 clean:
 	latexmk -c

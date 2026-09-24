@@ -30,7 +30,93 @@
 
 (defun my-html-special-block (special-block contents info)
   "Process my special block.  SPECIAL-BLOCK CONTENTS INFO."
-   (org-html-special-block special-block contents info))
+  (if (string= (downcase (org-element-property :type special-block)) "cmptbl")
+      (wg21-html-cmptbl special-block info)
+    (org-html-special-block special-block contents info)))
+
+;;; Comparison tables
+
+;; #+begin_cmptbl holds #+begin_cmptblcell blocks whose parameter names
+;; their column, `before' or `after'.  Each `before' starts a row.  A
+;; first row with no code in it is the header.  The LaTeX exporter reads
+;; the same markup.
+
+(defun wg21-html--cmptbl-cell-p (element)
+  "Non-nil if ELEMENT is a cmptblcell special block."
+  (and (eq (org-element-type element) 'special-block)
+       (string= (downcase (org-element-property :type element)) "cmptblcell")))
+
+(defun wg21-html--cmptbl-side (cell)
+  "Return the column name of CELL, from its parameter, or nil."
+  (let ((side (org-element-property :parameters cell)))
+    (and side (downcase (org-trim side)))))
+
+(defun wg21-html--cmptbl-rows (cmptbl)
+  "Group the children of CMPTBL into rows.
+Each row is a list of cells.  Anything that is not a cell is a row of
+its own, a list of just that element, so it is shown rather than dropped."
+  (let (rows row)
+    (dolist (child (org-element-contents cmptbl))
+      (cond
+       ((not (wg21-html--cmptbl-cell-p child))
+        (when row (push (nreverse row) rows) (setq row nil))
+        (push (list child) rows))
+       ((or (equal (wg21-html--cmptbl-side child) "before")
+            (>= (length row) 2))
+        (when row (push (nreverse row) rows))
+        (setq row (list child)))
+       (t (push child row))))
+    (when row (push (nreverse row) rows))
+    (nreverse rows)))
+
+(defun wg21-html--cmptbl-header-p (row)
+  "Non-nil if ROW, a list of cells, holds only prose, so is a header."
+  (and (consp row)
+       (seq-every-p #'wg21-html--cmptbl-cell-p row)
+       (not (org-element-map row '(src-block example-block fixed-width table)
+              #'identity nil t))))
+
+(defun wg21-html--cmptbl-row (row tag columns info)
+  "Return ROW as a <tr>, with cells as TAG elements.
+COLUMNS is the width of the table.  INFO is the export plist."
+  (if (not (wg21-html--cmptbl-cell-p (car row)))
+      (let ((note (org-trim (org-export-data (car row) info))))
+        (if (string-empty-p note) ""
+          (format "<tr><td class=\"cmptbl-note\" colspan=\"%d\">%s</td></tr>\n"
+                  columns note)))
+    (concat
+     "<tr>"
+     (mapconcat
+      (lambda (cell)
+        (let ((side (wg21-html--cmptbl-side cell)))
+          (format "<%s%s>%s</%s>"
+                  tag
+                  (if side (format " class=\"cmptbl-%s\"" side) "")
+                  (org-trim (org-export-data (org-element-contents cell) info))
+                  tag)))
+      row "")
+     ;; A row missing its after cell still spans the table.
+     (let ((missing (- columns (length row))))
+       (and (> missing 0)
+            (format "<%s colspan=\"%d\"></%s>" tag missing tag)))
+     "</tr>\n")))
+
+(defun wg21-html-cmptbl (cmptbl info)
+  "Transcode the comparison table CMPTBL into an HTML table.
+INFO is a plist holding export options."
+  (let* ((rows (wg21-html--cmptbl-rows cmptbl))
+         (columns (apply #'max 1 (mapcar (lambda (row) (if (wg21-html--cmptbl-cell-p (car row)) (length row) 1))
+                                         rows)))
+         (head (and (wg21-html--cmptbl-header-p (car rows)) (pop rows)))
+         (name (org-element-property :name cmptbl)))
+    (concat
+     (format "<table class=\"cmptbl\"%s>\n"
+             (if name (format " id=\"%s\"" (org-html--reference cmptbl info)) ""))
+     (and head
+          (concat "<thead>\n" (wg21-html--cmptbl-row head "th" columns info) "</thead>\n"))
+     "<tbody>\n"
+     (mapconcat (lambda (row) (wg21-html--cmptbl-row row "td" columns info)) rows "")
+     "</tbody>\n</table>\n")))
 
 
 ;; (defun my-wg21-export-to-html
