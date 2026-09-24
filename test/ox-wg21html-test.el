@@ -117,7 +117,7 @@ PROBE is a JavaScript expression whose string value is returned."
             (insert "<!DOCTYPE html><html><head><meta charset=\"utf-8\">"
                     "<link rel=\"stylesheet\" href=\"file://"
                     (expand-file-name "wg21org.css" ox-wg21html-test-root) "\">"
-                    "</head><body style=\"width: 40em\">" body
+                    "</head><body>" body
                     "<script>document.title = String(" probe ");</script>"
                     "</body></html>"))
           (with-temp-buffer
@@ -144,9 +144,7 @@ PROBE is a JavaScript expression whose string value is returned."
                ox-wg21html-test-cmptbl)))
     (should (equal (ox-wg21html-test-render
                     (ox-wg21html-test-export long)
-                    (concat "[...document.querySelectorAll('table.cmptbl td')].every("
-                            "td => td.getBoundingClientRect().right"
-                            " <= document.body.getBoundingClientRect().right + 1)"))
+                    "document.documentElement.scrollWidth <= document.documentElement.clientWidth")
                    "true"))))
 
 (ert-deftest wording-change-links ()

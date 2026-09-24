@@ -240,6 +240,7 @@ body.toc-sidebar #toc-jump:not(:focus) {
 @media screen and (min-width: 78em) {
     body.toc-sidebar {
         padding-left: 22rem;
+        --cmptbl-width: min(100vw - 24rem, 72rem);
     }
 }
 
@@ -418,36 +419,55 @@ thead th {
 .org-right  { text-align: right; }
 .org-center { text-align: center; }
 
-/* Comparison tables: before and after columns of equal width.  The
-   fixed layout keeps long code lines scrolling inside their cell
+/* Comparison tables: before and after columns of equal width.  Code
+   is what they are for, so it gets the room: each block fills its cell
+   with no frame of its own, and on wide screens the table grows past
+   the text column, centred, up to --cmptbl-width.  The fixed layout
+   keeps a line too long even for that scrolling inside its cell
    instead of widening the table past the page. */
+:root {
+    --cmptbl-width: min(100vw - 2rem, 72rem);
+}
 table.cmptbl {
-    width: 100%;
+    width: max(100%, var(--cmptbl-width));
+    margin: 1.5em calc((100% - max(100%, var(--cmptbl-width))) / 2);
     table-layout: fixed;
-    border: 1px solid var(--rule);
+    border-collapse: collapse;
     font-size: inherit;
 }
 table.cmptbl tr > td,
 table.cmptbl tr > th {
-    border: 1px solid var(--rule);
-    padding: .5em;
+    padding: 0;
+    border: 0;
+    border-top: 1px solid var(--rule);
     vertical-align: top;
+    background: none;
 }
-table.cmptbl tr > th {
+table.cmptbl tr > td + td,
+table.cmptbl tr > th + th {
+    border-left: 1px solid var(--rule);
+}
+table.cmptbl thead tr > th {
+    border-top: 0;
+    border-bottom: 2px solid var(--rule);
+    padding: .3em .6em;
     text-align: center;
-    background: var(--subtle-bg);
+    font-family: var(--sans);
 }
 table.cmptbl th p {
     margin: 0;
 }
-table.cmptbl td > :first-child {
-    margin-top: 0;
+table.cmptbl td > :not(.org-src-container) {
+    margin: .5em .6em;
 }
-table.cmptbl td > :last-child {
-    margin-bottom: 0;
+table.cmptbl .org-src-container {
+    margin: 0;
 }
 table.cmptbl pre {
     margin: 0;
+    padding: .5em .6em;
+    border: 0;
+    border-radius: 0;
 }
 
 /** Figures, notes, references ***********************************************/
@@ -574,5 +594,9 @@ figcaption, .figure-number, .table-number, .listing-number {
     }
     pre, figure, table.cmptbl tr, .footdef {
         break-inside: avoid;
+    }
+    table.cmptbl {
+        width: 100%;
+        margin: 1.5em 0;
     }
 }
