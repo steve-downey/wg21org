@@ -28,15 +28,23 @@ wg21.bib:
 %.html: %.org ox-wg21html.el wg21-links.el emacs.d/export-init.el
 	$(EXPORT_HTML)
 
+# A paper must be one self-contained file: anything it would load from
+# elsewhere breaks once it is uploaded, or once the other server changes.
+EXTERNAL := <link[^>]*stylesheet|src=.?(https?:)?//|@import|url\(
+
 # Export every paper, keep going past failures, and report them all.
 .PHONY: check
 check:
 	@failed=; \
 	for org in $(PAPERS); do \
 	  html=$${org%.org}.html; \
-	  if $(MAKE) --no-print-directory -B $$html > $(DEPS_DIR)/$$html.log 2>&1; \
-	  then echo "ok      $$html"; \
-	  else echo "FAILED  $$html  (see $(DEPS_DIR)/$$html.log)"; failed="$$failed $$html"; fi; \
+	  if ! $(MAKE) --no-print-directory -B $$html > $(DEPS_DIR)/$$html.log 2>&1; \
+	  then echo "FAILED  $$html  (see $(DEPS_DIR)/$$html.log)"; failed="$$failed $$html"; \
+	  elif grep -Eqi '$(EXTERNAL)' $$html; \
+	  then echo "FAILED  $$html  loads external resources:"; \
+	       grep -Eoi '$(EXTERNAL)[^>]{0,80}' $$html | sed 's/^/          /'; \
+	       failed="$$failed $$html"; \
+	  else echo "ok      $$html"; fi; \
 	done; \
 	test -z "$$failed"
 check: | $(DEPS_DIR)

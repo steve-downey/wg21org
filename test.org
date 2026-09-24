@@ -14,8 +14,6 @@
 #+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
 #+OPTIONS: html-scripts:nil html-style:nil html5-fancy:t tex:t
 
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-operandi-tinted.css"/>
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
 
 #+INFOJS_OPT:
 

@@ -22,6 +22,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'ox-html)
 (require 'format-spec)
 (require 'wg21-links
@@ -151,27 +152,34 @@ INFO is a plist holding export options."
   :type 'string)
 
 (defcustom wg21-forge-blob-url-formats
-  '(("\\`https?://github\\.com/" . "%r/blob/%c/%p")
-    ("\\`https?://gitlab\\.com/" . "%r/-/blob/%c/%p")
-    ("" . "%r/src/commit/%c/%p"))
-  "Alist of (REGEXP . FORMAT) for permalinks to a file at a commit.
-The first REGEXP matching the repository URL wins.  In FORMAT, %r
-is the repository URL, %c the commit, and %p the path of the file
-within the repository.  The catch-all entry is the Gitea/Forgejo
-layout."
+  '(("\\`https?://github\\.com/" "%r/blob/%c/%p" "?plain=1#L%l")
+    ("\\`https?://gitlab\\.com/" "%r/-/blob/%c/%p" "?plain=1#L%l")
+    ("" "%r/src/commit/%c/%p" "?display=source#L%l"))
+  "Permalink formats for a file at a commit, per forge.
+Each entry is (REGEXP FILE-FORMAT LINE-FORMAT); the first REGEXP
+matching the repository URL wins.  In FILE-FORMAT, %r is the
+repository URL, %c the commit, and %p the path of the file within
+the repository.  LINE-FORMAT is appended to link to line %l of the
+file's source, rather than to a rendered view where lines have no
+anchors.  The catch-all entry is the Gitea/Forgejo layout."
   :group 'my-export-wg21
-  :type '(alist :key-type regexp :value-type string))
+  :type '(repeat (list regexp string string)))
 
-(defun wg21-git-string (&rest args)
-  "Run git with ARGS in `default-directory'; return its first output line.
+(defun wg21-git-output (&rest args)
+  "Run git with ARGS in `default-directory'; return its output.
 Return nil if git fails or prints nothing.  Nil ARGS are dropped, so
 a missing `buffer-file-name' does not become a literal argument."
   (with-temp-buffer
     (when (and (eql 0 (apply #'process-file "git" nil '(t nil) nil
                              (delq nil args)))
                (> (buffer-size) 0))
-      (goto-char (point-min))
-      (buffer-substring-no-properties (point) (line-end-position)))))
+      (buffer-string))))
+
+(defun wg21-git-string (&rest args)
+  "Run git with ARGS in `default-directory'; return its first output line.
+Return nil if git fails or prints nothing."
+  (let ((output (apply #'wg21-git-output args)))
+    (and output (car (split-string output "\n")))))
 
 (defun wg21-git-https-url (url)
   "Turn the git remote URL into the https URL of its web page.
@@ -186,13 +194,16 @@ An ssh port is dropped, since it says nothing about the web port."
        ((string-match "\\`\\(?:[^@/]+@\\)?\\([^:/]+\\):\\(.*\\)\\'" url)
         (format "https://%s/%s" (match-string 1 url) (match-string 2 url)))))))
 
-(defun wg21-git-blob-url (repo commit path)
+(defun wg21-git-blob-url (repo commit path &optional line)
   "Return a permalink to PATH at COMMIT in the web view of REPO.
+With LINE, link to that line of the file's source.
 See `wg21-forge-blob-url-formats'."
   (when (and repo commit path)
-    (let ((fmt (cdr (seq-find (lambda (entry) (string-match-p (car entry) repo))
-                              wg21-forge-blob-url-formats))))
-      (format-spec fmt `((?r . ,repo) (?c . ,commit) (?p . ,path))))))
+    (let ((formats (cdr (seq-find (lambda (entry) (string-match-p (car entry) repo))
+                                  wg21-forge-blob-url-formats)))
+          (spec `((?r . ,repo) (?c . ,commit) (?p . ,path) (?l . ,line))))
+      (concat (format-spec (nth 0 formats) spec)
+              (and line (format-spec (nth 1 formats) spec))))))
 
 (defun wg21-source-url (&optional file)
   "Return a permalink to FILE, by default the current buffer's file, at HEAD.
@@ -208,6 +219,12 @@ Intended for use in macros, e.g.
          (wg21-git-string "ls-files" "--full-name" "--" file))))))
 
 (defun wg21-git-metadata (info)
+  "Return a plist of git metadata for the document being exported.
+The result is computed once per export and kept in INFO."
+  (or (plist-get info :wg21-git)
+      (plist-get (plist-put info :wg21-git (wg21-git--metadata info)) :wg21-git)))
+
+(defun wg21-git--metadata (info)
   "Return a plist of git metadata for the document being exported.
 Each of :repo, :file, :version and :commit comes from the matching
 keyword (SOURCE_REPO, SOURCE_FILE, SOURCE_VERSION, GIT_COMMIT) if the
@@ -235,6 +252,48 @@ INFO is a plist holding export options."
                      (wg21-git-string "rev-parse" "HEAD"))))
     (list :repo repo :file file :version version :commit commit
           :url (and file (wg21-git-blob-url repo commit file)))))
+
+(defun wg21-git--headline-lines (info)
+  "Map each headline to its line in the committed source of the document.
+Return a hash table from headline element to line number.  Headlines
+are found in document order in `git show COMMIT:FILE', so the links
+point at the file the permalinks name, not at unsaved edits.  A
+headline with no match there, such as a new one or one from
+#+INCLUDE, is absent.  INFO is a plist holding export options."
+  (let* ((git (wg21-git-metadata info))
+         (lines (make-hash-table :test #'eq))
+         (input (plist-get info :input-file))
+         (default-directory (if input (file-name-directory input)
+                              default-directory))
+         (text (and (plist-get git :commit) (plist-get git :file)
+                    (wg21-git-output "show" (concat (plist-get git :commit) ":"
+                                                    (plist-get git :file))))))
+    (when text
+      (with-temp-buffer
+        (insert text)
+        (goto-char (point-min))
+        (org-element-map (plist-get info :parse-tree) 'headline
+          (lambda (headline)
+            (let ((start (point))
+                  (title (org-element-property :raw-value headline)))
+              (if (re-search-forward (concat "^\\*+ .*" (regexp-quote title)) nil t)
+                  (puthash headline (line-number-at-pos) lines)
+                (goto-char start))))
+          info)))
+    lines))
+
+(defun wg21-git-headline-url (headline info)
+  "Return a permalink to HEADLINE's line in the document's source, or nil.
+INFO is a plist holding export options."
+  (let* ((lines (or (plist-get info :wg21-headline-lines)
+                    (plist-get (plist-put info :wg21-headline-lines
+                                          (wg21-git--headline-lines info))
+                               :wg21-headline-lines)))
+         (line (gethash headline lines))
+         (git (wg21-git-metadata info)))
+    (and line
+         (wg21-git-blob-url (plist-get git :repo) (plist-get git :commit)
+                            (plist-get git :file) line))))
 
 (defun wg21-html-spec-metadata (_contents info)
   "Return the document metadata block.
@@ -285,11 +344,17 @@ modus-vivendi-tinted.css.  This overrides any setting in the paper."
   :group 'my-export-wg21
   :type '(choice (const css) (const inline-css) (const nil)))
 
-(defun wg21-html-filter-htmlize-output-type (info _backend)
-  "Apply `wg21-html-htmlize-output-type' to this export.
+(defun wg21-html-filter-options (info _backend)
+  "Settings every WG21 export gets, whatever the paper says.
+Code is coloured with face classes, see `wg21-html-htmlize-output-type'.
 The export runs in a copy of the paper's buffer, so the buffer-local
-value set here ends with the export.  INFO is returned unchanged."
+value set here ends with the export.  The embedded stylesheets replace
+Org's default style, and papers carry no scripts; an html-style or
+html-scripts item in #+OPTIONS would otherwise turn them back on.
+Return INFO."
   (setq-local org-html-htmlize-output-type wg21-html-htmlize-output-type)
+  (plist-put info :html-head-include-default-style nil)
+  (plist-put info :html-head-include-scripts nil)
   info)
 
 ;;; Face stylesheets
@@ -355,6 +420,206 @@ looks the way it does there, rainbow delimiters included."
     (insert-file-contents file)
     (wg21-html-face-css-fixup)))
 
+;;; Math
+
+;; LaTeX math is converted to MathML when the paper is exported, since
+;; browsers render MathML themselves.  Org's default, MathJax, is a
+;; script loaded from a CDN, which a self-contained paper cannot use.
+;; A fragment that cannot be converted falls back to MathJax, and
+;; `make check' then reports the paper.
+
+(defcustom wg21-html-mathml-command
+  '("pandoc" "--from=latex" "--to=html" "--mathml")
+  "Command reading LaTeX math on stdin and writing HTML with MathML.
+Set it to nil to leave math to Org, which uses MathJax."
+  :group 'my-export-wg21
+  :type '(choice (const :tag "Org default" nil) (repeat string)))
+
+(defun wg21-html--mathml (latex)
+  "Return LATEX as MathML, or nil if it cannot be converted."
+  (when (and wg21-html-mathml-command
+             (executable-find (car wg21-html-mathml-command)))
+    (with-temp-buffer
+      (insert latex)
+      (when (eql 0 (apply #'call-process-region (point-min) (point-max)
+                          (car wg21-html-mathml-command) t '(t nil) nil
+                          (cdr wg21-html-mathml-command)))
+        (let ((html (org-trim (buffer-string))))
+          (and (string-match "<math[^>]*>.*</math>" html)
+               (match-string 0 html)))))))
+
+(defun wg21-html--math (element contents info fallback)
+  "Transcode the LaTeX ELEMENT as MathML, or else with FALLBACK.
+FALLBACK is Org's transcoder, called with ELEMENT, CONTENTS and INFO.
+Using it is recorded in INFO, so the template adds MathJax."
+  (let ((mathml (and (memq (plist-get info :with-latex) '(t mathjax))
+                     (wg21-html--mathml (org-element-property :value element)))))
+    (or mathml
+        (progn (plist-put info :wg21-mathjax t)
+               (funcall fallback element contents info)))))
+
+(defun wg21-html-latex-fragment (fragment contents info)
+  "Transcode a LaTeX FRAGMENT to MathML.  CONTENTS is nil.  INFO is the plist."
+  (wg21-html--math fragment contents info #'org-html-latex-fragment))
+
+(defun wg21-html-latex-environment (environment contents info)
+  "Transcode a LaTeX ENVIRONMENT to MathML.  CONTENTS is nil.  INFO is the plist."
+  (let ((mathml (wg21-html--math environment contents info
+                                 #'org-html-latex-environment)))
+    (if (string-prefix-p "<math" mathml)
+        (format "<div class=\"equation-container\">%s</div>\n" mathml)
+      mathml)))
+
+;;; Embedded styles
+
+;; A paper is uploaded as a single HTML file, so every stylesheet it
+;; uses is copied into it.  Nothing is linked: a link to a file beside
+;; the paper breaks once the paper is somewhere else, and a link to a
+;; server breaks when the server changes.
+
+(defconst wg21-html-directory
+  (file-name-directory (or (macroexp-file-name) buffer-file-name))
+  "The directory of this exporter, holding its default stylesheets.")
+
+(defcustom wg21-html-style '("wg21org.css")
+  "Stylesheets embedded in every paper, set per paper by #+WG21_STYLE.
+A relative name is looked up next to the paper, then next to this
+exporter."
+  :group 'my-export-wg21
+  :type '(repeat string))
+
+(defcustom wg21-html-code-style '("modus-operandi-tinted.css" "modus-vivendi-tinted.css")
+  "Face stylesheets for code, set per paper by #+WG21_CODE_STYLE.
+The first colours code on screen and in print; the second, if given,
+replaces it on screens in dark mode.  Rules for faces the paper does
+not use are left out.  Write one with `wg21-html-write-face-css'."
+  :group 'my-export-wg21
+  :type '(repeat string))
+
+(defun wg21-html--find-css (name info)
+  "Return the file for stylesheet NAME, or nil if there is none.
+INFO is a plist holding export options."
+  (let ((input (plist-get info :input-file)))
+    (seq-find #'file-readable-p
+              (delq nil
+                    (list (and input (expand-file-name
+                                      name (file-name-directory input)))
+                          (expand-file-name name wg21-html-directory))))))
+
+(defun wg21-html--used-classes (html)
+  "Return a hash table of the class names used in HTML."
+  (let ((classes (make-hash-table :test #'equal))
+        (start 0))
+    (while (string-match "class=\"\\([^\"]*\\)\"" html start)
+      (let ((names (match-string 1 html)))
+        (setq start (match-end 0))
+        (dolist (class (split-string names))
+          (puthash class t classes))))
+    classes))
+
+(defun wg21-html--trim-css (css classes)
+  "Drop the rules of CSS that only style classes missing from CLASSES.
+Only a rule whose selectors are all single `.org-' classes, as in a
+face stylesheet, can be dropped.  CSS with at-rules is returned
+whole, since this does not parse nested blocks."
+  (if (string-search "@" css)
+      css
+    (let ((start 0) kept)
+      (while (string-match "\\([^{}]*\\){[^{}]*}" css start)
+        (let* ((rule (match-string 0 css))
+               (end (match-end 0))
+               (selectors (split-string
+                           (replace-regexp-in-string
+                            "/\\*\\(?:[^*]\\|\\*+[^*/]\\)*\\*+/" ""
+                            (match-string 1 css))
+                           "," t "[ \t\n]+"))
+               (unused (seq-every-p
+                        (lambda (selector)
+                          (and (string-match "\\`\\.\\(org-[[:alnum:]_-]+\\)\\'" selector)
+                               (not (gethash (match-string 1 selector) classes))))
+                        selectors)))
+          (unless unused (push (org-trim rule) kept))
+          (setq start end)))
+      (mapconcat #'identity (nreverse kept) "\n"))))
+
+(defun wg21-html--style-element (file classes &optional media)
+  "Return a <style> element holding the stylesheet FILE.
+Rules for classes missing from CLASSES are dropped, see
+`wg21-html--trim-css'.  With MEDIA, the rules apply only under that
+media query."
+  (let ((css (wg21-html--trim-css
+              (with-temp-buffer
+                (insert-file-contents file)
+                (buffer-string))
+              classes)))
+    (format "<style>\n/* %s */\n%s\n</style>\n"
+            (file-name-nondirectory file)
+            (if media (format "@media %s {\n%s\n}" media css) css))))
+
+(defun wg21-html--embedded-styles (contents info)
+  "Return the <style> elements for the paper, and the files they hold.
+The result is (HTML . FILES), where FILES are the sheets that apply
+on every medium.  CONTENTS is the transcoded body, used
+to leave out unused code faces.  INFO is a plist holding export
+options."
+  (let ((classes (wg21-html--used-classes contents))
+        files html)
+    (cl-flet ((embed (name &optional media)
+                (let ((file (wg21-html--find-css name info)))
+                  (if (not file)
+                      (user-error "Stylesheet %s not found" name)
+                    ;; Only a sheet that always applies stands in for a link.
+                    (unless media (push (file-truename file) files))
+                    (push (wg21-html--style-element file classes media) html)))))
+      (mapc #'embed (plist-get info :wg21-style))
+      (let ((code (plist-get info :wg21-code-style)))
+        (when code (embed (car code)))
+        (when (cadr code) (embed (cadr code) "screen and (prefers-color-scheme: dark)"))))
+    (cons (apply #'concat (nreverse html)) files)))
+
+(defun wg21-html--inline-stylesheet-links (head contents info embedded)
+  "Replace links to local stylesheets in HEAD with their contents.
+A stylesheet already in EMBEDDED, a list of files, is dropped rather
+than copied twice.  Links to other servers are left for `make check'
+to report.  CONTENTS is the transcoded body.  INFO is a plist holding
+export options."
+  (let ((classes (wg21-html--used-classes contents)))
+    (replace-regexp-in-string
+     "<link[^>]*rel=[\"']stylesheet[\"'][^>]*>\n?"
+     (lambda (link)
+       (save-match-data
+       (let* ((href (and (string-match "href=[\"']\\([^\"']*\\)[\"']" link)
+                         (match-string 1 link)))
+              (file (and href
+                         (not (string-match-p "\\`\\(?:[a-z]+:\\)?//" href))
+                         (wg21-html--find-css href info))))
+         (cond
+          ((not file) link)
+          ((member (file-truename file) embedded) "")
+          (t (wg21-html--style-element file classes))))))
+     head t t)))
+
+(defun wg21-html--head (contents info)
+  "Return the <head> contents after the meta information.
+CONTENTS is the transcoded body.  INFO is a plist holding export options."
+  (let ((embedded (wg21-html--embedded-styles contents info)))
+    (concat (car embedded)
+            (wg21-html--inline-stylesheet-links
+             (org-html--build-head info) contents info (cdr embedded)))))
+
+(defun wg21-html--meta-info (info)
+  "Return `org-html--build-meta-info' with a plain text <title>.
+Org puts the title's markup, such as ~code~, into <title> as is.
+INFO is a plist holding export options."
+  (let ((title (org-trim
+                (replace-regexp-in-string
+                 "<[^>]*>" ""
+                 (org-export-data (plist-get info :title) info)))))
+    (replace-regexp-in-string "<title>.*?</title>"
+                              (format "<title>%s</title>" title)
+                              (org-html--build-meta-info info)
+                              t t)))
+
 (org-export-define-derived-backend 'wg21-html 'html
   :options-alist
   '((:docnumber "DOCNUMBER" nil wg21-document-number nil)
@@ -364,15 +629,22 @@ looks the way it does there, rainbow delimiters included."
     (:git_commit "GIT_COMMIT" nil "" parse)
     (:audience "AUDIENCE" nil wg21-audience nil)
     (:toc-div-id "TOC_DIV_ID" nil wg21-toc-div-id nil)
+    (:wg21-style "WG21_STYLE" nil wg21-html-style split)
+    (:wg21-code-style "WG21_CODE_STYLE" nil wg21-html-code-style split)
+    ;; Only an address the paper gives, not the exporting user's.
+    (:email "EMAIL" nil "" t)
+    (:html-self-link-headlines nil nil t)
     (:html-wrap-src-lines nil nil org-html-wrap-src-lines))
 
   :translate-alist '((special-block . my-html-special-block)
+                     (latex-fragment . wg21-html-latex-fragment)
+                     (latex-environment . wg21-html-latex-environment)
                      (inner-template . my-wg21-html-inner-template)
                      (headline . my-wg21-html-headline)
                      (keyword . my-wg21-html-keyword)
                      (template . my-wg21-html-template))
 
-  :filters-alist '((:filter-options . wg21-html-filter-htmlize-output-type))
+  :filters-alist '((:filter-options . wg21-html-filter-options))
 
   :menu-entry '(?w "Export WG21 Paper"
                    ((?H "As HTML buffer" my-wg21-export-as-html)
@@ -425,9 +697,10 @@ holding export options."
 	          (plist-get info :language) (plist-get info :language)))
 	       ">\n")
    "<head>\n"
-   (org-html--build-meta-info info)
-   (org-html--build-head info)
-   (org-html--build-mathjax-config info)
+   (wg21-html--meta-info info)
+   (wg21-html--head contents info)
+   (when (plist-get info :wg21-mathjax)
+     (org-html--build-mathjax-config info))
    "</head>\n"
    "<body>\n"
    (let ((link-up (org-trim (plist-get info :html-link-up)))
@@ -581,10 +854,15 @@ holding contextual information."
                                todo todo-type priority text tags info))
            (contents (or contents ""))
 	       (id (org-html--reference headline info))
+           (source (wg21-git-headline-url headline info))
 	       (formatted-text
-	        (if (plist-get info :html-self-link-headlines)
-		        (format "<span class=\"content\">%s</span><a class=\"self-link\" href=\"#%s\"></a>" full-text id)
-	          full-text)))
+            (concat
+             (format "<span class=\"content\">%s</span>" full-text)
+             (when (plist-get info :html-self-link-headlines)
+               (format "<a class=\"self-link\" href=\"#%s\" aria-label=\"Link to this section\"></a>" id))
+             (when source
+               (format "<a class=\"source-link\" href=\"%s\" title=\"This section in the Org source\">source</a>"
+                       (org-html-encode-plain-text source))))))
       (if (org-export-low-level-p headline info)
           ;; This is a deep sub-tree: export it as a list item.
           (let* ((html-type (if numberedp "ol" "ul")))
@@ -610,11 +888,10 @@ holding contextual information."
                   (concat (format "outline-%d" level)
                           (and extra-class " ")
                           extra-class)
-                  (format "\n<h%d class=\"heading\" id=\"%s\" %s>%s</h%d>\n"
+                  (format "\n<h%d class=\"heading%s\" id=\"%s\">%s</h%d>\n"
                           level
+                          (if headline-class (concat " " headline-class) "")
                           id
-			              (if (not headline-class) ""
-			                (format " class=\"%s\"" headline-class))
                           (concat
                            (and numberedp
                                 (format

@@ -192,4 +192,72 @@ PROBE is a JavaScript expression whose string value is returned."
       (wg21-html-face-css-fixup)
       (should (equal once (buffer-string))))))
 
+;;; Self-contained pages
+
+(defun ox-wg21html-test-export-file (org &optional files)
+  "Export ORG as a whole page from a file in a scratch git repository.
+FILES is an alist of (NAME . CONTENTS) written beside it first.  ORG is
+committed, so source links resolve.  Return the HTML."
+  (let* ((dir (make-temp-file "ox-wg21html-test" t))
+         (default-directory (file-name-as-directory dir))
+         (file (expand-file-name "paper.org" dir)))
+    (unwind-protect
+        (progn
+          (dolist (extra files)
+            (with-temp-file (expand-file-name (car extra) dir) (insert (cdr extra))))
+          (with-temp-file file (insert org))
+          (dolist (args '(("init" "-q") ("add" ".")
+                          ("-c" "user.name=t" "-c" "user.email=t@t" "commit" "-q" "-m" "t")
+                          ("remote" "add" "origin" "git@github.com:o/r.git")))
+            (apply #'call-process "git" nil nil nil args))
+          (let ((buffer (find-file-noselect file))
+                (org-export-use-babel nil))
+            (unwind-protect
+                (with-current-buffer buffer (org-export-as 'wg21-html))
+              (kill-buffer buffer))))
+      (delete-directory dir t))))
+
+(ert-deftest page-has-no-external-stylesheets ()
+  (let ((html (ox-wg21html-test-export-file
+               "#+TITLE: T\n#+HTML_HEAD: <link rel=\"stylesheet\" href=\"./extra.css\"/>\n* A\ntext\n"
+               '(("extra.css" . ".extra-marker { color: red; }\n")))))
+    (should-not (string-match-p "<link[^>]*stylesheet" html))
+    (should (string-match-p "\\.extra-marker { color: red; }" html))
+    (should (string-match-p "/\\* wg21org\\.css \\*/" html))
+    (should-not (string-match-p "<script" html))))
+
+(ert-deftest page-title-is-plain-text ()
+  (let ((html (ox-wg21html-test-export-file "#+TITLE: A view of ~view::maybe~\n* A\n")))
+    (should (string-match-p "<title>A view of view::maybe</title>" html))))
+
+(ert-deftest headline-links-to-source-line ()
+  (let ((html (ox-wg21html-test-export-file
+               "#+TITLE: T\n\n* First\ntext\n** Second\nmore\n* First again\n")))
+    (should (string-match-p "blob/[0-9a-f]+/paper\\.org\\?plain=1#L3\"[^>]*>source</a></h2>" html))
+    (should (string-match-p "#L5\"[^>]*>source</a></h3>" html))
+    (should (string-match-p "#L7\"[^>]*>source</a></h2>" html))))
+
+(ert-deftest git-blob-url-with-line ()
+  (should (equal (wg21-git-blob-url "https://github.com/o/r" "c0ffee" "x.org" 12)
+                 "https://github.com/o/r/blob/c0ffee/x.org?plain=1#L12"))
+  (should (equal (wg21-git-blob-url "https://mimir.lan/o/r" "c0ffee" "x.org" 12)
+                 "https://mimir.lan/o/r/src/commit/c0ffee/x.org?display=source#L12")))
+
+(ert-deftest face-css-trimmed-to-used-classes ()
+  (let* ((css "pre.src {\n color: #000;\n}\n.org-keyword {\n /* k */ color: #f0f;\n}\n.org-string {\n color: #0f0;\n}\n")
+         (classes (make-hash-table :test #'equal)))
+    (puthash "org-keyword" t classes)
+    (let ((trimmed (wg21-html--trim-css css classes)))
+      (should (string-match-p "pre\\.src" trimmed))
+      (should (string-match-p "\\.org-keyword" trimmed))
+      (should-not (string-match-p "\\.org-string" trimmed)))
+    (should (equal (wg21-html--trim-css (concat "@media print {}\n" css) classes)
+                   (concat "@media print {}\n" css)))))
+
+(ert-deftest math-is-mathml ()
+  (skip-unless (executable-find "pandoc"))
+  (let ((html (ox-wg21html-test-export-file "#+TITLE: T\n* A\nIf $x^2 = y$ then\n")))
+    (should (string-match-p "<math display=\"inline\"" html))
+    (should-not (string-match-p "MathJax" html))))
+
 ;;; ox-wg21html-test.el ends here

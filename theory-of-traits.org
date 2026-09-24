@@ -21,7 +21,6 @@
 #+HTML_LINK_HOME:
 #+HTML_LINK_UP:
 #+HTML_MATHJAX:
-#+html_head: <link rel="stylesheet" type="text/css" href="http://sdowney.org/css/modus-operandi-tinted.css" />
 #+HTML_HEAD_EXTRA:
 #+SUBTITLE:
 #+INFOJS_OPT:
