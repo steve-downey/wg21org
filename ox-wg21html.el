@@ -23,6 +23,10 @@
 ;;; Code:
 
 (require 'ox-html)
+(require 'format-spec)
+(require 'wg21-links
+         (expand-file-name "wg21-links"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 (defun my-html-special-block (special-block contents info)
   "Process my special block.  SPECIAL-BLOCK CONTENTS INFO."
@@ -53,38 +57,217 @@
   :group 'my-export-wg21
   :type 'string)
 
-(defun wg21-html-spec-metadata (contents info)
-;;   (let ((audience (plist-get info :audience))
-;;         (docnumber (plist-get info :docnumber))
-;;         (email (plist-get info :email)))
-;;     (concat "
-;; \\docnumber{" (org-export-data docnumber info) "}
-;; \\email{" (org-export-data email info) "}
-;; \\audience{" (org-export-data audience info) "}\n"))
+;;; Git metadata
+
+(defcustom wg21-git-remote "origin"
+  "Git remote whose URL is used when #+SOURCE_REPO is not given."
+  :group 'my-export-wg21
+  :type 'string)
+
+(defcustom wg21-forge-blob-url-formats
+  '(("\\`https?://github\\.com/" . "%r/blob/%c/%p")
+    ("\\`https?://gitlab\\.com/" . "%r/-/blob/%c/%p")
+    ("" . "%r/src/commit/%c/%p"))
+  "Alist of (REGEXP . FORMAT) for permalinks to a file at a commit.
+The first REGEXP matching the repository URL wins.  In FORMAT, %r
+is the repository URL, %c the commit, and %p the path of the file
+within the repository.  The catch-all entry is the Gitea/Forgejo
+layout."
+  :group 'my-export-wg21
+  :type '(alist :key-type regexp :value-type string))
+
+(defun wg21-git-string (&rest args)
+  "Run git with ARGS in `default-directory'; return its first output line.
+Return nil if git fails or prints nothing.  Nil ARGS are dropped, so
+a missing `buffer-file-name' does not become a literal argument."
+  (with-temp-buffer
+    (when (and (eql 0 (apply #'process-file "git" nil '(t nil) nil
+                             (delq nil args)))
+               (> (buffer-size) 0))
+      (goto-char (point-min))
+      (buffer-substring-no-properties (point) (line-end-position)))))
+
+(defun wg21-git-https-url (url)
+  "Turn the git remote URL into the https URL of its web page.
+Handles scp-style (git@host:owner/repo), ssh://, and http(s) remotes.
+An ssh port is dropped, since it says nothing about the web port."
+  (when url
+    (let ((url (string-remove-suffix ".git" (string-remove-suffix "/" url))))
+      (cond
+       ((string-match "\\`https?://" url) url)
+       ((string-match "\\`ssh://\\(?:[^@/]+@\\)?\\([^:/]+\\)\\(?::[0-9]+\\)?/\\(.*\\)\\'" url)
+        (format "https://%s/%s" (match-string 1 url) (match-string 2 url)))
+       ((string-match "\\`\\(?:[^@/]+@\\)?\\([^:/]+\\):\\(.*\\)\\'" url)
+        (format "https://%s/%s" (match-string 1 url) (match-string 2 url)))))))
+
+(defun wg21-git-blob-url (repo commit path)
+  "Return a permalink to PATH at COMMIT in the web view of REPO.
+See `wg21-forge-blob-url-formats'."
+  (when (and repo commit path)
+    (let ((fmt (cdr (seq-find (lambda (entry) (string-match-p (car entry) repo))
+                              wg21-forge-blob-url-formats))))
+      (format-spec fmt `((?r . ,repo) (?c . ,commit) (?p . ,path))))))
+
+(defun wg21-source-url (&optional file)
+  "Return a permalink to FILE, by default the current buffer's file, at HEAD.
+Intended for use in macros, e.g.
+  #+MACRO: permalink (eval (wg21-source-url))"
+  (let ((file (or file (buffer-file-name))))
+    (when file
+      (let ((default-directory (file-name-directory file)))
+        (wg21-git-blob-url
+         (wg21-git-https-url
+          (wg21-git-string "remote" "get-url" wg21-git-remote))
+         (wg21-git-string "rev-parse" "HEAD")
+         (wg21-git-string "ls-files" "--full-name" "--" file))))))
+
+(defun wg21-git-metadata (info)
+  "Return a plist of git metadata for the document being exported.
+Each of :repo, :file, :version and :commit comes from the matching
+keyword (SOURCE_REPO, SOURCE_FILE, SOURCE_VERSION, GIT_COMMIT) if the
+document sets it, and otherwise from git.  :url is a permalink to the
+file at the commit.  Everything is nil outside a git work tree.
+INFO is a plist holding export options."
+  (let* ((input (plist-get info :input-file))
+         (default-directory (if input (file-name-directory input)
+                              default-directory))
+         (keyword (lambda (prop)
+                    (let ((value (org-trim
+                                  (org-element-interpret-data
+                                   (plist-get info prop)))))
+                      (and (not (string-empty-p value)) value))))
+         (repo (or (funcall keyword :source_repo)
+                   (wg21-git-https-url
+                    (wg21-git-string "remote" "get-url" wg21-git-remote))))
+         (file (or (funcall keyword :source_file)
+                   (and input (wg21-git-string "ls-files" "--full-name"
+                                               "--" input))))
+         (version (or (funcall keyword :source_version)
+                      (wg21-git-string "describe" "--always" "--long" "--all"
+                                       "--dirty" "--tags")))
+         (commit (or (funcall keyword :git_commit)
+                     (wg21-git-string "rev-parse" "HEAD"))))
+    (list :repo repo :file file :version version :commit commit
+          :url (and file (wg21-git-blob-url repo commit file)))))
+
+(defun wg21-html-spec-metadata (_contents info)
+  "Return the document metadata block.
+INFO is a plist holding export options."
   (let* ((audience (plist-get info :audience))
          (docnumber (plist-get info :docnumber))
-         (author (plist-get info :author))
+         (author (org-export-data (plist-get info :author) info))
          (date (plist-get info :date))
-         (source_file (plist-get info :source_file))
-         (source_repo (plist-get info :source_repo))
-         (source_version (plist-get info :source_version))
-         (git_commit (plist-get info :git_commit))
-         (email (plist-get info :email))
-         (link (forge-get-url :blob (or git_commit "") (or source_file ""))))
+         (email (org-export-data (plist-get info :email) info))
+         (git (wg21-git-metadata info))
+         (enc #'org-html-encode-plain-text)
+         (repo (plist-get git :repo))
+         (file (plist-get git :file))
+         (url (plist-get git :url))
+         (version (plist-get git :version)))
     (concat
-    "
-   <div data-fill-with=\"spec-metadata\">
-    <dl>
-     <dt>Document #: <dd> "(org-export-data docnumber info)"
-     <dt>Date: <dd>" (org-export-data date info) "
-     <dt>Audience: <dd>" (org-export-data audience info) "
-     <dt>Reply-to: <dd><a class=\"p-name fn u-email email\" href=\"mailto:" (org-export-data email info) "\">" (org-export-data author info) " &lt;"(org-export-data email info)"&gt</a>
-     <dt>Source: <dd><a href=\"" (org-export-data source_repo info) "\"/>" (org-export-data source_repo info) "</a>
-                 <dd>" (org-export-data source_file info) "
-                 <dd>" (org-export-data source_version info) "
-    </dl>
-   </div>\n"))
-)
+     "<div data-fill-with=\"spec-metadata\">\n<dl>\n"
+     "<dt>Document #:</dt><dd>" (org-export-data docnumber info) "</dd>\n"
+     "<dt>Date:</dt><dd>" (org-export-data date info) "</dd>\n"
+     "<dt>Audience:</dt><dd>" (org-export-data audience info) "</dd>\n"
+     "<dt>Reply-to:</dt><dd>"
+     (if (string-empty-p email)
+         author
+       (format "<a class=\"p-name fn u-email email\" href=\"mailto:%s\">%s &lt;%s&gt;</a>"
+               email author email))
+     "</dd>\n"
+     (when (or repo file version)
+       (concat
+        "<dt>Source:</dt>"
+        (when repo
+          (format "<dd><a href=\"%s\">%s</a></dd>" (funcall enc repo) (funcall enc repo)))
+        (when file
+          (format "<dd>%s</dd>"
+                  (if url
+                      (format "<a href=\"%s\">%s</a>" (funcall enc url) (funcall enc file))
+                    (funcall enc file))))
+        (when version
+          (format "<dd>%s</dd>" (funcall enc version)))
+        "\n"))
+     "</dl>\n</div>\n")))
+
+(defcustom wg21-html-htmlize-output-type 'css
+  "Value of `org-html-htmlize-output-type' for every WG21 HTML export.
+The default, `css', emits a class per face (org-keyword,
+org-rainbow-delimiters-depth-1, ...), so the code in a paper is
+coloured by a face stylesheet such as modus-operandi-tinted.css or
+modus-vivendi-tinted.css.  This overrides any setting in the paper."
+  :group 'my-export-wg21
+  :type '(choice (const css) (const inline-css) (const nil)))
+
+(defun wg21-html-filter-htmlize-output-type (info _backend)
+  "Apply `wg21-html-htmlize-output-type' to this export.
+The export runs in a copy of the paper's buffer, so the buffer-local
+value set here ends with the export.  INFO is returned unchanged."
+  (setq-local org-html-htmlize-output-type wg21-html-htmlize-output-type)
+  info)
+
+;;; Face stylesheets
+
+;; With `css' output, htmlize tags code with one class per face, and a
+;; face stylesheet (modus-operandi-tinted.css, modus-vivendi-tinted.css)
+;; colours them.  `org-html-htmlize-generate-css' writes that sheet
+;; from the faces of the running Emacs, but in a form meant for pasting
+;; into a page: wrapped in <style><!-- ... --></style>, with the theme's
+;; colours on `body' and its link faces on `a'.  Linked as a .css file
+;; the wrapper makes the browser drop the `body' rule, and the `a' rules
+;; restyle every link on the page.  These functions turn it into a
+;; stylesheet whose theme applies to code blocks only.
+
+(defconst wg21-html-face-css-code-rule
+  "pre.src code { color: inherit; background: transparent; }"
+  "Rule letting a code block's theme colours show through its <code>.")
+
+(defun wg21-html-face-css-fixup ()
+  "Turn htmlize face CSS in the current buffer into a code-only stylesheet.
+Safe to run on a buffer it has already fixed."
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward
+            "^[ \t]*\\(?:<style[^>]*>\\|<!--\\|-->\\|</style>\\)[ \t]*\n" nil t)
+      (replace-match ""))
+    (dolist (rule '(("body" . "pre.src")
+                    ("a" . "pre.src a")
+                    ("a:hover" . "pre.src a:hover")))
+      (goto-char (point-min))
+      (while (re-search-forward
+              (format "^\\([ \t]*\\)%s {" (regexp-quote (car rule))) nil t)
+        (replace-match (format "\\1%s {" (cdr rule)) t)))
+    (goto-char (point-min))
+    (unless (search-forward wg21-html-face-css-code-rule nil t)
+      (goto-char (point-max))
+      (insert "\n" wg21-html-face-css-code-rule "\n"))))
+
+;;;###autoload
+(defun wg21-html-write-face-css (file)
+  "Write the faces of the running Emacs to FILE as a code stylesheet.
+Run it in the editor with the theme loaded, so that exported code
+looks the way it does there, rainbow delimiters included."
+  (interactive "FWrite face stylesheet: ")
+  (save-window-excursion
+    (org-html-htmlize-generate-css)
+    (unwind-protect
+        (progn
+          (wg21-html-face-css-fixup)
+          (goto-char (point-min))
+          (insert (format "/* Code faces from %s, written by `wg21-html-write-face-css' */\n"
+                          (if custom-enabled-themes
+                              (mapconcat #'symbol-name custom-enabled-themes ", ")
+                            "the default theme")))
+          (write-region (point-min) (point-max) file))
+      (kill-buffer))))
+
+;;;###autoload
+(defun wg21-html-fix-face-css-file (file)
+  "Fix the face stylesheet FILE in place; see `wg21-html-face-css-fixup'."
+  (interactive "fFix face stylesheet: ")
+  (with-temp-file file
+    (insert-file-contents file)
+    (wg21-html-face-css-fixup)))
 
 (org-export-define-derived-backend 'wg21-html 'html
   :options-alist
@@ -92,6 +275,7 @@
     (:source_repo "SOURCE_REPO" nil "" nil)
     (:source_file "SOURCE_FILE" nil "" parse)
     (:source_version "SOURCE_VERSION" nil "" parse)
+    (:git_commit "GIT_COMMIT" nil "" parse)
     (:audience "AUDIENCE" nil wg21-audience nil)
     (:toc-div-id "TOC_DIV_ID" nil wg21-toc-div-id nil)
     (:html-wrap-src-lines nil nil org-html-wrap-src-lines))
@@ -101,6 +285,8 @@
                      (headline . my-wg21-html-headline)
                      (keyword . my-wg21-html-keyword)
                      (template . my-wg21-html-template))
+
+  :filters-alist '((:filter-options . wg21-html-filter-htmlize-output-type))
 
   :menu-entry '(?w "Export WG21 Paper"
                    ((?H "As HTML buffer" my-wg21-export-as-html)

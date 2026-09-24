@@ -445,6 +445,14 @@ code{
     padding: .1em;
     border-radius: .3em;
 }
+/* Org 9.8 wraps each code block as <pre><code>; the inline code look
+   above must not apply there, or every block collapses onto one line. */
+pre code {
+    white-space: inherit;
+    border: 0;
+    padding: 0;
+    border-radius: 0;
+}
 pre {
     background: #fbf7f0 /* rgba(0, 0, 0, .03) */;
     border: 1px solid #e6e6e6;
