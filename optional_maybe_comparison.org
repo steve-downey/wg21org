@@ -13,9 +13,9 @@
 #+SUBTITLE:
 #+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
 #+SOURCE_REPO: https://github.com/steve-downey/wg21org
-#+MACRO: filename (eval (magit-git-string "ls-files" ( buffer-file-name)))
+#+MACRO: filename (eval (wg21-git-string "ls-files" ( buffer-file-name)))
 #+source_file: {{{filename}}}
-#+MACRO: gitver (eval (magit-git-string "describe" "--always" "--long" "--all" "--dirty" "--tags"))
+#+MACRO: gitver (eval (wg21-git-string "describe" "--always" "--long" "--all" "--dirty" "--tags"))
 #+source_version: {{{gitver}}}
 
 #+STARTUP: showall
@@ -24,8 +24,7 @@
 #+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
 #+OPTIONS: html-scripts:t html-style:t html5-fancy:t tex:t
 
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./wg21org.css"/>
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="./modus-vivendi-tinted.css"/>
+#+WG21_CODE_STYLE: modus-vivendi-tinted.css
 
 #+BIBLIOGRAPHY: wg21.bib
 

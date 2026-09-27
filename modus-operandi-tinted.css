@@ -1,6 +1,4 @@
-<style type="text/css">
-    <!--
-      body {
+      pre.src {
         color: #000000;
         background-color: #fbf7f0;
       }
@@ -5763,14 +5761,14 @@
         background-color: #b2e4dc;
       }
 
-      a {
+      pre.src a {
         color: inherit;
         background-color: inherit;
         font: inherit;
         text-decoration: inherit;
       }
-      a:hover {
+      pre.src a:hover {
         text-decoration: underline;
       }
-    -->
-</style>
+
+pre.src code { color: inherit; background: transparent; }

@@ -23,6 +23,9 @@
 ;;; Code:
 
 (require 'ox-latex)
+(require 'wg21-links
+         (expand-file-name "wg21-links"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 (defun my-latex-cmptblcell-block (special-block contents info)
   "Process my cmptblcell block.  SPECIAL-BLOCK CONTENTS INFO."
