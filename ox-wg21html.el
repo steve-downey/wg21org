@@ -119,9 +119,19 @@ INFO is a plist holding export options."
   :group 'my-export-wg21
   :type 'string)
 
-(defun wg21-html-spec-metadata (_contents info)
+(defun wg21-html--diff-toggle (contents)
+  "Return the metadata row that hides deleted text, if CONTENTS has any.
+The checkbox works with CSS alone, from wg21org.css, so the paper needs
+no script."
+  (when (string-match-p "<del>\\|class=\"[^\"]*\\bremovedblock\\b" contents)
+    (concat "<dt class=\"diff-toggle\">Wording:</dt>"
+            "<dd class=\"diff-toggle\"><label>"
+            "<input type=\"checkbox\" id=\"wg21-hide-deleted\"> "
+            "Hide deleted text</label></dd>\n")))
+
+(defun wg21-html-spec-metadata (contents info)
   "Return the document metadata block.
-INFO is a plist holding export options."
+CONTENTS is the transcoded body.  INFO is a plist holding export options."
   (let* ((audience (plist-get info :audience))
          (docnumber (plist-get info :docnumber))
          (author (org-export-data (plist-get info :author) info))
@@ -157,6 +167,7 @@ INFO is a plist holding export options."
         (when version
           (format "<dd>%s</dd>" (funcall enc version)))
         "\n"))
+     (wg21-html--diff-toggle contents)
      "</dl>\n</div>\n")))
 
 (defcustom wg21-html-htmlize-output-type 'css
