@@ -225,6 +225,25 @@ INFO is a plist holding export options."
        (funcall row "" (format "\\texttt{%s}" (funcall text version))))
      "\\end{tabular}\n\\end{flushleft}\n\\bigskip\n")))
 
+(defun wg21-latex--link-citations (latex)
+  "Point each citation in LATEX at its reference's URL, when it has one.
+A citation, \\cslcitation{N}{text}, links to entry N of the
+bibliography; when \\cslbibitem{N}{...} holds exactly one URL, link
+there instead.  See `wg21-cite-single-urls'."
+  (let ((urls (wg21-cite-single-urls
+               (mapcar (lambda (line)
+                         (and (string-match "\\\\cslbibitem{\\([0-9]+\\)}" line)
+                              (cons (match-string 1 line) (wg21-cite-urls line))))
+                       (wg21-cite-matches "^\\\\cslbibitem{[0-9]+}.*$" latex)))))
+    (replace-regexp-in-string
+     "\\\\cslcitation{\\([0-9]+\\)}{"
+     (lambda (citation)
+       (save-match-data
+         (string-match "{\\([0-9]+\\)}" citation)
+         (let ((url (gethash (match-string 1 citation) urls)))
+           (if url (format "\\href{%s}{" (wg21-latex--url url)) citation))))
+     latex t t)))
+
 (defun wg21-latex-footnote-reference (footnote-reference contents info)
   "Transcode FOOTNOTE-REFERENCE as \\wgfootnote, not \\footnote.
 \\wgfootnote, from wg21org-preamble.tex, works whether the paper has
@@ -305,6 +324,7 @@ the #+TOC keyword."
   "Return complete document string after LaTeX conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
+  (setq contents (wg21-latex--link-citations contents))
   (let ((title (org-export-data (plist-get info :title) info))
 	    (spec (org-latex--format-spec info)))
     (concat

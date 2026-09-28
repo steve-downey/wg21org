@@ -261,6 +261,29 @@ PROBE is a JavaScript expression whose string value is returned."
     (should (equal (ox-wg21html-test-render (funcall page "") probe) "inline underline"))
     (should (equal (ox-wg21html-test-render (funcall page " checked") probe) "none none"))))
 
+(ert-deftest cite-urls-in-entries ()
+  (should (equal (wg21-cite-urls "Reis. “P3589R1.” https://wg21.link/p3589r1; WG21.")
+                 '("https://wg21.link/p3589r1")))
+  (should (equal (wg21-cite-urls "RFC Editor. \\url{https://doi.org/10.17487/RFC3514}.")
+                 '("https://doi.org/10.17487/RFC3514"))))
+
+(ert-deftest cite-single-urls-only ()
+  (let ((urls (wg21-cite-single-urls '(("1" "https://a" "https://a")
+                                       ("2" "https://a" "https://b")
+                                       ("3")))))
+    (should (equal (gethash "1" urls) "https://a"))
+    (should-not (gethash "2" urls))
+    (should-not (gethash "3" urls))))
+
+(ert-deftest citation-links-to-the-paper ()
+  (let ((html (ox-wg21html-test-export-file
+               (wg21-test-paper-with-references "See [cite:@rfc3514].")
+               (wg21-test-bibliography-files))))
+    (should (string-match-p
+             "<a href=\"https://doi.org/10.17487/RFC3514\" title=\"[^\"]*Security Flag[^\"]*\">"
+             html))
+    (should-not (string-match-p "href=\"#citeproc_bib_item" html))))
+
 (ert-deftest page-title-is-plain-text ()
   (let ((html (ox-wg21html-test-export-file "#+TITLE: A view of ~view::maybe~\n* A\n")))
     (should (string-match-p "<title>A view of view::maybe</title>" html))))

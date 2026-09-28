@@ -79,6 +79,14 @@ bibliography."
           (puthash (car entry) (car urls) table))))
     table))
 
+(defun wg21-cite-urls (entry)
+  "Return the http(s) URLs in the bibliography ENTRY, in order.
+CSL styles print a reference's URL as a link or as plain text, WG21
+papers usually the latter, so both count.  Punctuation that ends the
+sentence is not part of the URL."
+  (mapcar (lambda (url) (replace-regexp-in-string "[.,;:)]+\\'" "" url))
+          (wg21-cite-matches "https?://[^][[:space:]<>\"{}\\\\]+" entry)))
+
 (defun wg21-cite-matches (regexp string &optional group)
   "Return the matches of REGEXP in STRING, or of its GROUP."
   (let ((start 0) matches)

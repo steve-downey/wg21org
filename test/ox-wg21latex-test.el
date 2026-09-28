@@ -127,6 +127,14 @@ y();
     (should (string-match-p "section{References}" latex))
     (should (string-match-p "\\\\cslbibitem{1}" latex))))
 
+(ert-deftest latex-citation-links-to-the-paper ()
+  (let ((latex (wg21-test-export-file
+                'wg21-latex
+                (wg21-test-paper-with-references "See [cite:@rfc3514].")
+                (wg21-test-bibliography-files))))
+    (should (string-match-p "\\\\href{https://doi.org/10.17487/RFC3514}{" latex))
+    (should-not (string-match-p "^[^%]*\\\\cslcitation{[0-9]" latex))))
+
 (ert-deftest latex-paper-compiles ()
   "A paper with no preamble of its own compiles, comparison table and all."
   (skip-unless (and (executable-find "latexmk") (executable-find "lualatex")))

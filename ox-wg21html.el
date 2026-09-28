@@ -493,6 +493,46 @@ looked up next to the paper.  INFO is a plist holding export options."
                tag)))))
      html t t)))
 
+;;; Citations
+
+(defun wg21-html--link-citations (html)
+  "Point each citation in HTML at its reference's URL, when it has one.
+A citation links to its entry in the bibliography; when that entry
+holds exactly one URL, link there instead, with the whole entry as
+the link's title, so a reader goes straight to the cited paper and
+can still see the reference by hovering.  See `wg21-cite-single-urls'."
+  (let ((entries nil)
+        (titles (make-hash-table :test #'equal))
+        (start 0))
+    (while (string-match
+            "<div class=\"csl-entry\"><a id=\"citeproc_bib_item_\\([0-9]+\\)\"></a>\\(\\(?:.\\|\n\\)*?\\)</div>"
+            html start)
+      (let ((item (match-string 1 html))
+            (entry (match-string 2 html)))
+        (setq start (match-end 0))
+        (push (cons item (append (wg21-cite-matches "href=\"\\(https?://[^\"]*\\)\"" entry 1)
+                                 (wg21-cite-urls (replace-regexp-in-string "<[^>]*>" " " entry))))
+              entries)
+        (puthash item
+                 (string-trim
+                  (replace-regexp-in-string
+                   "[ \t\n]+" " "
+                   (replace-regexp-in-string "\"" "&quot;"
+                                             (replace-regexp-in-string "<[^>]*>" "" entry))))
+                 titles)))
+    (let ((urls (wg21-cite-single-urls entries)))
+      (replace-regexp-in-string
+       "<a href=\"#citeproc_bib_item_\\([0-9]+\\)\">"
+       (lambda (link)
+         (save-match-data
+           (string-match "citeproc_bib_item_\\([0-9]+\\)" link)
+           (let* ((item (match-string 1 link))
+                  (url (gethash item urls)))
+             (if url
+                 (format "<a href=\"%s\" title=\"%s\">" url (gethash item titles))
+               link))))
+       html t t))))
+
 (defun wg21-html--head (contents info)
   "Return the <head> contents after the meta information.
 CONTENTS is the transcoded body.  INFO is a plist holding export options."
@@ -567,7 +607,8 @@ holding export options."
   "Return complete document string after HTML conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
-  (setq contents (wg21-html--embed-images contents info))
+  (setq contents (wg21-html--link-citations
+                  (wg21-html--embed-images contents info)))
   (concat
    (when (and (not (org-html-html5-p info)) (org-html-xhtml-p info))
      (let ((decl (or (and (stringp org-html-xml-declaration)
