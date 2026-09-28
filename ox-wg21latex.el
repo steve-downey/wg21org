@@ -167,6 +167,86 @@ compilable wherever it is."
   :group 'my-export-wg21
   :type 'string)
 
+(defcustom wg21-latex-prolog "common.tex"
+  "The prolog every paper starts from, set per paper by #+WG21_LATEX_PROLOG.
+By default the working draft's macros and layout, from common.tex and
+the stdtex files it reads, which also give wording its section
+numbers and code its draft formatting.  \"none\" means no prolog.  A
+relative name is looked up next to the paper, then next to this
+exporter.  It is copied into the paper, with the files it \\inputs,
+before the paper's own #+LATEX_HEADER lines."
+  :group 'my-export-wg21
+  :type 'string)
+
+(defcustom wg21-latex-class "memoir"
+  "Document class of a paper that names none; common.tex needs memoir."
+  :group 'my-export-wg21
+  :type 'string)
+
+(defcustom wg21-latex-class-options "[a4paper,10pt,oneside,openany,final,article]"
+  "Class options of a paper that names none."
+  :group 'my-export-wg21
+  :type 'string)
+
+(defun wg21-latex--find-file (name info)
+  "Return the file NAME, looked up next to the paper and then this exporter.
+INFO is a plist holding export options."
+  (let ((input (plist-get info :input-file)))
+    (seq-find #'file-readable-p
+              (delq nil
+                    (list (and input (expand-file-name
+                                      name (file-name-directory input)))
+                          (expand-file-name name wg21-latex-directory))))))
+
+(defun wg21-latex--inline-inputs (file)
+  "Return FILE's contents, with each \\input{NAME} it makes replaced by NAME.
+NAME is read relative to FILE's directory, as TeX would from there,
+and its own \\inputs are inlined too, so the result stands alone."
+  (let ((dir (file-name-directory file)))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (while (re-search-forward "^[ \t]*\\\\input{\\([^}]+\\)}.*$" nil t)
+        (let* ((name (match-string 1))
+               (from (match-beginning 0))
+               (to (match-end 0))
+               (path (seq-find #'file-readable-p
+                               (list (expand-file-name name dir)
+                                     (expand-file-name (concat name ".tex") dir)))))
+          (when path
+            (let ((text (format "%%%% ---- %s\n%s" name (wg21-latex--inline-inputs path))))
+              (delete-region from to)
+              (goto-char from)
+              (insert text)))))
+      (buffer-string))))
+
+(defun wg21-latex--prolog (info)
+  "Return the paper's prolog, or nil for none.
+INFO is a plist holding export options."
+  (let ((name (org-trim (or (plist-get info :wg21-latex-prolog) ""))))
+    (unless (member name '("" "none"))
+      (let ((file (wg21-latex--find-file name info)))
+        (unless file
+          (user-error "LaTeX prolog %s not found" name))
+        (concat "%% ---- " name "\n" (wg21-latex--inline-inputs file))))))
+
+(defun wg21-latex-filter-options (info _backend)
+  "Put the prolog at the head of the paper's #+LATEX_HEADER lines.
+A header line that reads the prolog itself, as papers did with
+\\include{common.tex} before it was the default, is dropped, since the
+prolog is already there.  INFO is the export plist; return it."
+  (let ((prolog (wg21-latex--prolog info))
+        (name (file-name-sans-extension
+               (org-trim (or (plist-get info :wg21-latex-prolog) "")))))
+    (when prolog
+      (plist-put info :latex-header
+                 (concat prolog "\n"
+                         (replace-regexp-in-string
+                          (format "^[ \t]*\\\\\\(?:include\\|input\\){%s\\(?:\\.tex\\)?}[ \t]*\n?"
+                                  (regexp-quote name))
+                          "" (or (plist-get info :latex-header) ""))))))
+  info)
+
 (defun wg21-latex--preamble (info)
   "Return the contents of the paper's preamble fragment.
 INFO is a plist holding export options."
@@ -295,6 +375,9 @@ the #+TOC keyword."
     (:source_version "SOURCE_VERSION" nil "" parse)
     (:git_commit "GIT_COMMIT" nil "" parse)
     (:wg21-latex-preamble "WG21_LATEX_PREAMBLE" nil wg21-latex-preamble t)
+    (:wg21-latex-prolog "WG21_LATEX_PROLOG" nil wg21-latex-prolog t)
+    (:latex-class "LATEX_CLASS" nil wg21-latex-class t)
+    (:latex-class-options "LATEX_CLASS_OPTIONS" nil wg21-latex-class-options t)
     ;; Only an address the paper gives, not the exporting user's.
     (:email "EMAIL" nil "" t)
     ;; Code set as in the editor; see `wg21-latex-engraved-theme'.
@@ -308,7 +391,8 @@ the #+TOC keyword."
                      (footnote-reference . wg21-latex-footnote-reference)
                      (template . my-wg21-latex-template))
 
-  :filters-alist '((:filter-parse-tree . wg21-cite-drop-empty-bibliography))
+  :filters-alist '((:filter-options . wg21-latex-filter-options)
+                   (:filter-parse-tree . wg21-cite-drop-empty-bibliography))
 
   :menu-entry '(?w "WG21 Papers"
                    ((?L "As LaTeX buffer" my-wg21-export-as-latex)
