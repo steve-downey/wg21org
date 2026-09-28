@@ -105,7 +105,22 @@ Intended for use in macros, e.g.
   "Return a plist of git metadata for the document being exported.
 The result is computed once per export and kept in INFO."
   (or (plist-get info :wg21-git)
-      (plist-get (plist-put info :wg21-git (wg21-git--metadata info)) :wg21-git)))
+      (let ((git (wg21-git--metadata info)))
+        (wg21-git--warn-unpushed git info)
+        (plist-get (plist-put info :wg21-git git) :wg21-git))))
+
+(defun wg21-git--warn-unpushed (git info)
+  "Warn when the commit that GIT's source links name is on no remote.
+Such links point at a commit the forge does not have, so they lead
+nowhere until it is pushed.  INFO is a plist holding export options."
+  (let* ((input (plist-get info :input-file))
+         (default-directory (if input (file-name-directory input)
+                              default-directory))
+         (commit (plist-get git :commit)))
+    (when (and commit (plist-get git :url)
+               (not (wg21-git-string "branch" "-r" "--contains" commit)))
+      (message "wg21: commit %s is on no remote branch; source links will lead nowhere until it is pushed"
+               (substring commit 0 (min 12 (length commit)))))))
 
 (defun wg21-git--metadata (info)
   "Return a plist of git metadata for the document being exported.

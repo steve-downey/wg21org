@@ -71,11 +71,6 @@
 \providecommand{\wgtableofcontents}{%
   \@ifclassloaded{memoir}{\tableofcontents*}{\tableofcontents}}
 
-%% A section's link to its line in the Org source, in the margin.
-%% It takes no width, since margins can be narrower than the word.
-\providecommand{\wgsourcelink}[1]{%
-  \marginpar{\makebox[0pt][l]{\textsf{\scriptsize\href{#1}{source}}}}}
-
 %% Comparison tables: before and after columns of equal width, as a
 %% longtable so a long table breaks between rows, with its header row
 %% repeated on each page.

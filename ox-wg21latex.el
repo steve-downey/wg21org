@@ -290,7 +290,7 @@ INFO is a plist holding export options."
       (insert-file-contents file)
       (buffer-string))))
 
-;;; Title block and source links
+;;; Title block
 
 (defun wg21-latex--url (url)
   "Return URL protected for use in \\href."
@@ -361,20 +361,6 @@ CONTENTS is nil.  INFO is a plist holding export options."
    (org-latex-footnote-reference footnote-reference contents info)
    t t))
 
-(defun wg21-latex-headline (headline contents info)
-  "Transcode HEADLINE, with a margin link to its line in the Org source.
-CONTENTS is the headline's contents.  INFO is a plist holding export
-options."
-  (let ((latex (org-latex-headline headline contents info))
-        (source (and (not (org-export-low-level-p headline info))
-                     (wg21-git-headline-url headline info))))
-    (if (and latex source
-             (string-match "\\`[^\n]*\n\\(?:\\\\label{[^}\n]*}\n\\)?" latex))
-        (concat (match-string 0 latex)
-                (format "\\wgsourcelink{%s}%%\n" (wg21-latex--url source))
-                (substring latex (match-end 0)))
-      latex)))
-
 (defcustom wg21-document-number "Dnnnn"
   "doc string"
   :group 'my-export-wg21
@@ -414,7 +400,6 @@ the #+TOC keyword."
     (:wg21-toc-command nil nil wg21-toc-command))
 
   :translate-alist '((special-block . my-latex-special-block)
-                     (headline . wg21-latex-headline)
                      (src-block . wg21-latex-src-block)
                      (footnote-reference . wg21-latex-footnote-reference)
                      (template . my-wg21-latex-template))

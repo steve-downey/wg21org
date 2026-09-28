@@ -99,13 +99,14 @@ y();
     (should (string-match-p "\\\\added{new}" latex))
     (should (string-match-p "\\\\removed{old}" latex))))
 
-(ert-deftest latex-title-block-and-source-links ()
+(ert-deftest latex-title-block ()
   (let ((latex (wg21-test-export-file
                 'wg21-latex
                 "#+TITLE: T\n#+DOCNUMBER: P9999R0\n#+EMAIL: a@b.c\n\n* First\ntext\n")))
     (should (string-match-p "\\\\wgmetalabel{Document \\\\#:} & \\\\wgmetavalue{P9999R0}" latex))
     (should (string-match-p "\\\\href{https://github.com/o/r/blob/[0-9a-f]+/paper\\.org}{paper\\.org}" latex))
-    (should (string-match-p "\\\\wgsourcelink{https://github.com/o/r/blob/[0-9a-f]+/paper\\.org\\?plain=1\\\\#L5}" latex))
+    ;; A printed page has no use for a link beside each section.
+    (should-not (string-match-p "wgsourcelink" latex))
     ;; The metadata comes from the exporter, not from macros a paper may lack.
     (should-not (string-match-p "\\\\docnumber{" latex))
     ;; memoir's starred form would print a * under any other class.
