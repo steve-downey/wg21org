@@ -289,6 +289,14 @@ PROBE is a JavaScript expression whose string value is returned."
     (should (string-match-p "<span class=\"org-function-name\">outside</span>" html))
     (should (string-match-p "<code>int inside(<ins>int</ins>); // plain\n</code>" html))))
 
+(ert-deftest abstract-comes-before-contents ()
+  (let ((html (ox-wg21html-test-export-file (wg21-test-paper-with-abstract)
+                                            (wg21-test-bibliography-files))))
+    (should (< (string-search "class=\"abstract\"" html)
+               (string-search "id=\"toc\"" html)))
+    (should (= 1 (length (wg21-cite-matches "class=\"abstract\"" html))))
+    (should (string-match-p "<div class=\"abstract\"[^>]*>\\(?:.\\|\n\\)*?<a href=\"https://doi.org/10.17487/RFC3514\"" html))))
+
 (ert-deftest page-title-is-plain-text ()
   (let ((html (ox-wg21html-test-export-file "#+TITLE: A view of ~view::maybe~\n* A\n")))
     (should (string-match-p "<title>A view of view::maybe</title>" html))))

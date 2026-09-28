@@ -39,6 +39,9 @@
 (require 'wg21-wording
          (expand-file-name "wg21-wording"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-front
+         (expand-file-name "wg21-front"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 ;; Loaded when present; the export falls back to plain verbatim code.
 (require 'engrave-faces nil t)
@@ -357,16 +360,18 @@ plist holding export options."
        (funcall row "" (format "\\texttt{%s}" (funcall text version))))
      "\\end{tabular}\n\\end{flushright}\n\\bigskip\n")))
 
-(defun wg21-latex--link-citations (latex)
+(defun wg21-latex--link-citations (latex &optional bibliography)
   "Point each citation in LATEX at its reference's URL, when it has one.
 A citation, \\cslcitation{N}{text}, links to entry N of the
 bibliography; when \\cslbibitem{N}{...} holds exactly one URL, link
-there instead.  See `wg21-cite-single-urls'."
+there instead.  The entries are read from BIBLIOGRAPHY, a text holding
+them, by default LATEX itself.  See `wg21-cite-single-urls'."
   (let ((urls (wg21-cite-single-urls
                (mapcar (lambda (line)
                          (and (string-match "\\\\cslbibitem{\\([0-9]+\\)}" line)
                               (cons (match-string 1 line) (wg21-cite-urls line))))
-                       (wg21-cite-matches "^\\\\cslbibitem{[0-9]+}.*$" latex)))))
+                       (wg21-cite-matches "^\\\\cslbibitem{[0-9]+}.*$"
+                                          (or bibliography latex))))))
     (replace-regexp-in-string
      "\\\\cslcitation{\\([0-9]+\\)}{"
      (lambda (citation)
@@ -447,9 +452,12 @@ the #+TOC keyword."
   "Return complete document string after LaTeX conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
-  (setq contents (wg21-latex--link-citations contents))
-  (let ((title (org-export-data (plist-get info :title) info))
-	    (spec (org-latex--format-spec info)))
+  (let* ((body (wg21-front-lift-abstract contents info))
+         ;; Citations link through the bibliography in the whole body.
+         (abstract (and (car body) (wg21-latex--link-citations (car body) contents)))
+         (contents (wg21-latex--link-citations (cdr body) contents))
+         (title (org-export-data (plist-get info :title) info))
+	     (spec (org-latex--format-spec info)))
     (concat
      ;; Timestamp.
      (and (plist-get info :time-stamp-file)
@@ -507,6 +515,8 @@ holding export options."
      (and (plist-get info :with-title)
           (not (string= "" title))
           (wg21-latex--title-block info))
+     ;; The abstract, ahead of the table of contents; see wg21-front.el.
+     (and abstract (concat abstract "\n\n"))
      ;; Table of contents.
      (let ((depth (plist-get info :with-toc)))
        (when depth

@@ -40,6 +40,9 @@
 (require 'wg21-wording
          (expand-file-name "wg21-wording"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-front
+         (expand-file-name "wg21-front"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 (defun my-html-special-block (special-block contents info)
   "Process my special block.  SPECIAL-BLOCK CONTENTS INFO.
@@ -626,14 +629,17 @@ INFO is a plist holding export options."
   "Return body of document string after HTML conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
-  (concat
-   ;; Table of contents.
-   (let ((depth (plist-get info :with-toc)))
-     (when depth (my-wg21-html-toc depth info)))
-   ;; Document contents.
-   contents
-   ;; Footnotes section.
-   (org-html-footnote-section info)))
+  (let ((body (wg21-front-lift-abstract contents info)))
+    (concat
+     ;; The abstract, ahead of the table of contents; see wg21-front.el.
+     (and (car body) (concat (car body) "\n"))
+     ;; Table of contents.
+     (let ((depth (plist-get info :with-toc)))
+       (when depth (my-wg21-html-toc depth info)))
+     ;; Document contents.
+     (cdr body)
+     ;; Footnotes section.
+     (org-html-footnote-section info))))
 
 (defun my-wg21-html-template (contents info)
   "Return complete document string after HTML conversion.

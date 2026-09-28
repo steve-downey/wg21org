@@ -185,6 +185,14 @@ y();
     (should (string-match-p "\\\\begin{flushright}\n\\\\begin{tabular}" latex))
     (should (string-match-p "\\\\wgmetalabel{Project:} & \\\\wgmetavalue{Programming Language C\\+\\+}" latex))))
 
+(ert-deftest latex-abstract-comes-before-contents ()
+  (let ((latex (wg21-test-export-file 'wg21-latex (wg21-test-paper-with-abstract)
+                                      (wg21-test-bibliography-files))))
+    (should (< (string-search "\\begin{wgblock}{abstract}" latex)
+               (string-search "\n\\wgtableofcontents" latex)))
+    (should (= 1 (length (wg21-cite-matches "begin{wgblock}{abstract}" latex))))
+    (should (string-match-p "We build on (\\\\href{https://doi.org/10.17487/RFC3514}" latex))))
+
 (ert-deftest latex-paper-compiles ()
   "A paper with no preamble of its own compiles, comparison table and all."
   (skip-unless (and (executable-find "latexmk") (executable-find "lualatex")))

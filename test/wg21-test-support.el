@@ -74,5 +74,12 @@ int inside(@\\added{int}@); // plain
 "
   "A paper with code both outside and inside its wording.")
 
+(defun wg21-test-paper-with-abstract ()
+  "Return a paper whose abstract cites a reference, with a table of contents."
+  (concat "#+TITLE: T\n#+OPTIONS: toc:t\n#+BIBLIOGRAPHY: refs.bib\n"
+          "#+begin_abstract\nWe build on [cite:@rfc3514].\n#+end_abstract\n"
+          "* Intro\ntext\n"
+          "* References\n#+CITE_EXPORT: csl style.csl\n#+PRINT_BIBLIOGRAPHY:\n"))
+
 (provide 'wg21-test-support)
 ;;; wg21-test-support.el ends here
