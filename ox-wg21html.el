@@ -138,6 +138,11 @@ INFO is a plist holding export options."
   :group 'my-export-wg21
   :type 'string)
 
+(defcustom wg21-project "Programming Language C++"
+  "The project a paper belongs to, set per paper by #+PROJECT."
+  :group 'my-export-wg21
+  :type 'string)
+
 (defcustom wg21-toc-div-id "toc"
   "doc string"
   :group 'my-export-wg21
@@ -171,6 +176,7 @@ CONTENTS is the transcoded body.  INFO is a plist holding export options."
      "<div data-fill-with=\"spec-metadata\">\n<dl>\n"
      "<dt>Document #:</dt><dd>" (org-export-data docnumber info) "</dd>\n"
      "<dt>Date:</dt><dd>" (org-export-data date info) "</dd>\n"
+     "<dt>Project:</dt><dd>" (org-export-data (plist-get info :project) info) "</dd>\n"
      "<dt>Audience:</dt><dd>" (org-export-data audience info) "</dd>\n"
      "<dt>Reply-to:</dt><dd>"
      (if (string-empty-p email)
@@ -586,6 +592,7 @@ INFO is a plist holding export options."
     (:source_version "SOURCE_VERSION" nil "" parse)
     (:git_commit "GIT_COMMIT" nil "" parse)
     (:audience "AUDIENCE" nil wg21-audience nil)
+    (:project "PROJECT" nil wg21-project nil)
     (:toc-div-id "TOC_DIV_ID" nil wg21-toc-div-id nil)
     (:wg21-style "WG21_STYLE" nil wg21-html-style split)
     (:wg21-code-style "WG21_CODE_STYLE" nil wg21-html-code-style split)

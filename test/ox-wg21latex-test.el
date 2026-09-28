@@ -174,6 +174,17 @@ y();
                                        "-halt-on-error" "paper.tex"))))
       (delete-directory dir t))))
 
+(ert-deftest latex-title-page-layout ()
+  "Title and authors centred, document block flush right, as the working draft's papers."
+  (let ((latex (wg21-test-export-file
+                'wg21-latex
+                "#+TITLE: T\n#+AUTHOR: Ann One, Bob Two\n#+EMAIL: ann@x.org, bob@y.org\n* A\n")))
+    (should (string-match-p "\\\\begin{center}\n{\\\\LARGE T\\\\par}" latex))
+    (should (string-match-p "^Ann One {\\\\small\\\\textless\\\\href{mailto:ann@x\\.org}" latex))
+    (should (string-match-p "^Bob Two {\\\\small\\\\textless\\\\href{mailto:bob@y\\.org}" latex))
+    (should (string-match-p "\\\\begin{flushright}\n\\\\begin{tabular}" latex))
+    (should (string-match-p "\\\\wgmetalabel{Project:} & \\\\wgmetavalue{Programming Language C\\+\\+}" latex))))
+
 (ert-deftest latex-paper-compiles ()
   "A paper with no preamble of its own compiles, comparison table and all."
   (skip-unless (and (executable-find "latexmk") (executable-find "lualatex")))

@@ -47,8 +47,8 @@
 %% Title block: the exporter writes the title and a table of the
 %% document's metadata, rather than using \maketitle, which common.tex
 %% and document classes each define their own way.
-\providecommand{\wgmetalabel}[1]{\textsf{\small #1}}
-\providecommand{\wgmetavalue}[1]{\textsf{\small #1}}
+\providecommand{\wgmetalabel}[1]{#1}
+\providecommand{\wgmetavalue}[1]{#1}
 
 %% A special block, #+begin_NAME, is the environment NAME when the
 %% document has one; otherwise its contents are set as they are, with a

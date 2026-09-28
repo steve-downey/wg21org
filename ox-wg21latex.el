@@ -22,6 +22,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'ox-latex)
 (require 'wg21-links
          (expand-file-name "wg21-links"
@@ -296,12 +297,37 @@ INFO is a plist holding export options."
   "Return URL protected for use in \\href."
   (replace-regexp-in-string "[%#\\\\]" "\\\\\\&" url))
 
-(defun wg21-latex--title-block (info)
-  "Return the title and the table of document metadata.
-INFO is a plist holding export options."
+(defcustom wg21-project "Programming Language C++"
+  "The project a paper belongs to, set per paper by #+PROJECT."
+  :group 'my-export-wg21
+  :type 'string)
+
+(defun wg21-latex--authors (info)
+  "Return the paper's author lines, each with its email, as LaTeX.
+Several authors, as in #+AUTHOR: A, B, pair with as many addresses in
+#+EMAIL: a@x, b@y.  Otherwise the one author line carries every
+address.  INFO is a plist holding export options."
   (let* ((text (lambda (value) (org-latex-plain-text value info)))
-         (author (org-export-data (plist-get info :author) info))
-         (email (org-export-data (plist-get info :email) info))
+         (mail (lambda (address)
+                 (format "{\\small\\textless\\href{mailto:%s}{%s}\\textgreater}"
+                         (wg21-latex--url address) (funcall text address))))
+         (author (org-trim (org-export-data (plist-get info :author) info)))
+         (email (org-trim (org-export-data (plist-get info :email) info)))
+         (names (split-string author "[ \t]*\\(?:,\\|\\band\\b\\)[ \t]*" t))
+         (addresses (split-string email "[ \t,;]+" t)))
+    (if (and (> (length names) 1) (= (length names) (length addresses)))
+        (cl-mapcar (lambda (name address) (concat name " " (funcall mail address)))
+                   names addresses)
+      (list (mapconcat #'identity
+                       (cons author (mapcar mail addresses))
+                       " ")))))
+
+(defun wg21-latex--title-block (info)
+  "Return the title page's heading: title, authors, and document block.
+The title and authors are centred, and the document block is set flush
+right, as the working draft's papers set their title pages.  INFO is a
+plist holding export options."
+  (let* ((text (lambda (value) (org-latex-plain-text value info)))
          (git (wg21-git-metadata info))
          (repo (plist-get git :repo))
          (file (plist-get git :file))
@@ -310,17 +336,16 @@ INFO is a plist holding export options."
          (row (lambda (label value)
                 (format "\\wgmetalabel{%s} & \\wgmetavalue{%s} \\\\\n" label value))))
     (concat
-     "\\begin{flushleft}\n"
-     (format "{\\sffamily\\bfseries\\LARGE %s\\par}\n\\bigskip\n"
+     "\\begin{center}\n"
+     (format "{\\LARGE %s\\par}\n\\medskip\n"
              (org-export-data (plist-get info :title) info))
-     "\\begin{tabular}{@{}ll@{}}\n"
+     (mapconcat (lambda (line) (concat line "\\par\n")) (wg21-latex--authors info) "")
+     "\\end{center}\n"
+     "\\begin{flushright}\n\\begin{tabular}{@{}ll@{}}\n"
      (funcall row "Document \\#:" (org-export-data (plist-get info :docnumber) info))
      (funcall row "Date:" (org-export-data (org-export-get-date info) info))
+     (funcall row "Project:" (org-export-data (plist-get info :project) info))
      (funcall row "Audience:" (org-export-data (plist-get info :audience) info))
-     (funcall row "Reply-to:"
-              (if (string-empty-p email) author
-                (format "%s \\textless\\href{mailto:%s}{%s}\\textgreater"
-                        author (wg21-latex--url email) (funcall text email))))
      (when repo
        (funcall row "Source:" (format "\\href{%s}{%s}" (wg21-latex--url repo)
                                       (funcall text repo))))
@@ -330,7 +355,7 @@ INFO is a plist holding export options."
                          (funcall text file))))
      (when version
        (funcall row "" (format "\\texttt{%s}" (funcall text version))))
-     "\\end{tabular}\n\\end{flushleft}\n\\bigskip\n")))
+     "\\end{tabular}\n\\end{flushright}\n\\bigskip\n")))
 
 (defun wg21-latex--link-citations (latex)
   "Point each citation in LATEX at its reference's URL, when it has one.
@@ -383,6 +408,7 @@ the #+TOC keyword."
   :options-alist
   '((:docnumber "DOCNUMBER" nil wg21-document-number nil)
     (:audience "AUDIENCE" nil wg21-audience nil)
+    (:project "PROJECT" nil wg21-project nil)
     (:source_repo "SOURCE_REPO" nil "" nil)
     (:source_file "SOURCE_FILE" nil "" parse)
     (:source_version "SOURCE_VERSION" nil "" parse)
