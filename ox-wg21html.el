@@ -34,6 +34,9 @@
 (require 'wg21-cmptbl
          (expand-file-name "wg21-cmptbl"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-cite
+         (expand-file-name "wg21-cite"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 (defun my-html-special-block (special-block contents info)
   "Process my special block.  SPECIAL-BLOCK CONTENTS INFO.
@@ -524,7 +527,8 @@ INFO is a plist holding export options."
                      (keyword . my-wg21-html-keyword)
                      (template . my-wg21-html-template))
 
-  :filters-alist '((:filter-options . wg21-html-filter-options))
+  :filters-alist '((:filter-options . wg21-html-filter-options)
+                   (:filter-parse-tree . wg21-cite-drop-empty-bibliography))
 
   :menu-entry '(?w "Export WG21 Paper"
                    ((?H "As HTML buffer" my-wg21-export-as-html)

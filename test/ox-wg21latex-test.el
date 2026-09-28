@@ -111,6 +111,22 @@ y();
     ;; memoir's starred form would print a * under any other class.
     (should (string-match-p "^\\\\wgtableofcontents$" latex))))
 
+(ert-deftest latex-empty-bibliography-is-dropped ()
+  (let ((latex (wg21-test-export-file
+                'wg21-latex
+                (wg21-test-paper-with-references "No citations here.")
+                (wg21-test-bibliography-files))))
+    (should-not (string-match-p "section{References}" latex))
+    (should (string-match-p "section{Intro}" latex))))
+
+(ert-deftest latex-bibliography-is-kept-when-cited ()
+  (let ((latex (wg21-test-export-file
+                'wg21-latex
+                (wg21-test-paper-with-references "See [cite:@rfc3514].")
+                (wg21-test-bibliography-files))))
+    (should (string-match-p "section{References}" latex))
+    (should (string-match-p "\\\\cslbibitem{1}" latex))))
+
 (ert-deftest latex-paper-compiles ()
   "A paper with no preamble of its own compiles, comparison table and all."
   (skip-unless (and (executable-find "latexmk") (executable-find "lualatex")))

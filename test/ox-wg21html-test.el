@@ -225,6 +225,20 @@ PROBE is a JavaScript expression whose string value is returned."
   (let ((html (ox-wg21html-test-export-file "#+TITLE: T\n* A\n[[file:missing.png]]\n")))
     (should (string-match-p "<img[^>]*src=\"missing\\.png\"" html))))
 
+(ert-deftest empty-bibliography-is-dropped ()
+  (let ((html (ox-wg21html-test-export-file
+               (wg21-test-paper-with-references "No citations here.")
+               (wg21-test-bibliography-files))))
+    (should-not (string-match-p ">References<" html))
+    (should (string-match-p ">Intro<" html))))
+
+(ert-deftest bibliography-is-kept-when-cited ()
+  (let ((html (ox-wg21html-test-export-file
+               (wg21-test-paper-with-references "See [cite:@rfc3514].")
+               (wg21-test-bibliography-files))))
+    (should (string-match-p ">References<" html))
+    (should (string-match-p "class=\"csl-entry\"" html))))
+
 (ert-deftest page-title-is-plain-text ()
   (let ((html (ox-wg21html-test-export-file "#+TITLE: A view of ~view::maybe~\n* A\n")))
     (should (string-match-p "<title>A view of view::maybe</title>" html))))

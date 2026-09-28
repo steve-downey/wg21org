@@ -32,6 +32,9 @@
 (require 'wg21-cmptbl
          (expand-file-name "wg21-cmptbl"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-cite
+         (expand-file-name "wg21-cite"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 ;; Loaded when present; the export falls back to plain verbatim code.
 (require 'engrave-faces nil t)
@@ -285,6 +288,8 @@ the #+TOC keyword."
                      (headline . wg21-latex-headline)
                      (footnote-reference . wg21-latex-footnote-reference)
                      (template . my-wg21-latex-template))
+
+  :filters-alist '((:filter-parse-tree . wg21-cite-drop-empty-bibliography))
 
   :menu-entry '(?w "WG21 Papers"
                    ((?L "As LaTeX buffer" my-wg21-export-as-latex)
