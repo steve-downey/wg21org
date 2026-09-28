@@ -37,5 +37,49 @@ the exported text."
               (kill-buffer buffer))))
       (delete-directory dir t))))
 
+(defconst wg21-test-directory
+  (expand-file-name ".." (file-name-directory (or (macroexp-file-name) buffer-file-name)))
+  "The repository root.")
+
+(defun wg21-test-bibliography-files ()
+  "Files for a paper with a bibliography: refs.bib and a CSL style.
+refs.bib holds rfc3514, an RFC with a single DOI URL."
+  (mapcar (lambda (pair)
+            (cons (car pair)
+                  (with-temp-buffer
+                    (insert-file-contents (expand-file-name (cdr pair) wg21-test-directory))
+                    (buffer-string))))
+          '(("refs.bib" . "rfc3514.bib")
+            ("style.csl" . "chicago-author-date.csl"))))
+
+(defun wg21-test-paper-with-references (body)
+  "Return a paper with BODY, a bibliography, and a References heading."
+  (concat "#+TITLE: T\n#+BIBLIOGRAPHY: refs.bib\n"
+          "* Intro\n" body "\n"
+          "* References\n#+CITE_EXPORT: csl style.csl\n#+PRINT_BIBLIOGRAPHY:\n"))
+
+(defconst wg21-test-wording-paper "\
+#+TITLE: T
+* Motivation
+#+begin_src C++
+int outside(); // highlighted
+#+end_src
+* Wording
+#+begin_wording
+Change the synopsis:
+#+begin_src C++
+int inside(@\\added{int}@); // plain
+#+end_src
+#+end_wording
+"
+  "A paper with code both outside and inside its wording.")
+
+(defun wg21-test-paper-with-abstract ()
+  "Return a paper whose abstract cites a reference, with a table of contents."
+  (concat "#+TITLE: T\n#+OPTIONS: toc:t\n#+BIBLIOGRAPHY: refs.bib\n"
+          "#+begin_abstract\nWe build on [cite:@rfc3514].\n#+end_abstract\n"
+          "* Intro\ntext\n"
+          "* References\n#+CITE_EXPORT: csl style.csl\n#+PRINT_BIBLIOGRAPHY:\n"))
+
 (provide 'wg21-test-support)
 ;;; wg21-test-support.el ends here

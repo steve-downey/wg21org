@@ -384,6 +384,25 @@ ins code, del code, .underline code {
     margin-bottom: 0;
 }
 
+/* Hide deleted text, from the checkbox the exporter adds to the
+   metadata of a paper that has some.  What is left reads as the final
+   wording, so insertions lose their marking too. */
+body:has(#wg21-hide-deleted:checked) :is(del, .removedblock) {
+    display: none;
+}
+body:has(#wg21-hide-deleted:checked) :is(ins, .underline, .addedblock) {
+    color: inherit;
+    background: none;
+    text-decoration: none;
+}
+body:has(#wg21-hide-deleted:checked) .addedblock {
+    border-left: 0;
+    padding-left: 0;
+}
+.diff-toggle label {
+    cursor: pointer;
+}
+
 blockquote {
     margin-left: 0;
     padding-left: 1em;
@@ -570,6 +589,7 @@ figcaption, .figure-number, .table-number, .listing-number {
         text-decoration: none;
     }
     #toc-nav,
+    .diff-toggle,
     .heading .self-link,
     .heading .source-link {
         display: none;

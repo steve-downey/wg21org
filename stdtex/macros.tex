@@ -39,19 +39,17 @@
 \newenvironment{addedblock}{\color{addclr}}{\color{black}}
 \newenvironment{removedblock}{\color{remclr}}{\color{black}}
 
-%%--------------------------------------------------
+%%-------------------------------------------------------------
 %% Grammar extraction.
-%%--------------------------------------------------
-\def\gramSec[#1]#2{}
-
+%% Assumes that the output file \gramout is managed externally.
+%%-------------------------------------------------------------
 \makeatletter
-\newcommand{\FlushAndPrintGrammar}{%
-\immediate\closeout\XTR@out%
-\immediate\openout\XTR@out=std-gram-dummy.tmp%
-\def\gramSec[##1]##2{\rSec1[##1]{##2}}%
-\input{std-gram.ext}%
-}
+\newcommand{\gramWrite}[1]{\protected@write\gramout{}{#1}}
+\newcommand{\meaningbody}[1]{\expandafter\strip@prefix\meaning#1}
 \makeatother
+
+\newcommand{\gramSec}[2][]{\gramWrite{%
+\string\rSec1\string[\string#1\string]\string{\string#2\string}}}
 
 %%--------------------------------------------------
 % Escaping for index entries. Replaces ! with "! throughout its argument.
@@ -64,6 +62,7 @@
 %% Cross-references.
 %%--------------------------------------------------
 \newcommand{\addxref}[1]{%
+ \hypertarget{#1}{}%
  \glossary[xrefindex]{\indexescape{#1}}{(\ref{\indexescape{#1}})}%
 }
 
@@ -77,12 +76,12 @@
 
 % Set the xref label for a clause to be "Clause n", not just "n".
 \makeatletter
-\newcommand{\customlabel}[2]{%
-\@bsphack \begingroup \protected@edef \@currentlabel {\protect \M@TitleReference{#2}{\M@currentTitle}}\MNR@label{#1}\endgroup \@esphack%
+\newcommand{\customlabel}[3]{%
+\@bsphack \protected@write\@auxout{}{\string\newlabel{#1}{{#3}{\thepage}{}{#2.\thechapter}{}}} \@esphack%
 }
 \makeatother
-\newcommand{\clauselabel}[1]{\customlabel{#1}{Clause \thechapter}}
-\newcommand{\annexlabel}[1]{\customlabel{#1}{Annex \thechapter}}
+\newcommand{\clauselabel}[1]{\customlabel{#1}{chapter}{Clause \thechapter}}
+\newcommand{\annexlabel}[1]{\customlabel{#1}{appendix}{Annex \thechapter}}
 
 % Use prefix "Annex" in the table of contents
 \newcommand{\annexnumberlinebox}[2]{Annex #2\space}
@@ -92,6 +91,7 @@
 % defines a first-level section whose name is "Scope" and whose short
 % tag is intro.scope.  The square brackets are mandatory.
 \def\Sec#1[#2]#3{%
+\addxref{#2}%
 \ifcase#1\let\s=\chapter\let\l=\clauselabel
       \or\let\s=\section\let\l=\label
       \or\let\s=\subsection\let\l=\label
@@ -99,7 +99,7 @@
       \or\let\s=\paragraph\let\l=\label
       \or\let\s=\subparagraph\let\l=\label
       \fi%
-\s[#3]{#3\hfill[#2]}\l{#2}\addxref{#2}%
+\s[#3]{#3\hfill[#2]}\l{#2}%
 }
 
 % A convenience feature (mostly for the convenience of the Project
@@ -117,6 +117,11 @@
 \setcounter{SectionDepth}{#1}
 \addtocounter{SectionDepth}{\value{SectionDepthBase}}
 \Sec{\arabic{SectionDepth}}[#2]{#3}}
+
+%%--------------------------------------------------
+% Bibliography
+%%--------------------------------------------------
+\newcommand{\supercite}[1]{\textsuperscript{\cite{#1}}}
 
 %%--------------------------------------------------
 % Indexing
@@ -140,7 +145,7 @@
 
 % \indeximpldef synthesizes a collation key from the argument; that is, an
 % invocation \indeximpldef{arg} emits an index entry `key@arg`, where `key`
-% is derived from `arg` by replacing the folowing list of commands with their
+% is derived from `arg` by replacing the following list of commands with their
 % bare content. This allows, say, collating plain text and code.
 \newcommand{\indeximpldef}[1]{%
 \let\otextup\textup%
@@ -207,12 +212,21 @@
 \newcommand{\libmember}[2]{\indexlibrarymember{#1}{#2}#1}
 \newcommand{\libspec}[2]{\indexlibrarymemberx{#1}{#2}#1}
 
+% index for macros
+% \libmacro is suitable for use directly in header synopses to add the macro
+% to both the text and the library index. \libxmacro does the same, but
+% prepends a well-rendered double underscore.
+\newcommand{\libmacro}[1]{\indexlibraryglobal{#1}\CodeStylex{#1}}
+\newcommand{\libxmacro}[1]{\indexlibraryglobal{\idxxname{#1}}\CodeStylex{\xname{#1}}}
+
 % index for library headers
-\newcommand{\libheader}[1]{\indexhdr{#1}\tcode{<#1>}}
+\newcommand{\libheaderx}[2]{\indexhdr{#1}\tcode{<#2>}}
+\newcommand{\libheader}[1]{\libheaderx{#1}{#1}}
 \newcommand{\indexheader}[1]{\index[headerindex]{\idxhdr{#1}|idxbfpage}}
 \newcommand{\libheaderdef}[1]{\indexheader{#1}\tcode{<#1>}}
 \newcommand{\libnoheader}[1]{\indextext{\idxhdr{#1}!absence thereof}\tcode{<#1>}}
-\newcommand{\libheaderrefx}[2]{\libheader{#1}\iref{#2}}
+\newcommand{\libheaderrefxx}[3]{\libheaderx{#1}{#2}\iref{#3}}
+\newcommand{\libheaderrefx}[2]{\libheaderrefxx{#1}{#1}{#2}}
 \newcommand{\libheaderref}[1]{\libheaderrefx{#1}{#1.syn}}
 \newcommand{\libdeprheaderref}[1]{\libheaderrefx{#1}{depr.#1.syn}}
 
@@ -221,6 +235,11 @@
 %%--------------------------------------------------
 \newcommand{\CodeStyle}{\ttfamily}
 \newcommand{\CodeStylex}[1]{\texttt{\protect\frenchspacing #1}}
+\makeatletter
+% Append `\@` to restore proper sentence spacing in text mode. This insertion
+% happens only during normal typesetting; it is suppressed for .idx generation.
+\newcommand{\CodeStylexGuarded}[1]{\CodeStylex{#1\ifmmode\else\ifx\protect\@typeset@protect\@\fi\fi}}
+\makeatother
 
 \definecolor{grammar-gray}{gray}{0.2}
 
@@ -228,7 +247,7 @@
 \newcommand{\GrammarStylex}[1]{\textcolor{grammar-gray}{\textsf{\textit{#1}}}}
 
 % Code and definitions embedded in text.
-\newcommand{\tcode}[1]{\CodeStylex{#1}}
+\newcommand{\tcode}[1]{\CodeStylexGuarded{#1}}
 \newcommand{\term}[1]{\textit{#1}}
 \newcommand{\gterm}[1]{\GrammarStylex{#1}}
 \newcommand{\fakegrammarterm}[1]{\gterm{#1}}
@@ -277,6 +296,11 @@
 \newcommand{\CppXX}{\Cpp{} 2020}
 \newcommand{\CppXXIII}{\Cpp{} 2023}
 \newcommand{\CppXXVI}{\Cpp{} 2026}
+\newcommand{\IsoCUndated}{ISO/IEC 9899}
+\newcommand{\IsoC}{\IsoCUndated{}:2024}
+\newcommand{\IsoFloatUndated}{ISO/IEC 60559}
+\newcommand{\IsoPosixUndated}{ISO/IEC/IEEE 9945}
+\newcommand{\IsoPosix}{\IsoPosixUndated{}:2009}
 \newcommand{\opt}[1]{#1\ensuremath{_\mathit{\color{black}opt}}}
 \newcommand{\bigoh}[1]{\ensuremath{\mathscr{O}(#1)}}
 
@@ -309,7 +333,7 @@
 \newcommand{\newnoteenvironment}[3]{
 \newsubclausecounter{#1}
 \newenvironment{tail#1}
-{\par\small\stepcounter{#1}\noteintro{#2}}
+{\par\small\penalty -200\stepcounter{#1}\noteintro{#2}}
 {\noteoutro{#3}}
 \newenvironment{#1}
 {\begin{tail#1}}
@@ -344,7 +368,9 @@
 \newcommand{\required}{\Fundesc{Required behavior}}
 \newcommand{\constraints}{\Fundesc{Constraints}}
 \newcommand{\mandates}{\Fundesc{Mandates}}
+\newcommand{\constantwhen}{\Fundesc{Constant When}}
 \newcommand{\expects}{\Fundesc{Preconditions}}
+\newcommand{\hardexpects}{\Fundesc{Hardened preconditions}}
 \newcommand{\effects}{\Fundesc{Effects}}
 \newcommand{\ensures}{\Fundesc{Postconditions}}
 \newcommand{\returns}{\Fundesc{Returns}}
@@ -355,15 +381,15 @@
 \newcommand{\errors}{\Fundesc{Error conditions}}
 \newcommand{\sync}{\Fundesc{Synchronization}}
 \newcommand{\implimits}{\Fundesc{Implementation limits}}
-\newcommand{\replaceable}{\Fundesc{Replaceable}}
 \newcommand{\result}{\Fundesc{Result}}
 \newcommand{\returntype}{\Fundesc{Return type}}
 \newcommand{\ctype}{\Fundesc{Type}}
 \newcommand{\templalias}{\Fundesc{Alias template}}
 
 %% Cross-reference
-\newcommand{\xref}{\textsc{See also:}\space}
-\newcommand{\xrefc}[1]{\xref{} ISO C #1}
+\newcommand{\xref}[1]{\textsc{See also:}\space #1}
+\newcommand{\xrefc}[1]{\xref{\IsoC{}, #1}}
+\newcommand{\termref}[3]{\textit{#2}{#3}\iref{#1}} % in Clause 3
 
 %% Inline comma-separated parenthesized references
 \ExplSyntaxOn
@@ -379,8 +405,7 @@
 }
 \ExplSyntaxOff
 
-%% Inline non-parenthesized table reference (override memoir's \tref,
-%% which memoir no longer always defines)
+%% Inline non-parenthesized table reference (override memoir's \tref)
 \providecommand{\tref}{}
 \renewcommand{\tref}[1]{\hyperref[tab:#1]{\tablerefname \nolinebreak[3] \ref*{tab:#1}}}
 %% Inline non-parenthesized figure reference (override memoir's \fref)
@@ -445,8 +470,14 @@
 \newcommand{\unspecbool}{\UNSP{unspecified-bool-type}}
 \newcommand{\seebelow}{\UNSP{see below}}      % macro length: 0
 \newcommand{\seebelownc}{\UNSPnc{see below}}  % macro length: 2
+\newcommand{\seeabove}{\UNSP{see above}}      % macro length: 0
+\newcommand{\seeabovenc}{\UNSPnc{see above}}  % macro length: 2
 \newcommand{\unspecuniqtype}{\UNSP{unspecified unique type}}
 \newcommand{\unspecalloctype}{\UNSP{unspecified allocator type}}
+
+%% Convenience macro for double carets in expressions,
+%% particularly within \tcode.
+\newcommand{\reflexpr}[1]{\caret\caret#1}
 
 %% Manual insertion of italic corrections, for aligning in the presence
 %% of the above annotations.
@@ -486,8 +517,8 @@
 \newcommand{\libconceptx}[2]{\cname{#1}\indexconcept{\idxconcept{#2}}}
 \newcommand{\libconcept}[1]{\libconceptx{#1}{#1}}
 \newcommand{\deflibconcept}[1]{\cname{#1}\indexlibrary{\idxconcept{#1}}\indexconcept{\idxconcept{#1}|idxbfpage}}
-\newcommand{\exposconcept}[1]{\ecname{#1}\indexconcept{\idxexposconcept{#1}}}
 \newcommand{\exposconceptx}[2]{\ecname{#1}\indexconcept{\idxexposconcept{#2}}}
+\newcommand{\exposconcept}[1]{\exposconceptx{#1}{#1}}
 \newcommand{\exposconceptnc}[1]{\indexconcept{\idxexposconcept{#1}}\ecname{#1}\itcorr[-1]}               % macro length: 15
 \newcommand{\defexposconcept}[1]{\ecname{#1}\indexconcept{\idxexposconcept{#1}|idxbfpage}}               % macro length: 16
 \newcommand{\defexposconceptnc}[1]{\ecname{#1}\indexconcept{\idxexposconcept{#1}|idxbfpage}\itcorr[-1]}  % macro length: 18
@@ -537,6 +568,9 @@
 \newcommand{\cv}{\ifmmode\mathit{cv}\else\cvqual{cv}\fi}
 \newcommand{\numconst}[1]{\textsl{#1}}
 \newcommand{\logop}[1]{\textsc{#1}}
+\DeclareMathOperator{\mullo}{mullo}
+\DeclareMathOperator{\mulhi}{mulhi}
+\newcommand{\cedef}{\mathrel{\mathop:}=} % "colon-equals definition"
 
 %%--------------------------------------------------
 %% Environments for code listings.
@@ -565,35 +599,19 @@
 \lstset{escapechar=@, aboveskip=\parskip, belowskip=0pt,
         midpenalty=500, endpenalty=-50,
         emptylinepenalty=-250, semicolonpenalty=0,upquote=true}%
-\renewcommand{\tcode}[1]{\textup{\CodeStylex{##1}}}
+\renewcommand{\tcode}[1]{\textup{\CodeStylexGuarded{##1}}}
 \renewcommand{\term}[1]{\textit{##1}}%
 \renewcommand{\grammarterm}[1]{\gterm{##1}}%
 }
 
 \lstnewenvironment{codeblock}{\CodeBlockSetup}{}
 
-% Left-align listings titles
-\makeatletter
-\def\lst@maketitle{\@makeleftcaption\lst@title@dropdelim}
-\long\def\@makeleftcaption#1#2{%
-  \vskip\abovecaptionskip
-  \sbox\@tempboxa{#1: #2}%
-  \ifdim \wd\@tempboxa >\hsize
-    #1: #2\par
-  \else
-    \global \@minipagefalse
-    \hb@xt@\hsize{%\hfil -- REMOVED
-    \box\@tempboxa\hfil}%
-  \fi
-  \vskip\belowcaptionskip}%
-\makeatother
-
 \lstnewenvironment{codeblocktu}[1]{%
 \lstset{title={%\parabullnum{Bullets1}{0pt}
 #1:}}\CodeBlockSetup}{}
 
 % An environment for command / program output that is not C++ code.
-\lstnewenvironment{outputblock}{\lstset{language=}}{}
+\lstnewenvironment{outputblock}{\lstset{escapechar=@, language=}}{}
 
 % A code block in which single-quotes are digit separators
 % rather than character literals.
@@ -606,6 +624,17 @@
 \makeatletter
 \newcommand{\atsign}{@}
 \makeatother
+
+%%--------------------------------------------------
+%% Formulae
+%%--------------------------------------------------
+
+% usage: \begin{formula}{XREF}
+\newenvironment{formula}[1]
+{\begin{equation}\label{eq:#1}}
+{\end{equation}}
+
+\renewcommand{\eqref}[1]{Formula \nolinebreak[3] \hyperref[eq:#1]{\ref*{eq:#1}}}
 
 %%--------------------------------------------------
 %% Indented text
@@ -621,14 +650,14 @@
 {
  \lstset{escapechar=@,
  xleftmargin=0em,
- midpenalty=500,
+ midpenalty=3000,
  semicolonpenalty=-50,
- endpenalty=3000,
+ endpenalty=2000,
  aboveskip=2ex,
  belowskip=0ex	% leave this alone: it keeps these things out of the
 				% footnote area
  }%
- \renewcommand{\tcode}[1]{\textup{\CodeStylex{##1}}}
+ \renewcommand{\tcode}[1]{\textup{\CodeStylexGuarded{##1}}}
 }
 {
 }
@@ -650,7 +679,17 @@
 \setlength{\BnfInc}{\BnfIndent}
 \newlength{\BnfRest}
 \setlength{\BnfRest}{2\BnfIndent}
-\newcommand{\BnfNontermshape}{\small\color{grammar-gray}\sffamily\itshape}
+\newcommand{\BnfNontermshape}{%
+  \small%
+  \color{grammar-gray}%
+  % The color setting inserts a \pdfcolorstack entry into the vertical list,
+  % breaking the connection of the \penalty entry from a preceding heading
+  % with the \glue entries that precede the grammar snippet.
+  % Add a penalty here that prevents making those \glue entries page-breaking
+  % opportunities.
+  \penalty10000%
+  \sffamily%
+  \itshape}
 \newcommand{\BnfReNontermshape}{\small\rmfamily\itshape}
 \newcommand{\BnfTermshape}{\small\ttfamily\upshape}
 
@@ -674,7 +713,12 @@
  \nonfrenchspacing
  }
 
-\newenvironment{simplebnf}
+% "ncbnf" is the non-copied "base" versions of the bnf environment;
+% instances of the full "bnf" environment is copied to the grammar
+% extraction file.
+% (Similarly for "ncsimplebnf", though in fact we never extract any
+% hypothetical "simplebnf" environments.)
+\newenvironment{ncsimplebnf}
 {
  \begin{bnfbase}
  \BnfNontermshape
@@ -685,7 +729,7 @@
  \end{bnfbase}
 }
 
-\newenvironment{bnf}
+\newenvironment{ncbnf}
 {
  \begin{bnfbase}
  \begin{bnflist}
@@ -697,6 +741,7 @@
  \end{bnfbase}
 }
 
+% The regex grammar is never copied.
 \newenvironment{ncrebnf}
 {
  \begin{bnfbase}
@@ -710,11 +755,10 @@
  \end{bnfbase}
 }
 
-% non-copied versions of bnf environments
-\let\ncsimplebnf\simplebnf
-\let\endncsimplebnf\endsimplebnf
-\let\ncbnf\bnf
-\let\endncbnf\endbnf
+\NewEnviron{bnf}{\begin{ncbnf}%
+\BODY%
+\gramWrite{\string\begin{ncbnf}\meaningbody\BODY\string\end{ncbnf}}%
+\end{ncbnf}}{}
 
 %%--------------------------------------------------
 %% Environment for imported graphics
@@ -757,3 +801,37 @@
 }
 \newcommand{\defncontext}[1]{\textlangle#1\textrangle}
 \newnoteenvironment{defnote}{Note \arabic{defnote} to entry}{end note}
+
+%%----------------------------------
+%% UB and IFNDR sections for annexes
+%%----------------------------------
+%% Undefined behavior and ill-formed, no diagnostic required
+
+\newcommand{\behaviordef}[2]{\nolinebreak[3] (\label{#2x:#1}\ref{#2:#1})}
+
+\newcommand{\behaviordescription}[2]{%
+\let\oldcontentsline\addcontentsline%
+\let\addcontentsline\nocontentsline%
+\ifcase\value{SectionDepth}
+         \let\s=\section
+      \or\let\s=\subsection
+      \or\let\s=\subsubsection
+      \or\let\s=\paragraph
+      \or\let\s=\subparagraph
+      \fi%
+\s[#1]{\hfill[#2:#1]}\label{#2:#1}%
+\textbf{Specified in:}\space\ref{#2x:#1}%
+\let\addcontentsline\oldcontentsline%
+}
+
+% Use in main body of text to mark undefined behavior
+\newcommand{\ubdef}[1]{\behaviordef{#1}{ub}}
+
+% Use in Annex for sections describing each individual UB
+\newcommand{\ubdescription}[1]{\behaviordescription{#1}{ub}}
+
+% Use in main body of text to mark IFNDR
+\newcommand{\ifndrdef}[1]{\behaviordef{#1}{ifndr}}
+
+% Use in Annex for sections describing each individual IFNDR
+\newcommand{\ifndrdescription}[1]{\behaviordescription{#1}{ifndr}}

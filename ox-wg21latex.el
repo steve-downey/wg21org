@@ -22,6 +22,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'ox-latex)
 (require 'wg21-links
          (expand-file-name "wg21-links"
@@ -31,6 +32,15 @@
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 (require 'wg21-cmptbl
          (expand-file-name "wg21-cmptbl"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-cite
+         (expand-file-name "wg21-cite"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-wording
+         (expand-file-name "wg21-wording"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-front
+         (expand-file-name "wg21-front"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 ;; Loaded when present; the export falls back to plain verbatim code.
@@ -63,6 +73,30 @@ options after \\begin{NAME} is left as it is."
                 "\\end{wgblock}"
                 (match-string 1 latex))
       latex)))
+
+;;; Wording
+
+(defconst wg21-latex-wording-code-languages '("c++" "cpp" "c")
+  "Languages set as C++ in wording; other code is set as output.")
+
+(defun wg21-latex-src-block (src-block contents info)
+  "Transcode SRC-BLOCK, as the working draft sets code when in wording.
+In a #+begin_wording block, C++ goes in stdtex's codeblock and other
+code in its outputblock, from the common.tex prolog, instead of being
+highlighted; see wg21-wording.el.  The code is passed as it is, so
+@\\added{...}@ and @\\removed{...}@ mark edits inside it.  CONTENTS
+is nil.  INFO is the export plist."
+  (if (wg21-wording-p src-block)
+      (let ((code (car (org-export-unravel-code src-block)))
+            (environment (if (member (downcase (or (org-element-property :language src-block) ""))
+                                     wg21-latex-wording-code-languages)
+                             "codeblock"
+                           "outputblock")))
+        (format "\\begin{%s}\n%s%s\\end{%s}\n"
+                environment code
+                (if (string-suffix-p "\n" code) "" "\n")
+                environment))
+    (org-latex-src-block src-block contents info)))
 
 ;;; Comparison tables
 
@@ -164,6 +198,86 @@ compilable wherever it is."
   :group 'my-export-wg21
   :type 'string)
 
+(defcustom wg21-latex-prolog "common.tex"
+  "The prolog every paper starts from, set per paper by #+WG21_LATEX_PROLOG.
+By default the working draft's macros and layout, from common.tex and
+the stdtex files it reads, which also give wording its section
+numbers and code its draft formatting.  \"none\" means no prolog.  A
+relative name is looked up next to the paper, then next to this
+exporter.  It is copied into the paper, with the files it \\inputs,
+before the paper's own #+LATEX_HEADER lines."
+  :group 'my-export-wg21
+  :type 'string)
+
+(defcustom wg21-latex-class "memoir"
+  "Document class of a paper that names none; common.tex needs memoir."
+  :group 'my-export-wg21
+  :type 'string)
+
+(defcustom wg21-latex-class-options "[a4paper,10pt,oneside,openany,final,article]"
+  "Class options of a paper that names none."
+  :group 'my-export-wg21
+  :type 'string)
+
+(defun wg21-latex--find-file (name info)
+  "Return the file NAME, looked up next to the paper and then this exporter.
+INFO is a plist holding export options."
+  (let ((input (plist-get info :input-file)))
+    (seq-find #'file-readable-p
+              (delq nil
+                    (list (and input (expand-file-name
+                                      name (file-name-directory input)))
+                          (expand-file-name name wg21-latex-directory))))))
+
+(defun wg21-latex--inline-inputs (file)
+  "Return FILE's contents, with each \\input{NAME} it makes replaced by NAME.
+NAME is read relative to FILE's directory, as TeX would from there,
+and its own \\inputs are inlined too, so the result stands alone."
+  (let ((dir (file-name-directory file)))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (while (re-search-forward "^[ \t]*\\\\input{\\([^}]+\\)}.*$" nil t)
+        (let* ((name (match-string 1))
+               (from (match-beginning 0))
+               (to (match-end 0))
+               (path (seq-find #'file-readable-p
+                               (list (expand-file-name name dir)
+                                     (expand-file-name (concat name ".tex") dir)))))
+          (when path
+            (let ((text (format "%%%% ---- %s\n%s" name (wg21-latex--inline-inputs path))))
+              (delete-region from to)
+              (goto-char from)
+              (insert text)))))
+      (buffer-string))))
+
+(defun wg21-latex--prolog (info)
+  "Return the paper's prolog, or nil for none.
+INFO is a plist holding export options."
+  (let ((name (org-trim (or (plist-get info :wg21-latex-prolog) ""))))
+    (unless (member name '("" "none"))
+      (let ((file (wg21-latex--find-file name info)))
+        (unless file
+          (user-error "LaTeX prolog %s not found" name))
+        (concat "%% ---- " name "\n" (wg21-latex--inline-inputs file))))))
+
+(defun wg21-latex-filter-options (info _backend)
+  "Put the prolog at the head of the paper's #+LATEX_HEADER lines.
+A header line that reads the prolog itself, as papers did with
+\\include{common.tex} before it was the default, is dropped, since the
+prolog is already there.  INFO is the export plist; return it."
+  (let ((prolog (wg21-latex--prolog info))
+        (name (file-name-sans-extension
+               (org-trim (or (plist-get info :wg21-latex-prolog) "")))))
+    (when prolog
+      (plist-put info :latex-header
+                 (concat prolog "\n"
+                         (replace-regexp-in-string
+                          (format "^[ \t]*\\\\\\(?:include\\|input\\){%s\\(?:\\.tex\\)?}[ \t]*\n?"
+                                  (regexp-quote name))
+                          "" (or (plist-get info :latex-header) ""))))))
+  info)
+
 (defun wg21-latex--preamble (info)
   "Return the contents of the paper's preamble fragment.
 INFO is a plist holding export options."
@@ -180,18 +294,43 @@ INFO is a plist holding export options."
       (insert-file-contents file)
       (buffer-string))))
 
-;;; Title block and source links
+;;; Title block
 
 (defun wg21-latex--url (url)
   "Return URL protected for use in \\href."
   (replace-regexp-in-string "[%#\\\\]" "\\\\\\&" url))
 
-(defun wg21-latex--title-block (info)
-  "Return the title and the table of document metadata.
-INFO is a plist holding export options."
+(defcustom wg21-project "Programming Language C++"
+  "The project a paper belongs to, set per paper by #+PROJECT."
+  :group 'my-export-wg21
+  :type 'string)
+
+(defun wg21-latex--authors (info)
+  "Return the paper's author lines, each with its email, as LaTeX.
+Several authors, as in #+AUTHOR: A, B, pair with as many addresses in
+#+EMAIL: a@x, b@y.  Otherwise the one author line carries every
+address.  INFO is a plist holding export options."
   (let* ((text (lambda (value) (org-latex-plain-text value info)))
-         (author (org-export-data (plist-get info :author) info))
-         (email (org-export-data (plist-get info :email) info))
+         (mail (lambda (address)
+                 (format "{\\small\\textless\\href{mailto:%s}{%s}\\textgreater}"
+                         (wg21-latex--url address) (funcall text address))))
+         (author (org-trim (org-export-data (plist-get info :author) info)))
+         (email (org-trim (org-export-data (plist-get info :email) info)))
+         (names (split-string author "[ \t]*\\(?:,\\|\\band\\b\\)[ \t]*" t))
+         (addresses (split-string email "[ \t,;]+" t)))
+    (if (and (> (length names) 1) (= (length names) (length addresses)))
+        (cl-mapcar (lambda (name address) (concat name " " (funcall mail address)))
+                   names addresses)
+      (list (mapconcat #'identity
+                       (cons author (mapcar mail addresses))
+                       " ")))))
+
+(defun wg21-latex--title-block (info)
+  "Return the title page's heading: title, authors, and document block.
+The title and authors are centred, and the document block is set flush
+right, as the working draft's papers set their title pages.  INFO is a
+plist holding export options."
+  (let* ((text (lambda (value) (org-latex-plain-text value info)))
          (git (wg21-git-metadata info))
          (repo (plist-get git :repo))
          (file (plist-get git :file))
@@ -200,17 +339,16 @@ INFO is a plist holding export options."
          (row (lambda (label value)
                 (format "\\wgmetalabel{%s} & \\wgmetavalue{%s} \\\\\n" label value))))
     (concat
-     "\\begin{flushleft}\n"
-     (format "{\\sffamily\\bfseries\\LARGE %s\\par}\n\\bigskip\n"
+     "\\begin{center}\n"
+     (format "{\\LARGE %s\\par}\n\\medskip\n"
              (org-export-data (plist-get info :title) info))
-     "\\begin{tabular}{@{}ll@{}}\n"
+     (mapconcat (lambda (line) (concat line "\\par\n")) (wg21-latex--authors info) "")
+     "\\end{center}\n"
+     "\\begin{flushright}\n\\begin{tabular}{@{}ll@{}}\n"
      (funcall row "Document \\#:" (org-export-data (plist-get info :docnumber) info))
      (funcall row "Date:" (org-export-data (org-export-get-date info) info))
+     (funcall row "Project:" (org-export-data (plist-get info :project) info))
      (funcall row "Audience:" (org-export-data (plist-get info :audience) info))
-     (funcall row "Reply-to:"
-              (if (string-empty-p email) author
-                (format "%s \\textless\\href{mailto:%s}{%s}\\textgreater"
-                        author (wg21-latex--url email) (funcall text email))))
      (when repo
        (funcall row "Source:" (format "\\href{%s}{%s}" (wg21-latex--url repo)
                                       (funcall text repo))))
@@ -220,7 +358,28 @@ INFO is a plist holding export options."
                          (funcall text file))))
      (when version
        (funcall row "" (format "\\texttt{%s}" (funcall text version))))
-     "\\end{tabular}\n\\end{flushleft}\n\\bigskip\n")))
+     "\\end{tabular}\n\\end{flushright}\n\\bigskip\n")))
+
+(defun wg21-latex--link-citations (latex &optional bibliography)
+  "Point each citation in LATEX at its reference's URL, when it has one.
+A citation, \\cslcitation{N}{text}, links to entry N of the
+bibliography; when \\cslbibitem{N}{...} holds exactly one URL, link
+there instead.  The entries are read from BIBLIOGRAPHY, a text holding
+them, by default LATEX itself.  See `wg21-cite-single-urls'."
+  (let ((urls (wg21-cite-single-urls
+               (mapcar (lambda (line)
+                         (and (string-match "\\\\cslbibitem{\\([0-9]+\\)}" line)
+                              (cons (match-string 1 line) (wg21-cite-urls line))))
+                       (wg21-cite-matches "^\\\\cslbibitem{[0-9]+}.*$"
+                                          (or bibliography latex))))))
+    (replace-regexp-in-string
+     "\\\\cslcitation{\\([0-9]+\\)}{"
+     (lambda (citation)
+       (save-match-data
+         (string-match "{\\([0-9]+\\)}" citation)
+         (let ((url (gethash (match-string 1 citation) urls)))
+           (if url (format "\\href{%s}{" (wg21-latex--url url)) citation))))
+     latex t t)))
 
 (defun wg21-latex-footnote-reference (footnote-reference contents info)
   "Transcode FOOTNOTE-REFERENCE as \\wgfootnote, not \\footnote.
@@ -231,20 +390,6 @@ CONTENTS is nil.  INFO is a plist holding export options."
    "\\\\footnote{" "\\wgfootnote{"
    (org-latex-footnote-reference footnote-reference contents info)
    t t))
-
-(defun wg21-latex-headline (headline contents info)
-  "Transcode HEADLINE, with a margin link to its line in the Org source.
-CONTENTS is the headline's contents.  INFO is a plist holding export
-options."
-  (let ((latex (org-latex-headline headline contents info))
-        (source (and (not (org-export-low-level-p headline info))
-                     (wg21-git-headline-url headline info))))
-    (if (and latex source
-             (string-match "\\`[^\n]*\n\\(?:\\\\label{[^}\n]*}\n\\)?" latex))
-        (concat (match-string 0 latex)
-                (format "\\wgsourcelink{%s}%%\n" (wg21-latex--url source))
-                (substring latex (match-end 0)))
-      latex)))
 
 (defcustom wg21-document-number "Dnnnn"
   "doc string"
@@ -268,11 +413,15 @@ the #+TOC keyword."
   :options-alist
   '((:docnumber "DOCNUMBER" nil wg21-document-number nil)
     (:audience "AUDIENCE" nil wg21-audience nil)
+    (:project "PROJECT" nil wg21-project nil)
     (:source_repo "SOURCE_REPO" nil "" nil)
     (:source_file "SOURCE_FILE" nil "" parse)
     (:source_version "SOURCE_VERSION" nil "" parse)
     (:git_commit "GIT_COMMIT" nil "" parse)
     (:wg21-latex-preamble "WG21_LATEX_PREAMBLE" nil wg21-latex-preamble t)
+    (:wg21-latex-prolog "WG21_LATEX_PROLOG" nil wg21-latex-prolog t)
+    (:latex-class "LATEX_CLASS" nil wg21-latex-class t)
+    (:latex-class-options "LATEX_CLASS_OPTIONS" nil wg21-latex-class-options t)
     ;; Only an address the paper gives, not the exporting user's.
     (:email "EMAIL" nil "" t)
     ;; Code set as in the editor; see `wg21-latex-engraved-theme'.
@@ -282,9 +431,12 @@ the #+TOC keyword."
     (:wg21-toc-command nil nil wg21-toc-command))
 
   :translate-alist '((special-block . my-latex-special-block)
-                     (headline . wg21-latex-headline)
+                     (src-block . wg21-latex-src-block)
                      (footnote-reference . wg21-latex-footnote-reference)
                      (template . my-wg21-latex-template))
+
+  :filters-alist '((:filter-options . wg21-latex-filter-options)
+                   (:filter-parse-tree . wg21-cite-drop-empty-bibliography))
 
   :menu-entry '(?w "WG21 Papers"
                    ((?L "As LaTeX buffer" my-wg21-export-as-latex)
@@ -300,8 +452,12 @@ the #+TOC keyword."
   "Return complete document string after LaTeX conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
-  (let ((title (org-export-data (plist-get info :title) info))
-	    (spec (org-latex--format-spec info)))
+  (let* ((body (wg21-front-lift-abstract contents info))
+         ;; Citations link through the bibliography in the whole body.
+         (abstract (and (car body) (wg21-latex--link-citations (car body) contents)))
+         (contents (wg21-latex--link-citations (cdr body) contents))
+         (title (org-export-data (plist-get info :title) info))
+	     (spec (org-latex--format-spec info)))
     (concat
      ;; Timestamp.
      (and (plist-get info :time-stamp-file)
@@ -359,6 +515,8 @@ holding export options."
      (and (plist-get info :with-title)
           (not (string= "" title))
           (wg21-latex--title-block info))
+     ;; The abstract, ahead of the table of contents; see wg21-front.el.
+     (and abstract (concat abstract "\n\n"))
      ;; Table of contents.
      (let ((depth (plist-get info :with-toc)))
        (when depth

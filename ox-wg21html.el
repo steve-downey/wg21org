@@ -34,6 +34,15 @@
 (require 'wg21-cmptbl
          (expand-file-name "wg21-cmptbl"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-cite
+         (expand-file-name "wg21-cite"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-wording
+         (expand-file-name "wg21-wording"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-front
+         (expand-file-name "wg21-front"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 (defun my-html-special-block (special-block contents info)
   "Process my special block.  SPECIAL-BLOCK CONTENTS INFO.
@@ -44,6 +53,27 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
   (if (string= (org-element-property :type special-block) "cmptbl")
       (wg21-html-cmptbl special-block info)
     (org-html-special-block special-block contents info)))
+
+;;; Wording
+
+(defun wg21-html-src-block (src-block contents info)
+  "Transcode SRC-BLOCK, without syntax highlighting in wording.
+In wording, edits to code are marked as the LaTeX export marks them,
+with @\\added{...}@ and @\\removed{...}@, and become <ins> and <del>
+here.  See wg21-wording.el.  CONTENTS is nil.  INFO is the export
+plist."
+  (if (wg21-wording-p src-block)
+      (let ((org-html-htmlize-output-type nil))
+        (replace-regexp-in-string
+         "@\\\\\\(added\\|removed\\){\\([^}]*\\)}@"
+         (lambda (edit)
+           (save-match-data
+             (string-match "\\\\\\(added\\|removed\\){\\([^}]*\\)}" edit)
+             (let ((tag (if (string= (match-string 1 edit) "added") "ins" "del")))
+               (format "<%s>%s</%s>" tag (match-string 2 edit) tag))))
+         (org-html-src-block src-block contents info)
+         t t))
+    (org-html-src-block src-block contents info)))
 
 ;;; Comparison tables
 
@@ -111,14 +141,29 @@ INFO is a plist holding export options."
   :group 'my-export-wg21
   :type 'string)
 
+(defcustom wg21-project "Programming Language C++"
+  "The project a paper belongs to, set per paper by #+PROJECT."
+  :group 'my-export-wg21
+  :type 'string)
+
 (defcustom wg21-toc-div-id "toc"
   "doc string"
   :group 'my-export-wg21
   :type 'string)
 
-(defun wg21-html-spec-metadata (_contents info)
+(defun wg21-html--diff-toggle (contents)
+  "Return the metadata row that hides deleted text, if CONTENTS has any.
+The checkbox works with CSS alone, from wg21org.css, so the paper needs
+no script."
+  (when (string-match-p "<del>\\|class=\"[^\"]*\\bremovedblock\\b" contents)
+    (concat "<dt class=\"diff-toggle\">Wording:</dt>"
+            "<dd class=\"diff-toggle\"><label>"
+            "<input type=\"checkbox\" id=\"wg21-hide-deleted\"> "
+            "Hide deleted text</label></dd>\n")))
+
+(defun wg21-html-spec-metadata (contents info)
   "Return the document metadata block.
-INFO is a plist holding export options."
+CONTENTS is the transcoded body.  INFO is a plist holding export options."
   (let* ((audience (plist-get info :audience))
          (docnumber (plist-get info :docnumber))
          (author (org-export-data (plist-get info :author) info))
@@ -134,6 +179,7 @@ INFO is a plist holding export options."
      "<div data-fill-with=\"spec-metadata\">\n<dl>\n"
      "<dt>Document #:</dt><dd>" (org-export-data docnumber info) "</dd>\n"
      "<dt>Date:</dt><dd>" (org-export-data date info) "</dd>\n"
+     "<dt>Project:</dt><dd>" (org-export-data (plist-get info :project) info) "</dd>\n"
      "<dt>Audience:</dt><dd>" (org-export-data audience info) "</dd>\n"
      "<dt>Reply-to:</dt><dd>"
      (if (string-empty-p email)
@@ -154,6 +200,7 @@ INFO is a plist holding export options."
         (when version
           (format "<dd>%s</dd>" (funcall enc version)))
         "\n"))
+     (wg21-html--diff-toggle contents)
      "</dl>\n</div>\n")))
 
 (defcustom wg21-html-htmlize-output-type 'css
@@ -479,6 +526,46 @@ looked up next to the paper.  INFO is a plist holding export options."
                tag)))))
      html t t)))
 
+;;; Citations
+
+(defun wg21-html--link-citations (html)
+  "Point each citation in HTML at its reference's URL, when it has one.
+A citation links to its entry in the bibliography; when that entry
+holds exactly one URL, link there instead, with the whole entry as
+the link's title, so a reader goes straight to the cited paper and
+can still see the reference by hovering.  See `wg21-cite-single-urls'."
+  (let ((entries nil)
+        (titles (make-hash-table :test #'equal))
+        (start 0))
+    (while (string-match
+            "<div class=\"csl-entry\"><a id=\"citeproc_bib_item_\\([0-9]+\\)\"></a>\\(\\(?:.\\|\n\\)*?\\)</div>"
+            html start)
+      (let ((item (match-string 1 html))
+            (entry (match-string 2 html)))
+        (setq start (match-end 0))
+        (push (cons item (append (wg21-cite-matches "href=\"\\(https?://[^\"]*\\)\"" entry 1)
+                                 (wg21-cite-urls (replace-regexp-in-string "<[^>]*>" " " entry))))
+              entries)
+        (puthash item
+                 (string-trim
+                  (replace-regexp-in-string
+                   "[ \t\n]+" " "
+                   (replace-regexp-in-string "\"" "&quot;"
+                                             (replace-regexp-in-string "<[^>]*>" "" entry))))
+                 titles)))
+    (let ((urls (wg21-cite-single-urls entries)))
+      (replace-regexp-in-string
+       "<a href=\"#citeproc_bib_item_\\([0-9]+\\)\">"
+       (lambda (link)
+         (save-match-data
+           (string-match "citeproc_bib_item_\\([0-9]+\\)" link)
+           (let* ((item (match-string 1 link))
+                  (url (gethash item urls)))
+             (if url
+                 (format "<a href=\"%s\" title=\"%s\">" url (gethash item titles))
+               link))))
+       html t t))))
+
 (defun wg21-html--head (contents info)
   "Return the <head> contents after the meta information.
 CONTENTS is the transcoded body.  INFO is a plist holding export options."
@@ -508,6 +595,7 @@ INFO is a plist holding export options."
     (:source_version "SOURCE_VERSION" nil "" parse)
     (:git_commit "GIT_COMMIT" nil "" parse)
     (:audience "AUDIENCE" nil wg21-audience nil)
+    (:project "PROJECT" nil wg21-project nil)
     (:toc-div-id "TOC_DIV_ID" nil wg21-toc-div-id nil)
     (:wg21-style "WG21_STYLE" nil wg21-html-style split)
     (:wg21-code-style "WG21_CODE_STYLE" nil wg21-html-code-style split)
@@ -517,6 +605,7 @@ INFO is a plist holding export options."
     (:html-wrap-src-lines nil nil org-html-wrap-src-lines))
 
   :translate-alist '((special-block . my-html-special-block)
+                     (src-block . wg21-html-src-block)
                      (latex-fragment . wg21-html-latex-fragment)
                      (latex-environment . wg21-html-latex-environment)
                      (inner-template . my-wg21-html-inner-template)
@@ -524,7 +613,8 @@ INFO is a plist holding export options."
                      (keyword . my-wg21-html-keyword)
                      (template . my-wg21-html-template))
 
-  :filters-alist '((:filter-options . wg21-html-filter-options))
+  :filters-alist '((:filter-options . wg21-html-filter-options)
+                   (:filter-parse-tree . wg21-cite-drop-empty-bibliography))
 
   :menu-entry '(?w "Export WG21 Paper"
                    ((?H "As HTML buffer" my-wg21-export-as-html)
@@ -539,20 +629,24 @@ INFO is a plist holding export options."
   "Return body of document string after HTML conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
-  (concat
-   ;; Table of contents.
-   (let ((depth (plist-get info :with-toc)))
-     (when depth (my-wg21-html-toc depth info)))
-   ;; Document contents.
-   contents
-   ;; Footnotes section.
-   (org-html-footnote-section info)))
+  (let ((body (wg21-front-lift-abstract contents info)))
+    (concat
+     ;; The abstract, ahead of the table of contents; see wg21-front.el.
+     (and (car body) (concat (car body) "\n"))
+     ;; Table of contents.
+     (let ((depth (plist-get info :with-toc)))
+       (when depth (my-wg21-html-toc depth info)))
+     ;; Document contents.
+     (cdr body)
+     ;; Footnotes section.
+     (org-html-footnote-section info))))
 
 (defun my-wg21-html-template (contents info)
   "Return complete document string after HTML conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
-  (setq contents (wg21-html--embed-images contents info))
+  (setq contents (wg21-html--link-citations
+                  (wg21-html--embed-images contents info)))
   (concat
    (when (and (not (org-html-html5-p info)) (org-html-xhtml-p info))
      (let ((decl (or (and (stringp org-html-xml-declaration)

@@ -47,8 +47,8 @@
 %% Title block: the exporter writes the title and a table of the
 %% document's metadata, rather than using \maketitle, which common.tex
 %% and document classes each define their own way.
-\providecommand{\wgmetalabel}[1]{\textsf{\small #1}}
-\providecommand{\wgmetavalue}[1]{\textsf{\small #1}}
+\providecommand{\wgmetalabel}[1]{#1}
+\providecommand{\wgmetavalue}[1]{#1}
 
 %% A special block, #+begin_NAME, is the environment NAME when the
 %% document has one; otherwise its contents are set as they are, with a
@@ -70,11 +70,6 @@
 %% only memoir has the starred form.
 \providecommand{\wgtableofcontents}{%
   \@ifclassloaded{memoir}{\tableofcontents*}{\tableofcontents}}
-
-%% A section's link to its line in the Org source, in the margin.
-%% It takes no width, since margins can be narrower than the word.
-\providecommand{\wgsourcelink}[1]{%
-  \marginpar{\makebox[0pt][l]{\textsf{\scriptsize\href{#1}{source}}}}}
 
 %% Comparison tables: before and after columns of equal width, as a
 %% longtable so a long table breaks between rows, with its header row

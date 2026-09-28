@@ -225,6 +225,78 @@ PROBE is a JavaScript expression whose string value is returned."
   (let ((html (ox-wg21html-test-export-file "#+TITLE: T\n* A\n[[file:missing.png]]\n")))
     (should (string-match-p "<img[^>]*src=\"missing\\.png\"" html))))
 
+(ert-deftest empty-bibliography-is-dropped ()
+  (let ((html (ox-wg21html-test-export-file
+               (wg21-test-paper-with-references "No citations here.")
+               (wg21-test-bibliography-files))))
+    (should-not (string-match-p ">References<" html))
+    (should (string-match-p ">Intro<" html))))
+
+(ert-deftest bibliography-is-kept-when-cited ()
+  (let ((html (ox-wg21html-test-export-file
+               (wg21-test-paper-with-references "See [cite:@rfc3514].")
+               (wg21-test-bibliography-files))))
+    (should (string-match-p ">References<" html))
+    (should (string-match-p "class=\"csl-entry\"" html))))
+
+(ert-deftest diff-toggle-only-with-deleted-text ()
+  (should (string-match-p
+           "id=\"wg21-hide-deleted\""
+           (ox-wg21html-test-export-file "#+TITLE: T\n* A\nMake it [[delete:][fail]].\n")))
+  (should (string-match-p
+           "id=\"wg21-hide-deleted\""
+           (ox-wg21html-test-export-file "#+TITLE: T\n* A\n#+begin_removedblock\nold\n#+end_removedblock\n")))
+  (should-not (string-match-p
+               "id=\"wg21-hide-deleted\""
+               (ox-wg21html-test-export-file "#+TITLE: T\n* A\nNothing removed.\n"))))
+
+(ert-deftest diff-toggle-hides-deleted-text ()
+  "The toggle is CSS alone: checked, deletions vanish and insertions are plain."
+  (skip-unless (ox-wg21html-test-browser))
+  (let ((page (lambda (checked)
+                (concat "<input type=\"checkbox\" id=\"wg21-hide-deleted\"" checked ">"
+                        "<p>A <del id=\"d\">b</del> <ins id=\"i\">c</ins></p>")))
+        (probe (concat "getComputedStyle(document.getElementById('d')).display + ' '"
+                       " + getComputedStyle(document.getElementById('i')).textDecorationLine")))
+    (should (equal (ox-wg21html-test-render (funcall page "") probe) "inline underline"))
+    (should (equal (ox-wg21html-test-render (funcall page " checked") probe) "none none"))))
+
+(ert-deftest cite-urls-in-entries ()
+  (should (equal (wg21-cite-urls "Reis. “P3589R1.” https://wg21.link/p3589r1; WG21.")
+                 '("https://wg21.link/p3589r1")))
+  (should (equal (wg21-cite-urls "RFC Editor. \\url{https://doi.org/10.17487/RFC3514}.")
+                 '("https://doi.org/10.17487/RFC3514"))))
+
+(ert-deftest cite-single-urls-only ()
+  (let ((urls (wg21-cite-single-urls '(("1" "https://a" "https://a")
+                                       ("2" "https://a" "https://b")
+                                       ("3")))))
+    (should (equal (gethash "1" urls) "https://a"))
+    (should-not (gethash "2" urls))
+    (should-not (gethash "3" urls))))
+
+(ert-deftest citation-links-to-the-paper ()
+  (let ((html (ox-wg21html-test-export-file
+               (wg21-test-paper-with-references "See [cite:@rfc3514].")
+               (wg21-test-bibliography-files))))
+    (should (string-match-p
+             "<a href=\"https://doi.org/10.17487/RFC3514\" title=\"[^\"]*Security Flag[^\"]*\">"
+             html))
+    (should-not (string-match-p "href=\"#citeproc_bib_item" html))))
+
+(ert-deftest wording-code-is-not-highlighted ()
+  (let ((html (ox-wg21html-test-export-file wg21-test-wording-paper)))
+    (should (string-match-p "<span class=\"org-function-name\">outside</span>" html))
+    (should (string-match-p "<code>int inside(<ins>int</ins>); // plain\n</code>" html))))
+
+(ert-deftest abstract-comes-before-contents ()
+  (let ((html (ox-wg21html-test-export-file (wg21-test-paper-with-abstract)
+                                            (wg21-test-bibliography-files))))
+    (should (< (string-search "class=\"abstract\"" html)
+               (string-search "id=\"toc\"" html)))
+    (should (= 1 (length (wg21-cite-matches "class=\"abstract\"" html))))
+    (should (string-match-p "<div class=\"abstract\"[^>]*>\\(?:.\\|\n\\)*?<a href=\"https://doi.org/10.17487/RFC3514\"" html))))
+
 (ert-deftest page-title-is-plain-text ()
   (let ((html (ox-wg21html-test-export-file "#+TITLE: A view of ~view::maybe~\n* A\n")))
     (should (string-match-p "<title>A view of view::maybe</title>" html))))
