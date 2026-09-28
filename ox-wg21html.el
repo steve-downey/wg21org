@@ -23,64 +23,36 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'url-util)
 (require 'ox-html)
-(require 'format-spec)
 (require 'wg21-links
          (expand-file-name "wg21-links"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-git
+         (expand-file-name "wg21-git"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-cmptbl
+         (expand-file-name "wg21-cmptbl"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 (defun my-html-special-block (special-block contents info)
-  "Process my special block.  SPECIAL-BLOCK CONTENTS INFO."
-  (if (string= (downcase (org-element-property :type special-block)) "cmptbl")
+  "Process my special block.  SPECIAL-BLOCK CONTENTS INFO.
+Block names are case-insensitive in Org, but the class named after
+one is not, so #+BEGIN_ABSTRACT gets the class abstract."
+  (org-element-put-property special-block :type
+                            (downcase (org-element-property :type special-block)))
+  (if (string= (org-element-property :type special-block) "cmptbl")
       (wg21-html-cmptbl special-block info)
     (org-html-special-block special-block contents info)))
 
 ;;; Comparison tables
 
-;; #+begin_cmptbl holds #+begin_cmptblcell blocks whose parameter names
-;; their column, `before' or `after'.  Each `before' starts a row.  A
-;; first row with no code in it is the header.  The LaTeX exporter reads
-;; the same markup.
-
-(defun wg21-html--cmptbl-cell-p (element)
-  "Non-nil if ELEMENT is a cmptblcell special block."
-  (and (eq (org-element-type element) 'special-block)
-       (string= (downcase (org-element-property :type element)) "cmptblcell")))
-
-(defun wg21-html--cmptbl-side (cell)
-  "Return the column name of CELL, from its parameter, or nil."
-  (let ((side (org-element-property :parameters cell)))
-    (and side (downcase (org-trim side)))))
-
-(defun wg21-html--cmptbl-rows (cmptbl)
-  "Group the children of CMPTBL into rows.
-Each row is a list of cells.  Anything that is not a cell is a row of
-its own, a list of just that element, so it is shown rather than dropped."
-  (let (rows row)
-    (dolist (child (org-element-contents cmptbl))
-      (cond
-       ((not (wg21-html--cmptbl-cell-p child))
-        (when row (push (nreverse row) rows) (setq row nil))
-        (push (list child) rows))
-       ((or (equal (wg21-html--cmptbl-side child) "before")
-            (>= (length row) 2))
-        (when row (push (nreverse row) rows))
-        (setq row (list child)))
-       (t (push child row))))
-    (when row (push (nreverse row) rows))
-    (nreverse rows)))
-
-(defun wg21-html--cmptbl-header-p (row)
-  "Non-nil if ROW, a list of cells, holds only prose, so is a header."
-  (and (consp row)
-       (seq-every-p #'wg21-html--cmptbl-cell-p row)
-       (not (org-element-map row '(src-block example-block fixed-width table)
-              #'identity nil t))))
+;; Rows are grouped by wg21-cmptbl.el, shared with the LaTeX exporter.
 
 (defun wg21-html--cmptbl-row (row tag columns info)
   "Return ROW as a <tr>, with cells as TAG elements.
 COLUMNS is the width of the table.  INFO is the export plist."
-  (if (not (wg21-html--cmptbl-cell-p (car row)))
+  (if (not (wg21-cmptbl-cell-p (car row)))
       (let ((note (org-trim (org-export-data (car row) info))))
         (if (string-empty-p note) ""
           (format "<tr><td class=\"cmptbl-note\" colspan=\"%d\">%s</td></tr>\n"
@@ -89,7 +61,7 @@ COLUMNS is the width of the table.  INFO is the export plist."
      "<tr>"
      (mapconcat
       (lambda (cell)
-        (let ((side (wg21-html--cmptbl-side cell)))
+        (let ((side (wg21-cmptbl-side cell)))
           (format "<%s%s>%s</%s>"
                   tag
                   (if side (format " class=\"cmptbl-%s\"" side) "")
@@ -105,10 +77,10 @@ COLUMNS is the width of the table.  INFO is the export plist."
 (defun wg21-html-cmptbl (cmptbl info)
   "Transcode the comparison table CMPTBL into an HTML table.
 INFO is a plist holding export options."
-  (let* ((rows (wg21-html--cmptbl-rows cmptbl))
-         (columns (apply #'max 1 (mapcar (lambda (row) (if (wg21-html--cmptbl-cell-p (car row)) (length row) 1))
+  (let* ((rows (wg21-cmptbl-rows cmptbl))
+         (columns (apply #'max 1 (mapcar (lambda (row) (if (wg21-cmptbl-cell-p (car row)) (length row) 1))
                                          rows)))
-         (head (and (wg21-html--cmptbl-header-p (car rows)) (pop rows)))
+         (head (and (wg21-cmptbl-header-p (car rows)) (pop rows)))
          (name (org-element-property :name cmptbl)))
     (concat
      (format "<table class=\"cmptbl\"%s>\n"
@@ -143,157 +115,6 @@ INFO is a plist holding export options."
   "doc string"
   :group 'my-export-wg21
   :type 'string)
-
-;;; Git metadata
-
-(defcustom wg21-git-remote "origin"
-  "Git remote whose URL is used when #+SOURCE_REPO is not given."
-  :group 'my-export-wg21
-  :type 'string)
-
-(defcustom wg21-forge-blob-url-formats
-  '(("\\`https?://github\\.com/" "%r/blob/%c/%p" "?plain=1#L%l")
-    ("\\`https?://gitlab\\.com/" "%r/-/blob/%c/%p" "?plain=1#L%l")
-    ("" "%r/src/commit/%c/%p" "?display=source#L%l"))
-  "Permalink formats for a file at a commit, per forge.
-Each entry is (REGEXP FILE-FORMAT LINE-FORMAT); the first REGEXP
-matching the repository URL wins.  In FILE-FORMAT, %r is the
-repository URL, %c the commit, and %p the path of the file within
-the repository.  LINE-FORMAT is appended to link to line %l of the
-file's source, rather than to a rendered view where lines have no
-anchors.  The catch-all entry is the Gitea/Forgejo layout."
-  :group 'my-export-wg21
-  :type '(repeat (list regexp string string)))
-
-(defun wg21-git-output (&rest args)
-  "Run git with ARGS in `default-directory'; return its output.
-Return nil if git fails or prints nothing.  Nil ARGS are dropped, so
-a missing `buffer-file-name' does not become a literal argument."
-  (with-temp-buffer
-    (when (and (eql 0 (apply #'process-file "git" nil '(t nil) nil
-                             (delq nil args)))
-               (> (buffer-size) 0))
-      (buffer-string))))
-
-(defun wg21-git-string (&rest args)
-  "Run git with ARGS in `default-directory'; return its first output line.
-Return nil if git fails or prints nothing."
-  (let ((output (apply #'wg21-git-output args)))
-    (and output (car (split-string output "\n")))))
-
-(defun wg21-git-https-url (url)
-  "Turn the git remote URL into the https URL of its web page.
-Handles scp-style (git@host:owner/repo), ssh://, and http(s) remotes.
-An ssh port is dropped, since it says nothing about the web port."
-  (when url
-    (let ((url (string-remove-suffix ".git" (string-remove-suffix "/" url))))
-      (cond
-       ((string-match "\\`https?://" url) url)
-       ((string-match "\\`ssh://\\(?:[^@/]+@\\)?\\([^:/]+\\)\\(?::[0-9]+\\)?/\\(.*\\)\\'" url)
-        (format "https://%s/%s" (match-string 1 url) (match-string 2 url)))
-       ((string-match "\\`\\(?:[^@/]+@\\)?\\([^:/]+\\):\\(.*\\)\\'" url)
-        (format "https://%s/%s" (match-string 1 url) (match-string 2 url)))))))
-
-(defun wg21-git-blob-url (repo commit path &optional line)
-  "Return a permalink to PATH at COMMIT in the web view of REPO.
-With LINE, link to that line of the file's source.
-See `wg21-forge-blob-url-formats'."
-  (when (and repo commit path)
-    (let ((formats (cdr (seq-find (lambda (entry) (string-match-p (car entry) repo))
-                                  wg21-forge-blob-url-formats)))
-          (spec `((?r . ,repo) (?c . ,commit) (?p . ,path) (?l . ,line))))
-      (concat (format-spec (nth 0 formats) spec)
-              (and line (format-spec (nth 1 formats) spec))))))
-
-(defun wg21-source-url (&optional file)
-  "Return a permalink to FILE, by default the current buffer's file, at HEAD.
-Intended for use in macros, e.g.
-  #+MACRO: permalink (eval (wg21-source-url))"
-  (let ((file (or file (buffer-file-name))))
-    (when file
-      (let ((default-directory (file-name-directory file)))
-        (wg21-git-blob-url
-         (wg21-git-https-url
-          (wg21-git-string "remote" "get-url" wg21-git-remote))
-         (wg21-git-string "rev-parse" "HEAD")
-         (wg21-git-string "ls-files" "--full-name" "--" file))))))
-
-(defun wg21-git-metadata (info)
-  "Return a plist of git metadata for the document being exported.
-The result is computed once per export and kept in INFO."
-  (or (plist-get info :wg21-git)
-      (plist-get (plist-put info :wg21-git (wg21-git--metadata info)) :wg21-git)))
-
-(defun wg21-git--metadata (info)
-  "Return a plist of git metadata for the document being exported.
-Each of :repo, :file, :version and :commit comes from the matching
-keyword (SOURCE_REPO, SOURCE_FILE, SOURCE_VERSION, GIT_COMMIT) if the
-document sets it, and otherwise from git.  :url is a permalink to the
-file at the commit.  Everything is nil outside a git work tree.
-INFO is a plist holding export options."
-  (let* ((input (plist-get info :input-file))
-         (default-directory (if input (file-name-directory input)
-                              default-directory))
-         (keyword (lambda (prop)
-                    (let ((value (org-trim
-                                  (org-element-interpret-data
-                                   (plist-get info prop)))))
-                      (and (not (string-empty-p value)) value))))
-         (repo (or (funcall keyword :source_repo)
-                   (wg21-git-https-url
-                    (wg21-git-string "remote" "get-url" wg21-git-remote))))
-         (file (or (funcall keyword :source_file)
-                   (and input (wg21-git-string "ls-files" "--full-name"
-                                               "--" input))))
-         (version (or (funcall keyword :source_version)
-                      (wg21-git-string "describe" "--always" "--long" "--all"
-                                       "--dirty" "--tags")))
-         (commit (or (funcall keyword :git_commit)
-                     (wg21-git-string "rev-parse" "HEAD"))))
-    (list :repo repo :file file :version version :commit commit
-          :url (and file (wg21-git-blob-url repo commit file)))))
-
-(defun wg21-git--headline-lines (info)
-  "Map each headline to its line in the committed source of the document.
-Return a hash table from headline element to line number.  Headlines
-are found in document order in `git show COMMIT:FILE', so the links
-point at the file the permalinks name, not at unsaved edits.  A
-headline with no match there, such as a new one or one from
-#+INCLUDE, is absent.  INFO is a plist holding export options."
-  (let* ((git (wg21-git-metadata info))
-         (lines (make-hash-table :test #'eq))
-         (input (plist-get info :input-file))
-         (default-directory (if input (file-name-directory input)
-                              default-directory))
-         (text (and (plist-get git :commit) (plist-get git :file)
-                    (wg21-git-output "show" (concat (plist-get git :commit) ":"
-                                                    (plist-get git :file))))))
-    (when text
-      (with-temp-buffer
-        (insert text)
-        (goto-char (point-min))
-        (org-element-map (plist-get info :parse-tree) 'headline
-          (lambda (headline)
-            (let ((start (point))
-                  (title (org-element-property :raw-value headline)))
-              (if (re-search-forward (concat "^\\*+ .*" (regexp-quote title)) nil t)
-                  (puthash headline (line-number-at-pos) lines)
-                (goto-char start))))
-          info)))
-    lines))
-
-(defun wg21-git-headline-url (headline info)
-  "Return a permalink to HEADLINE's line in the document's source, or nil.
-INFO is a plist holding export options."
-  (let* ((lines (or (plist-get info :wg21-headline-lines)
-                    (plist-get (plist-put info :wg21-headline-lines
-                                          (wg21-git--headline-lines info))
-                               :wg21-headline-lines)))
-         (line (gethash headline lines))
-         (git (wg21-git-metadata info)))
-    (and line
-         (wg21-git-blob-url (plist-get git :repo) (plist-get git :commit)
-                            (plist-get git :file) line))))
 
 (defun wg21-html-spec-metadata (_contents info)
   "Return the document metadata block.
@@ -445,7 +266,7 @@ Set it to nil to leave math to Org, which uses MathJax."
                           (car wg21-html-mathml-command) t '(t nil) nil
                           (cdr wg21-html-mathml-command)))
         (let ((html (org-trim (buffer-string))))
-          (and (string-match "<math[^>]*>.*</math>" html)
+          (and (string-match "<math[^>]*>\\(?:.\\|\n\\)*?</math>" html)
                (match-string 0 html)))))))
 
 (defun wg21-html--math (element contents info fallback)
@@ -599,6 +420,65 @@ export options."
           (t (wg21-html--style-element file classes))))))
      head t t)))
 
+;;; Embedded images
+
+(defconst wg21-html-image-types
+  '(("png" . "image/png") ("jpg" . "image/jpeg") ("jpeg" . "image/jpeg")
+    ("gif" . "image/gif") ("svg" . "image/svg+xml") ("webp" . "image/webp")
+    ("bmp" . "image/bmp"))
+  "Media types of the images embedded in a paper, by file extension.")
+
+(defun wg21-html--data-uri (file)
+  "Return FILE as a data: URI, or nil if it is not an image type we know."
+  (let ((type (cdr (assoc (downcase (or (file-name-extension file) ""))
+                          wg21-html-image-types))))
+    (when type
+      (with-temp-buffer
+        (set-buffer-multibyte nil)
+        (insert-file-contents-literally file)
+        (base64-encode-region (point-min) (point-max) t)
+        (concat "data:" type ";base64," (buffer-string))))))
+
+(defun wg21-html--unescape (text)
+  "Undo the HTML escaping Org applies to an attribute value TEXT."
+  (replace-regexp-in-string
+   "&\\(amp\\|lt\\|gt\\|quot\\|#39\\);"
+   (lambda (entity)
+     (cdr (assoc entity '(("&amp;" . "&") ("&lt;" . "<") ("&gt;" . ">")
+                          ("&quot;" . "\"") ("&#39;" . "'")))))
+   text t t))
+
+(defun wg21-html--embed-images (html info)
+  "Replace each local image HTML loads with the image itself, as a data: URI.
+An image elsewhere, or a local file that cannot be read, is left as it
+is, with a message, for `make check' to report.  A relative name is
+looked up next to the paper.  INFO is a plist holding export options."
+  (let* ((input (plist-get info :input-file))
+         (dir (if input (file-name-directory input) default-directory)))
+    (replace-regexp-in-string
+     "<img\\b[^>]*?\\bsrc=\"\\([^\"]*\\)\""
+     (lambda (tag)
+       (save-match-data
+         (string-match "\\bsrc=\"\\([^\"]*\\)\"" tag)
+         (let* ((src (match-string 1 tag))
+                (start (match-beginning 1))
+                (end (match-end 1))
+                (local (cond ((string-prefix-p "file://" src)
+                              (substring src (length "file://")))
+                             ((not (string-match-p "\\`[a-z][a-z0-9+.-]*:" src))
+                              src)))
+                (path (and local
+                           (expand-file-name
+                            (url-unhex-string (wg21-html--unescape local))
+                            dir)))
+                (uri (and path (file-readable-p path) (wg21-html--data-uri path))))
+           (cond
+            (uri (concat (substring tag 0 start) uri (substring tag end)))
+            (t (when (and path (not (string-prefix-p "data:" src)))
+                 (message "wg21-html: cannot embed image %s" src))
+               tag)))))
+     html t t)))
+
 (defun wg21-html--head (contents info)
   "Return the <head> contents after the meta information.
 CONTENTS is the transcoded body.  INFO is a plist holding export options."
@@ -672,6 +552,7 @@ holding export options."
   "Return complete document string after HTML conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
+  (setq contents (wg21-html--embed-images contents info))
   (concat
    (when (and (not (org-html-html5-p info)) (org-html-xhtml-p info))
      (let ((decl (or (and (stringp org-html-xml-declaration)

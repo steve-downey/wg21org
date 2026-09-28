@@ -28,9 +28,13 @@ _minted*/
 
 # Output Files
 *.tex
+# ...except the exporter's own preamble, which is source.
+!wg21org-preamble.tex
 *.html
 *.pdf
 *.epub
+# Plots written by the code blocks in all-syntax-example.org
+images/Rplot.png
 
 
 # Emacs

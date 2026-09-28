@@ -262,7 +262,7 @@ For PDF (LaTeX), one  solution is to surround the code  block such as:
 #+begin_src R
 print("This block is in scriptsize")
 #+end_src
-#+latex: \normalize
+#+latex: \normalsize
 
 *** Line numbers
 
@@ -358,7 +358,7 @@ Data to be charted:
 Code:
 
 #+name: R-plot
-#+begin_src R :var data=data :results graphics :file ../../images/Rplot.png :exports both
+#+begin_src R :var data=data :results file graphics :file images/Rplot.png :exports both
 plot(data, type="b", bty="l", col=c("#ABD249"), las=1, lwd=4)
 grid(nx=NULL, ny=NULL, col=c("#E8E8E8"), lwd=1)
 legend("bottom", legend=c("Degrees"), col=c("#ABD249"), pch=c(19))
@@ -367,7 +367,7 @@ legend("bottom", legend=c("Degrees"), col=c("#ABD249"), pch=c(19))
 The resulting chart:
 
 #+results: R-plot
-[[file:../../images/Rplot.png]]
+[[file:images/Rplot.png]]
 
 **** R code block
 
@@ -492,7 +492,7 @@ syntax:
 - Centered display equation (the /Euler theorem/):
 
   \[
-  \int_0^\infty e^{-x^2} dx = {{\sqrt{\pi}} \over {2}}
+  \int_0^\infty e^{-x^2} dx = \frac{\sqrt{\pi}}{2}
   \]
 
   The use of ~\[...\]~ is for mathematical expressions which you want to make
@@ -519,7 +519,7 @@ syntax:
 
   Only captioned equations are numbered
 
-- Other alternative: use \begin{equation*} or \begin{displaymath} (= the verbose
+- Other alternative: use ~\begin{equation*}~ or ~\begin{displaymath}~ (= the verbose
   form of the ~\[...\]~ construct). M-q does not fill those.
 
 Differently from $...$ and \(...\), an equation environment produces a *numbered*
@@ -667,9 +667,9 @@ In-line picture:
 
 #+CAPTION: Org mode logo
 #+ATTR_LaTeX: :width 0.25\linewidth
-[[file:../../images/org-mode-unicorn.png]]
+[[file:images/org-mode-unicorn.png]]
 
-Direct link to just the [[file:org-mode-unicorn.png][Unicorn picture file]].
+Direct link to just the [[file:images/org-mode-unicorn.png][Unicorn picture file]].
 
 XXX Available HTML image tags include:
 

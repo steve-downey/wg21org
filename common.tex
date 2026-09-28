@@ -60,9 +60,14 @@
 \usepackage{url}  % urls in ref.bib
 \usepackage{tabularx}  % don't use the C++ standard's fancy tables, they come with captions!
 
-\special{pdf:minorversion 5} %set minorversion
-\special{pdf:compresslevel 9} %set minorversion
-\special{pdf:objcompresslevel 9} %set minorversion
+%% pdf: specials are for XeTeX's driver; any other engine writes them
+%% into the page as garbage.
+\usepackage{iftex}
+\ifXeTeX
+\special{pdf:minorversion 5}
+\special{pdf:compresslevel 9}
+\special{pdf:objcompresslevel 9}
+\fi
 
 % \pdfminorversion=5
 % \pdfcompresslevel=9
