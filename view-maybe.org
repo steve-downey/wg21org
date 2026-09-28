@@ -23,7 +23,6 @@
 #+OPTIONS: html-scripts:t html-style:t html5-fancy:t tex:t
 
 
-#+WG21_CODE_STYLE: modus-vivendi-tinted.css
 
 
 

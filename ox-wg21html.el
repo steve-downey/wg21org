@@ -151,6 +151,21 @@ INFO is a plist holding export options."
   :group 'my-export-wg21
   :type 'string)
 
+(defun wg21-html--mode-toggle ()
+  "Return the metadata row that picks the page's light or dark theme.
+System, the default, follows the reader's system.  The radio buttons
+work with CSS alone, from wg21org.css, so the paper needs no script,
+and so the choice lasts only while the page is open."
+  (concat "<dt class=\"mode-toggle\">Theme:</dt><dd class=\"mode-toggle\">"
+          (mapconcat
+           (lambda (mode)
+             (format "<label><input type=\"radio\" name=\"wg21-mode\" id=\"wg21-mode-%s\"%s> %s</label>"
+                     (downcase mode)
+                     (if (string= mode "System") " checked" "")
+                     mode))
+           '("Light" "Dark" "System") "")
+          "</dd>\n"))
+
 (defun wg21-html--diff-toggle (contents)
   "Return the metadata row that hides deleted text, if CONTENTS has any.
 The checkbox works with CSS alone, from wg21org.css, so the paper needs
@@ -200,6 +215,7 @@ CONTENTS is the transcoded body.  INFO is a plist holding export options."
         (when version
           (format "<dd>%s</dd>" (funcall enc version)))
         "\n"))
+     (wg21-html--mode-toggle)
      (wg21-html--diff-toggle contents)
      "</dl>\n</div>\n")))
 
@@ -356,11 +372,15 @@ exporter."
   :group 'my-export-wg21
   :type '(repeat string))
 
-(defcustom wg21-html-code-style '("modus-operandi-tinted.css" "modus-vivendi-tinted.css")
+(defcustom wg21-html-code-style '("modus-vivendi-tinted.css" "modus-operandi-tinted.css")
   "Face stylesheets for code, set per paper by #+WG21_CODE_STYLE.
-The first colours code on screen and in print; the second, if given,
-replaces it on screens in dark mode.  Rules for faces the paper does
-not use are left out.  Write one with `wg21-html-write-face-css'."
+Code is set opposite to the page, which sets it off from the text: the
+first sheet colours code on a light page, and the second, if given,
+on a dark one, whether the reader's system or the page's Theme switch
+made it dark.  The second also colours printed code, since a printed
+page is light and dark code costs ink.  With one sheet, code looks the
+same in every mode.  Rules for faces the paper does not use are left
+out.  Write a sheet with `wg21-html-write-face-css'."
   :group 'my-export-wg21
   :type '(repeat string))
 
@@ -410,11 +430,43 @@ whole, since this does not parse nested blocks."
           (setq start end)))
       (mapconcat #'identity (nreverse kept) "\n"))))
 
-(defun wg21-html--style-element (file classes &optional media)
+(defun wg21-html--scope-css (css scope)
+  "Return the flat stylesheet CSS with SCOPE put before every selector.
+So `.org-keyword' becomes `SCOPE .org-keyword': the rule applies only
+within what SCOPE matches, and outranks the same rule unscoped."
+  (let ((start 0) rules)
+    (while (string-match "\\([^{}]*\\)\\({[^{}]*}\\)" css start)
+      (let* ((end (match-end 0))
+             (block (match-string 2 css))
+             (selectors (split-string
+                        (replace-regexp-in-string
+                         "/\\*\\(?:[^*]\\|\\*+[^*/]\\)*\\*+/" "" (match-string 1 css))
+                        "," t "[ \t\n]+")))
+        (setq start end)
+        (when selectors
+          (push (concat (mapconcat (lambda (selector) (concat scope " " selector))
+                                   selectors ", ")
+                        " " block)
+                rules))))
+    (mapconcat #'identity (nreverse rules) "\n")))
+
+(defun wg21-html--dark-page-css (css)
+  "Return CSS set to apply where the page is dark, and in print.
+The page is dark on a dark system unless the reader picked Light in
+the Theme switch, or wherever the reader picked Dark; see wg21org.css."
+  (concat "@media print {\n" css "\n}\n"
+          "@media screen and (prefers-color-scheme: dark) {\n"
+          (wg21-html--scope-css css ":root:not(:has(#wg21-mode-light:checked))")
+          "\n}\n"
+          "@media screen {\n"
+          (wg21-html--scope-css css ":root:has(#wg21-mode-dark:checked)")
+          "\n}"))
+
+(defun wg21-html--style-element (file classes &optional wrap)
   "Return a <style> element holding the stylesheet FILE.
 Rules for classes missing from CLASSES are dropped, see
-`wg21-html--trim-css'.  With MEDIA, the rules apply only under that
-media query."
+`wg21-html--trim-css'.  WRAP, if given, is a function applied to the
+CSS that is left, to limit where it applies."
   (let ((css (wg21-html--trim-css
               (with-temp-buffer
                 (insert-file-contents file)
@@ -422,7 +474,7 @@ media query."
               classes)))
     (format "<style>\n/* %s */\n%s\n</style>\n"
             (file-name-nondirectory file)
-            (if media (format "@media %s {\n%s\n}" media css) css))))
+            (if wrap (funcall wrap css) css))))
 
 (defun wg21-html--embedded-styles (contents info)
   "Return the <style> elements for the paper, and the files they hold.
@@ -432,17 +484,17 @@ to leave out unused code faces.  INFO is a plist holding export
 options."
   (let ((classes (wg21-html--used-classes contents))
         files html)
-    (cl-flet ((embed (name &optional media)
+    (cl-flet ((embed (name &optional wrap)
                 (let ((file (wg21-html--find-css name info)))
                   (if (not file)
                       (user-error "Stylesheet %s not found" name)
                     ;; Only a sheet that always applies stands in for a link.
-                    (unless media (push (file-truename file) files))
-                    (push (wg21-html--style-element file classes media) html)))))
+                    (unless wrap (push (file-truename file) files))
+                    (push (wg21-html--style-element file classes wrap) html)))))
       (mapc #'embed (plist-get info :wg21-style))
       (let ((code (plist-get info :wg21-code-style)))
         (when code (embed (car code)))
-        (when (cadr code) (embed (cadr code) "screen and (prefers-color-scheme: dark)"))))
+        (when (cadr code) (embed (cadr code) #'wg21-html--dark-page-css))))
     (cons (apply #'concat (nreverse html)) files)))
 
 (defun wg21-html--inline-stylesheet-links (head contents info embedded)

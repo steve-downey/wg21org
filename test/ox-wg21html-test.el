@@ -133,6 +133,27 @@ PROBE is a JavaScript expression whose string value is returned."
                  (match-string 1))))
       (delete-directory dir t))))
 
+(defun ox-wg21html-test-render-page (html probe &optional dark)
+  "Render the whole page HTML; return what the JavaScript PROBE computes.
+With DARK, the browser reports a dark system colour scheme."
+  (let ((dir (make-temp-file "ox-wg21html-test" t)))
+    (unwind-protect
+        (let ((page (expand-file-name "page.html" dir)))
+          (with-temp-file page
+            (insert (replace-regexp-in-string
+                     "</body>"
+                     (concat "<script>document.title = String(" probe ");</script></body>")
+                     html t t)))
+          (with-temp-buffer
+            (call-process (ox-wg21html-test-browser) nil '(t nil) nil
+                          "--headless=new" "--disable-gpu" "--no-sandbox"
+                          (format "--blink-settings=preferredColorScheme=%d" (if dark 0 1))
+                          "--dump-dom" (concat "file://" page))
+            (goto-char (point-min))
+            (and (re-search-forward "<title>\\([^<]*\\)</title>" nil t)
+                 (match-string 1))))
+      (delete-directory dir t))))
+
 (ert-deftest cmptbl-renders-code-lines ()
   (skip-unless (ox-wg21html-test-browser))
   (should (equal (ox-wg21html-test-render
@@ -296,6 +317,31 @@ PROBE is a JavaScript expression whose string value is returned."
                (string-search "id=\"toc\"" html)))
     (should (= 1 (length (wg21-cite-matches "class=\"abstract\"" html))))
     (should (string-match-p "<div class=\"abstract\"[^>]*>\\(?:.\\|\n\\)*?<a href=\"https://doi.org/10.17487/RFC3514\"" html))))
+
+(ert-deftest scope-css-prefixes-every-selector ()
+  (should (equal (wg21-html--scope-css "pre.src, .org-a { color: red; }\n.org-b {x: y;}" "S")
+                 "S pre.src, S .org-a { color: red; }\nS .org-b {x: y;}")))
+
+(ert-deftest theme-switch-sets-page-and-opposite-code ()
+  "Light page, dark code; dark page, light code; the switch beats the system."
+  (skip-unless (ox-wg21html-test-browser))
+  (let* ((html (ox-wg21html-test-export-file
+                "#+TITLE: T\n* A\n#+begin_src C++\nint a;\n#+end_src\n"))
+         (pick (lambda (mode)
+                 (replace-regexp-in-string
+                  (format "id=\"wg21-mode-%s\">" mode)
+                  (format "id=\"wg21-mode-%s\" checked>" mode)
+                  (replace-regexp-in-string " checked> System" "> System" html t t)
+                  t t)))
+         (probe (concat "getComputedStyle(document.body).backgroundColor + ' '"
+                        " + getComputedStyle(document.querySelector('pre.src')).backgroundColor"))
+         (light "rgb(252, 252, 250) rgb(13, 14, 28)")
+         (dark "rgb(22, 23, 29) rgb(251, 247, 240)"))
+    (should (string-match-p "id=\"wg21-mode-system\" checked" html))
+    (should (equal (ox-wg21html-test-render-page html probe) light))
+    (should (equal (ox-wg21html-test-render-page html probe t) dark))
+    (should (equal (ox-wg21html-test-render-page (funcall pick "dark") probe) dark))
+    (should (equal (ox-wg21html-test-render-page (funcall pick "light") probe t) light))))
 
 (ert-deftest page-title-is-plain-text ()
   (let ((html (ox-wg21html-test-export-file "#+TITLE: A view of ~view::maybe~\n* A\n")))

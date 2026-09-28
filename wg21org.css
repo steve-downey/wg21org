@@ -33,8 +33,13 @@
             "DejaVu Sans Mono", monospace;
 }
 
+/* Dark colours apply when the reader picks Dark in the page's Theme
+   switch, or when the system is dark and the reader has not picked
+   Light.  The switch is a set of radio buttons the exporter adds to the
+   metadata; :has() reads them, so it needs no script.  Screens only:
+   a printed page is light. */
 @media screen and (prefers-color-scheme: dark) {
-    :root {
+    :root:not(:has(#wg21-mode-light:checked)) {
         --bg: #16171d;
         --text: #e4e4e0;
         --muted: #a2a4a8;
@@ -48,6 +53,36 @@
         --del-text: #ffa4a4;
         --del-bg: #3d1e21;
         --sidebar-bg: #1b1c23;
+    }
+}
+@media screen {
+    :root:has(#wg21-mode-dark:checked) {
+        --bg: #16171d;
+        --text: #e4e4e0;
+        --muted: #a2a4a8;
+        --rule: #3a3c46;
+        --subtle-bg: #1e2028;
+        --link: #8ab4f8;
+        --link-visited: #c3a6f0;
+        --code-bg: #1f2129;
+        --ins-text: #a3e6ad;
+        --ins-bg: #1b3322;
+        --del-text: #ffa4a4;
+        --del-bg: #3d1e21;
+        --sidebar-bg: #1b1c23;
+    }
+}
+@media screen {
+    :root:has(#wg21-mode-light:checked) {
+        color-scheme: light;
+    }
+    :root:has(#wg21-mode-dark:checked) {
+        color-scheme: dark;
+    }
+}
+@media print {
+    :root {
+        color-scheme: light;
     }
 }
 
@@ -384,6 +419,15 @@ ins code, del code, .underline code {
     margin-bottom: 0;
 }
 
+/* The Theme switch and the Hide deleted text checkbox, in the metadata. */
+.mode-toggle label + label {
+    margin-left: .75em;
+}
+.mode-toggle label,
+.diff-toggle label {
+    cursor: pointer;
+}
+
 /* Hide deleted text, from the checkbox the exporter adds to the
    metadata of a paper that has some.  What is left reads as the final
    wording, so insertions lose their marking too. */
@@ -399,10 +443,6 @@ body:has(#wg21-hide-deleted:checked) .addedblock {
     border-left: 0;
     padding-left: 0;
 }
-.diff-toggle label {
-    cursor: pointer;
-}
-
 blockquote {
     margin-left: 0;
     padding-left: 1em;
@@ -589,6 +629,7 @@ figcaption, .figure-number, .table-number, .listing-number {
         text-decoration: none;
     }
     #toc-nav,
+    .mode-toggle,
     .diff-toggle,
     .heading .self-link,
     .heading .source-link {
