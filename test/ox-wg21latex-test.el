@@ -151,6 +151,28 @@ y();
                 "#+TITLE: T\n#+WG21_LATEX_PROLOG: none\n* A\n")))
     (should-not (string-match-p "^%% ---- common\\.tex$" latex))))
 
+(ert-deftest latex-wording-code-is-codeblock ()
+  (let ((latex (wg21-test-export-file 'wg21-latex wg21-test-wording-paper)))
+    (should (string-match-p
+             "\\\\begin{codeblock}\nint inside(@\\\\added{int}@); // plain\n\\\\end{codeblock}"
+             latex))
+    (should (string-match-p "\\\\begin{Code}\n\\\\begin{Verbatim}.*\n.*outside" latex))))
+
+(ert-deftest latex-wording-paper-compiles ()
+  (skip-unless (and (executable-find "latexmk") (executable-find "lualatex")))
+  (let* ((latex (wg21-test-export-file
+                 'wg21-latex
+                 (concat "#+LATEX_COMPILER: lualatex\n" wg21-test-wording-paper)))
+         (dir (make-temp-file "ox-wg21latex-test" t))
+         (default-directory (file-name-as-directory dir)))
+    (unwind-protect
+        (progn
+          (with-temp-file "paper.tex" (insert latex))
+          (should (eql 0 (call-process "latexmk" nil nil nil
+                                       "-lualatex" "-interaction=nonstopmode"
+                                       "-halt-on-error" "paper.tex"))))
+      (delete-directory dir t))))
+
 (ert-deftest latex-paper-compiles ()
   "A paper with no preamble of its own compiles, comparison table and all."
   (skip-unless (and (executable-find "latexmk") (executable-find "lualatex")))

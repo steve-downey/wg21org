@@ -37,6 +37,9 @@
 (require 'wg21-cite
          (expand-file-name "wg21-cite"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-wording
+         (expand-file-name "wg21-wording"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 (defun my-html-special-block (special-block contents info)
   "Process my special block.  SPECIAL-BLOCK CONTENTS INFO.
@@ -47,6 +50,27 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
   (if (string= (org-element-property :type special-block) "cmptbl")
       (wg21-html-cmptbl special-block info)
     (org-html-special-block special-block contents info)))
+
+;;; Wording
+
+(defun wg21-html-src-block (src-block contents info)
+  "Transcode SRC-BLOCK, without syntax highlighting in wording.
+In wording, edits to code are marked as the LaTeX export marks them,
+with @\\added{...}@ and @\\removed{...}@, and become <ins> and <del>
+here.  See wg21-wording.el.  CONTENTS is nil.  INFO is the export
+plist."
+  (if (wg21-wording-p src-block)
+      (let ((org-html-htmlize-output-type nil))
+        (replace-regexp-in-string
+         "@\\\\\\(added\\|removed\\){\\([^}]*\\)}@"
+         (lambda (edit)
+           (save-match-data
+             (string-match "\\\\\\(added\\|removed\\){\\([^}]*\\)}" edit)
+             (let ((tag (if (string= (match-string 1 edit) "added") "ins" "del")))
+               (format "<%s>%s</%s>" tag (match-string 2 edit) tag))))
+         (org-html-src-block src-block contents info)
+         t t))
+    (org-html-src-block src-block contents info)))
 
 ;;; Comparison tables
 
@@ -571,6 +595,7 @@ INFO is a plist holding export options."
     (:html-wrap-src-lines nil nil org-html-wrap-src-lines))
 
   :translate-alist '((special-block . my-html-special-block)
+                     (src-block . wg21-html-src-block)
                      (latex-fragment . wg21-html-latex-fragment)
                      (latex-environment . wg21-html-latex-environment)
                      (inner-template . my-wg21-html-inner-template)

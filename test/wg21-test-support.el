@@ -58,5 +58,21 @@ refs.bib holds rfc3514, an RFC with a single DOI URL."
           "* Intro\n" body "\n"
           "* References\n#+CITE_EXPORT: csl style.csl\n#+PRINT_BIBLIOGRAPHY:\n"))
 
+(defconst wg21-test-wording-paper "\
+#+TITLE: T
+* Motivation
+#+begin_src C++
+int outside(); // highlighted
+#+end_src
+* Wording
+#+begin_wording
+Change the synopsis:
+#+begin_src C++
+int inside(@\\added{int}@); // plain
+#+end_src
+#+end_wording
+"
+  "A paper with code both outside and inside its wording.")
+
 (provide 'wg21-test-support)
 ;;; wg21-test-support.el ends here

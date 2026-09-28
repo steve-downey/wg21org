@@ -35,6 +35,9 @@
 (require 'wg21-cite
          (expand-file-name "wg21-cite"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-wording
+         (expand-file-name "wg21-wording"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 ;; Loaded when present; the export falls back to plain verbatim code.
 (require 'engrave-faces nil t)
@@ -66,6 +69,30 @@ options after \\begin{NAME} is left as it is."
                 "\\end{wgblock}"
                 (match-string 1 latex))
       latex)))
+
+;;; Wording
+
+(defconst wg21-latex-wording-code-languages '("c++" "cpp" "c")
+  "Languages set as C++ in wording; other code is set as output.")
+
+(defun wg21-latex-src-block (src-block contents info)
+  "Transcode SRC-BLOCK, as the working draft sets code when in wording.
+In a #+begin_wording block, C++ goes in stdtex's codeblock and other
+code in its outputblock, from the common.tex prolog, instead of being
+highlighted; see wg21-wording.el.  The code is passed as it is, so
+@\\added{...}@ and @\\removed{...}@ mark edits inside it.  CONTENTS
+is nil.  INFO is the export plist."
+  (if (wg21-wording-p src-block)
+      (let ((code (car (org-export-unravel-code src-block)))
+            (environment (if (member (downcase (or (org-element-property :language src-block) ""))
+                                     wg21-latex-wording-code-languages)
+                             "codeblock"
+                           "outputblock")))
+        (format "\\begin{%s}\n%s%s\\end{%s}\n"
+                environment code
+                (if (string-suffix-p "\n" code) "" "\n")
+                environment))
+    (org-latex-src-block src-block contents info)))
 
 ;;; Comparison tables
 
@@ -388,6 +415,7 @@ the #+TOC keyword."
 
   :translate-alist '((special-block . my-latex-special-block)
                      (headline . wg21-latex-headline)
+                     (src-block . wg21-latex-src-block)
                      (footnote-reference . wg21-latex-footnote-reference)
                      (template . my-wg21-latex-template))
 
