@@ -57,6 +57,15 @@
 \usepackage{xparse}
 \usepackage{xstring}
 
+\usepackage{bm}       % bold math, as the working draft uses
+\usepackage{caption}  % table and listing captions, set in stdtex/styles
+\usepackage{environ}  % the bnf environment, in stdtex/macros
+
+%% stdtex/macros writes each grammar production to \gramout, which the
+%% working draft opens as its grammar extraction file.  A paper has no
+%% use for that, so it is left unopened, and the writes go to the log.
+\newwrite\gramout
+
 \usepackage{url}  % urls in ref.bib
 \usepackage{tabularx}  % don't use the C++ standard's fancy tables, they come with captions!
 
