@@ -7,6 +7,9 @@
 ;;; Code:
 
 (require 'ert)
+(require 'wg21-test-support
+         (expand-file-name "wg21-test-support"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 (require 'ox-wg21html
          (expand-file-name "../ox-wg21html"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
@@ -193,27 +196,8 @@ PROBE is a JavaScript expression whose string value is returned."
 ;;; Self-contained pages
 
 (defun ox-wg21html-test-export-file (org &optional files)
-  "Export ORG as a whole page from a file in a scratch git repository.
-FILES is an alist of (NAME . CONTENTS) written beside it first.  ORG is
-committed, so source links resolve.  Return the HTML."
-  (let* ((dir (make-temp-file "ox-wg21html-test" t))
-         (default-directory (file-name-as-directory dir))
-         (file (expand-file-name "paper.org" dir)))
-    (unwind-protect
-        (progn
-          (dolist (extra files)
-            (with-temp-file (expand-file-name (car extra) dir) (insert (cdr extra))))
-          (with-temp-file file (insert org))
-          (dolist (args '(("init" "-q") ("add" ".")
-                          ("-c" "user.name=t" "-c" "user.email=t@t" "commit" "-q" "-m" "t")
-                          ("remote" "add" "origin" "git@github.com:o/r.git")))
-            (apply #'call-process "git" nil nil nil args))
-          (let ((buffer (find-file-noselect file))
-                (org-export-use-babel nil))
-            (unwind-protect
-                (with-current-buffer buffer (org-export-as 'wg21-html))
-              (kill-buffer buffer))))
-      (delete-directory dir t))))
+  "Export ORG as a whole HTML page; see `wg21-test-export-file'."
+  (wg21-test-export-file 'wg21-html org files))
 
 (ert-deftest page-has-no-external-stylesheets ()
   (let ((html (ox-wg21html-test-export-file
@@ -223,6 +207,23 @@ committed, so source links resolve.  Return the HTML."
     (should (string-match-p "\\.extra-marker { color: red; }" html))
     (should (string-match-p "/\\* wg21org\\.css \\*/" html))
     (should-not (string-match-p "<script" html))))
+
+(defconst ox-wg21html-test-png
+  (base64-decode-string
+   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+  "A one-pixel PNG.")
+
+(ert-deftest page-embeds-local-images ()
+  (let ((html (ox-wg21html-test-export-file
+               "#+TITLE: T\n* A\n[[file:images/dot.png]]\n"
+               `(("images/dot.png" . ,ox-wg21html-test-png)))))
+    (should-not (string-match-p "<img[^>]*src=\"images/" html))
+    (should (string-match "<img[^>]*src=\"data:image/png;base64,\\([^\"]*\\)\"" html))
+    (should (equal (base64-decode-string (match-string 1 html)) ox-wg21html-test-png))))
+
+(ert-deftest page-leaves-missing-images-for-check ()
+  (let ((html (ox-wg21html-test-export-file "#+TITLE: T\n* A\n[[file:missing.png]]\n")))
+    (should (string-match-p "<img[^>]*src=\"missing\\.png\"" html))))
 
 (ert-deftest page-title-is-plain-text ()
   (let ((html (ox-wg21html-test-export-file "#+TITLE: A view of ~view::maybe~\n* A\n")))
@@ -251,6 +252,11 @@ committed, so source links resolve.  Return the HTML."
       (should-not (string-match-p "\\.org-string" trimmed)))
     (should (equal (wg21-html--trim-css (concat "@media print {}\n" css) classes)
                    (concat "@media print {}\n" css)))))
+
+(ert-deftest multi-line-math-is-mathml ()
+  (skip-unless (executable-find "pandoc"))
+  (should (string-match-p "\\`<math display=\"block\""
+                          (wg21-html--mathml "\\[\n\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}\n\\]"))))
 
 (ert-deftest math-is-mathml ()
   (skip-unless (executable-find "pandoc"))

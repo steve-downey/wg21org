@@ -1,0 +1,105 @@
+%% wg21org-preamble.tex --- preamble for WG21 papers exported by ox-wg21latex.el
+%%
+%% The exporter copies this into every paper, after the paper's own
+%% LATEX_HEADER lines, so an exported paper compiles with nothing but
+%% TeX Live.  Anything the paper already defined, such as the wording
+%% macros from common.tex, is kept: every definition here is provided,
+%% not imposed.
+
+\makeatletter
+
+\usepackage{xcolor}
+\usepackage[normalem]{ulem}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{hyperref}
+\usepackage{iftex}
+
+%% Nothing should run into the margin: URLs break anywhere, identifiers
+%% after an underscore, and a paragraph that cannot be set well is set
+%% loosely instead of overfull.
+\usepackage{xurl}
+\usepackage{underscore}
+\setlength{\emergencystretch}{3em}
+
+%% pdfLaTeX knows only the Unicode characters declared to it.  A
+%% zero-width space is a place a line may break.
+\ifPDFTeX
+  \DeclareUnicodeCharacter{200B}{\hspace{0pt}}
+\fi
+%% Links as coloured text, not boxes: cross references and the
+%% contents in the text colour, links out in blue.
+\hypersetup{colorlinks=true,
+             linkcolor=.,
+             citecolor=.,
+             urlcolor=[rgb]{0.04,0.34,0.82}}
+
+%% Wording changes: [[insert:][...]], [[delete:][...]], _underline_,
+%% +strike-through+, and the addedblock and removedblock blocks.
+\providecolor{addclr}{rgb}{0,.45,.15}
+\providecolor{remclr}{rgb}{.75,0,0}
+\providecommand{\added}[1]{\textcolor{addclr}{\uline{#1}}}
+\providecommand{\removed}[1]{\textcolor{remclr}{\sout{#1}}}
+\@ifundefined{addedblock}{\newenvironment{addedblock}{\color{addclr}}{}}{}
+\@ifundefined{removedblock}{\newenvironment{removedblock}{\color{remclr}}{}}{}
+
+%% Title block: the exporter writes the title and a table of the
+%% document's metadata, rather than using \maketitle, which common.tex
+%% and document classes each define their own way.
+\providecommand{\wgmetalabel}[1]{\textsf{\small #1}}
+\providecommand{\wgmetavalue}[1]{\textsf{\small #1}}
+
+%% A special block, #+begin_NAME, is the environment NAME when the
+%% document has one; otherwise its contents are set as they are, with a
+%% warning, rather than stopping the build.
+\newenvironment{wgblock}[1]
+  {\@ifundefined{#1}
+    {\PackageWarning{wg21org}{No environment `#1'; its block is set as plain text}%
+     \def\wg@blockend{}}
+    {\def\wg@blockend{\end{#1}}\begin{#1}}}
+  {\wg@blockend}
+
+%% Footnotes.  The working draft's macros (stdtex/macros.tex, from
+%% common.tex) replace the \footnote command with a footnote
+%% environment; use whichever the document has.
+\providecommand{\wgfootnote}[1]{%
+  \@ifundefined{endfootnote}{\footnote{#1}}{\begin{footnote}#1\end{footnote}}}
+
+%% The table of contents, without memoir's own entry for it in itself;
+%% only memoir has the starred form.
+\providecommand{\wgtableofcontents}{%
+  \@ifclassloaded{memoir}{\tableofcontents*}{\tableofcontents}}
+
+%% A section's link to its line in the Org source, in the margin.
+%% It takes no width, since margins can be narrower than the word.
+\providecommand{\wgsourcelink}[1]{%
+  \marginpar{\makebox[0pt][l]{\textsf{\scriptsize\href{#1}{source}}}}}
+
+%% Comparison tables: before and after columns of equal width, as a
+%% longtable so a long table breaks between rows, with its header row
+%% repeated on each page.
+\newlength{\wgcmptblgap}
+\setlength{\wgcmptblgap}{1.5em}
+\newlength{\wgcmptblcol}
+\newenvironment{wgcmptbl}
+  {\setlength{\wgcmptblcol}{\dimexpr(\linewidth-\wgcmptblgap)/2\relax}%
+   \setlength{\LTpre}{\medskipamount}%
+   \setlength{\LTpost}{\medskipamount}%
+   \let\wg@pagebreak\pagebreak
+   \let\wg@nopagebreak\nopagebreak
+   \let\wg@newpage\newpage
+   \begin{longtable}{@{}p{\wgcmptblcol}@{\hspace{\wgcmptblgap}}p{\wgcmptblcol}@{}}}
+  {\end{longtable}}
+%% A cell.  longtable redefines \pagebreak, \nopagebreak and \newpage
+%% to act between rows, and a breakable code box calls them from inside
+%% the cell; give the cell back the ordinary meanings, and a minipage
+%% to keep it in one piece.
+\newenvironment{wgcmptblcell}
+  {\let\pagebreak\wg@pagebreak
+   \let\nopagebreak\wg@nopagebreak
+   \let\newpage\wg@newpage
+   \begin{minipage}[t]{\linewidth}}
+  {\end{minipage}}
+
+\makeatother

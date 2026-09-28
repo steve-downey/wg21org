@@ -28,8 +28,8 @@
                                    ("melpa" . 10)))
 (package-initialize)
 
-(defconst wg21org-export-packages '(htmlize citeproc rainbow-delimiters)
-  "Packages the HTML export needs.")
+(defconst wg21org-export-packages '(htmlize citeproc rainbow-delimiters engrave-faces)
+  "Packages the HTML and LaTeX exports need.")
 
 (let ((missing (seq-remove #'package-installed-p wg21org-export-packages)))
   (when missing
@@ -39,10 +39,46 @@
 (require 'org)
 (require 'ox-html)
 (require 'htmlize)
+(require 'engrave-faces)
 
 ;; Source blocks are fontified by their major mode, so code faces
 ;; follow the editor: rainbow-delimiters colours brackets by depth.
 (add-hook 'prog-mode-hook #'rainbow-delimiters-mode)
+
+;; LaTeX code is coloured by engrave-faces from an Emacs theme, which
+;; it reads through the faces of the running Emacs.  Batch Emacs runs
+;; on a terminal frame with no colours, so no theme face spec matches
+;; it and every face is left unspecified.  Make the frame claim full
+;; colour, and fill in what a terminal frame still leaves out:
+;; - The default face stays unspecified-fg/-bg whatever the theme says;
+;;   take its colours from the theme's own face spec.
+;; - `color-values' knows no colour names; the standard table has them.
+;; - engrave-faces restores the previous theme after reading another,
+;;   which fails when there was none; start with one enabled.
+;; The Modus options match the editor that wrote modus-*.css: bold
+;; keywords and types, italic comments.
+(when noninteractive
+  (advice-add 'display-color-cells :override (lambda (&rest _) 16777216))
+  (advice-add 'tty-display-color-p :override (lambda (&rest _) t))
+  (advice-add 'face-attribute :around
+              (lambda (face-attribute face attribute &optional frame inherit)
+                (let ((value (funcall face-attribute face attribute frame inherit)))
+                  (or (and (eq face 'default)
+                           (member value '("unspecified-fg" "unspecified-bg"))
+                           (seq-some (lambda (theme)
+                                       (plist-get (face-spec-choose
+                                                   (cadr (assq theme (get 'default 'theme-face))))
+                                                  attribute))
+                                     custom-enabled-themes))
+                      value))))
+  (advice-add 'color-values :around
+              (lambda (color-values color &optional frame)
+                (or (funcall color-values color frame)
+                    (and (stringp color)
+                         (tty-color-standard-values (downcase color))))))
+  (setq modus-themes-bold-constructs t
+        modus-themes-italic-constructs t)
+  (load-theme 'modus-operandi-tinted t))
 
 (setq org-src-preserve-indentation t)
 (setq org-src-fontify-natively t)
