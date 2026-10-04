@@ -71,6 +71,19 @@
 \providecommand{\wgtableofcontents}{%
   \@ifclassloaded{memoir}{\tableofcontents*}{\tableofcontents}}
 
+%% A reusable wording scope.  stdtex's wording environment declares its
+%% scratch counter on entry, so a paper cannot use it for two generated root
+%% clauses.  Declare the counter once and keep the same section-number style.
+\newcounter{wgscratchChapter}
+\newenvironment{wgwording}
+  {\chapterstyle{cppstd}%
+   \setcounter{wgscratchChapter}{\value{chapter}}%
+   \settocdepth{part}%
+   \renewcommand\thesection{\ucr.\arabic{section}}%
+   \renewcommand\thesubsection{\makebox{$\ucr$}.\makebox{$\ucr$}.\arabic{subsection}}}
+  {\setcounter{chapter}{\value{wgscratchChapter}}%
+   \settocdepth{section}}
+
 %% Comparison tables: before and after columns of equal width, as a
 %% longtable so a long table breaks between rows, with its header row
 %% repeated on each page.

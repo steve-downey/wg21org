@@ -52,11 +52,18 @@ Block names are case-insensitive in Org, but the environment named
 after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
   (org-element-put-property special-block :type
                             (downcase (org-element-property :type special-block)))
-  (if (string= (org-element-property :type special-block) "cmptbl")
-      (wg21-latex-cmptbl special-block info)
-    (wg21-latex--guard-environment
-     (org-element-property :type special-block)
-     (org-latex-special-block special-block contents info))))
+  (let ((type (org-element-property :type special-block)))
+    (cond
+     ((string= type "cmptbl") (wg21-latex-cmptbl special-block info))
+     ((string= type "pnum")
+      (concat "\\pnum\n" contents))
+     ((member type '("codeblock" "itemdecl"))
+      ;; listings environments find their end marker by scanning the input;
+      ;; hiding it behind wgblock makes the first block consume the paper.
+      (format "\\begin{%s}\n%s\\end{%s}\n"
+              type (wg21-special-block-raw-contents special-block) type))
+     (t (wg21-latex--guard-environment
+         type (org-latex-special-block special-block contents info))))))
 
 (defun wg21-latex--guard-environment (name latex)
   "Set LATEX, the environment NAME, in a wgblock environment.
@@ -73,6 +80,28 @@ options after \\begin{NAME} is left as it is."
                 "\\end{wgblock}"
                 (match-string 1 latex))
       latex)))
+
+(defun wg21-latex-headline (headline contents info)
+  "Export HEADLINE, wrapping a generated wording root around its subtree."
+  (let ((latex (org-latex-headline headline contents info)))
+    (if (org-element-property :WG21_WORDING headline)
+        (concat "\\begin{wgwording}\n" latex "\\end{wgwording}\n")
+      latex)))
+
+(defun wg21-latex-table (table contents info)
+  "Export TABLE, applying target-neutral WG21 column proportions."
+  (let ((widths (wg21-table-columns table)))
+    (if (not widths)
+        (org-latex-table table contents info)
+      (let ((copy (org-element-copy table)))
+        (org-element-put-property
+         copy :attr_latex
+         (list (concat ":environment longtable :align @{}"
+                       (mapconcat (lambda (width)
+                                    (format "p{.%s\\linewidth}" width))
+                                  widths "")
+                       "@{}")))
+        (org-latex-table copy contents info)))))
 
 ;;; Wording
 
@@ -431,12 +460,15 @@ the #+TOC keyword."
     (:wg21-toc-command nil nil wg21-toc-command))
 
   :translate-alist '((special-block . my-latex-special-block)
+                     (headline . wg21-latex-headline)
+                     (table . wg21-latex-table)
                      (src-block . wg21-latex-src-block)
                      (footnote-reference . wg21-latex-footnote-reference)
                      (template . my-wg21-latex-template))
 
   :filters-alist '((:filter-options . wg21-latex-filter-options)
-                   (:filter-parse-tree . wg21-cite-drop-empty-bibliography))
+                   (:filter-parse-tree . (wg21-seed-headline-references
+                                          wg21-cite-drop-empty-bibliography)))
 
   :menu-entry '(?w "WG21 Papers"
                    ((?L "As LaTeX buffer" my-wg21-export-as-latex)

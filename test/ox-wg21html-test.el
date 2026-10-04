@@ -97,6 +97,54 @@ y();
              "int</span> <span[^>]*>a</span> = 1;\n<span[^>]*>int</span>"
              html))))
 
+(ert-deftest specgen-code-block-is-raw-code ()
+  (let ((html (ox-wg21html-test-export
+               "#+begin_codeblock\nT @\\exposidnc{value}@; // *not emphasis*\n#+end_codeblock\n")))
+    (should (string-match-p
+             (regexp-quote
+              "<pre class=\"src src-C++\">T <var>value</var>; // *not emphasis*\n</pre>")
+             html))
+    (should-not (string-match-p "@\\\\exposidnc" html))))
+
+(ert-deftest specgen-code-block-references-are-links ()
+  (let ((html (ox-wg21html-test-export
+               "* Proposed\n:PROPERTIES:\n:CUSTOM_ID: proposed.clause\n:END:\n#+begin_codeblock\n// \\ref{proposed.clause}, \\ref{optional.general}\n#+end_codeblock\n")))
+    (should (string-match-p
+             (regexp-quote "<a href=\"#proposed.clause\">[proposed.clause]</a>")
+             html))
+    (should (string-match-p
+             (regexp-quote
+              "<a href=\"https://eel.is/c++draft/optional.general\">[optional.general]</a>")
+             html))))
+
+(ert-deftest ordinary-headlines-have-readable-stable-anchors ()
+  (let ((html (ox-wg21html-test-export
+               "#+OPTIONS: toc:2\n* Changes since R0\nSee [[*Relationship to =utf_transcoding_error= (P2728)][details]].\n** Relationship to =utf_transcoding_error= (P2728)\n")))
+    (should (string-match-p "id=\"changes-since-r0\"" html))
+    (should (string-match-p
+             "id=\"relationship-to-utf_transcoding_error-p2728\"" html))
+    (should (string-match-p
+             "href=\"#relationship-to-utf_transcoding_error-p2728\">details</a>"
+             html))
+    (should (= 2 (ox-wg21html-test-count
+                  "href=\"#changes-since-r0\"" html)))))
+
+(ert-deftest explicit-and-repeated-headline-anchors-stay-unique ()
+  (let ((html (ox-wg21html-test-export
+               "* Generated\n:PROPERTIES:\n:CUSTOM_ID: repeated\n:END:\n* Repeated\n* Repeated\n")))
+    (should (string-match-p "id=\"repeated\"" html))
+    (should (string-match-p "id=\"repeated-2\"" html))
+    (should (string-match-p "id=\"repeated-3\"" html))))
+
+(ert-deftest wg21-table-columns-become-html-column-widths ()
+  (let ((html (ox-wg21html-test-export
+               "#+ATTR_WG21: :columns 18 36 36\n| A | B | C |\n|---+---+---|\n| a | b | c |\n")))
+    (should (string-match-p "<table class=\"wg21-spec-table\"" html))
+    (should (string-match-p "<colgroup>" html))
+    (should-not (string-match-p "<col style=[^>]*group>" html))
+    (should (= 1 (ox-wg21html-test-count "style=\"width: 18%\"" html)))
+    (should (= 2 (ox-wg21html-test-count "style=\"width: 36%\"" html)))))
+
 ;; The comparison table last broke in the stylesheet, not the HTML: Org
 ;; 9.8 wraps code blocks in <code>, and wg21org.css made <code> nowrap,
 ;; so each block rendered as one long line that pushed the table past
@@ -309,6 +357,12 @@ With DARK, the browser reports a dark system colour scheme."
   (let ((html (ox-wg21html-test-export-file wg21-test-wording-paper)))
     (should (string-match-p "<span class=\"org-function-name\">outside</span>" html))
     (should (string-match-p "<code>int inside(<ins>int</ins>); // plain\n</code>" html))))
+
+(ert-deftest generated-wording-root-and-paragraphs ()
+  (let ((html (ox-wg21html-test-export
+               "* Clause\n:PROPERTIES:\n:WG21_WORDING: t\n:END:\n#+begin_pnum\n/Effects/: text.\n#+end_pnum\n")))
+    (should (string-match-p "class=\"[^\"]*wg21-wording" html))
+    (should (string-match-p "class=\"pnum\"" html))))
 
 (ert-deftest abstract-comes-before-contents ()
   (let ((html (ox-wg21html-test-export-file (wg21-test-paper-with-abstract)

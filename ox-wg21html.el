@@ -50,9 +50,57 @@ Block names are case-insensitive in Org, but the class named after
 one is not, so #+BEGIN_ABSTRACT gets the class abstract."
   (org-element-put-property special-block :type
                             (downcase (org-element-property :type special-block)))
-  (if (string= (org-element-property :type special-block) "cmptbl")
-      (wg21-html-cmptbl special-block info)
-    (org-html-special-block special-block contents info)))
+  (let ((type (org-element-property :type special-block)))
+    (cond
+     ((string= type "cmptbl") (wg21-html-cmptbl special-block info))
+     ((string= type "pnum")
+      (format "<div class=\"pnum\">%s</div>\n" contents))
+     ((member type '("codeblock" "itemdecl"))
+      (wg21-html-raw-code-special-block special-block type info))
+     (t (org-html-special-block special-block contents info)))))
+
+(defun wg21-html-raw-code-special-block (block type info)
+  "Export specgen BLOCK of TYPE as uninterpreted C++ code."
+  (let ((code (org-html-encode-plain-text
+               (wg21-special-block-raw-contents block))))
+    (dolist (macro '("exposid" "exposidnc" "placeholder"))
+      (setq code
+            (replace-regexp-in-string
+             (format "@\\\\%s{\\([^}]+\\)}@" macro)
+             "<var>\\1</var>" code)))
+    (setq code (replace-regexp-in-string "@\\\\seebelow@" "<var>see below</var>" code)
+          code (replace-regexp-in-string "@\\\\impdef@" "<var>implementation-defined</var>" code)
+          code (replace-regexp-in-string
+                "\\\\ref{\\([^}]+\\)}"
+                (lambda (match)
+                  (let ((name (match-string 1 match)))
+                    (format "<a href=\"%s\">[%s]</a>"
+                            (wg21-stable-name-href name info) name)))
+                code))
+    (format "<div class=\"%s\"><pre class=\"src src-C++\">%s</pre></div>\n"
+            type code)))
+
+(defun wg21-html-table (table contents info)
+  "Export TABLE, applying target-neutral WG21 column proportions."
+  (let ((widths (wg21-table-columns table))
+        (html (org-html-table table contents info)))
+    (if (not widths)
+        html
+      (setq html
+            (replace-regexp-in-string
+             "<table"
+             "<table class=\"wg21-spec-table\""
+             html t t))
+      (replace-regexp-in-string
+       "<col\\([ 	][^>]*\\)>"
+       (lambda (col)
+         (if (not widths)
+             col
+           (prog1
+               (format "<col style=\"width: %s%%\"%s>"
+                       (car widths) (match-string 1 col))
+             (setq widths (cdr widths)))))
+       html t t))))
 
 ;;; Wording
 
@@ -657,6 +705,7 @@ INFO is a plist holding export options."
     (:html-wrap-src-lines nil nil org-html-wrap-src-lines))
 
   :translate-alist '((special-block . my-html-special-block)
+                     (table . wg21-html-table)
                      (src-block . wg21-html-src-block)
                      (latex-fragment . wg21-html-latex-fragment)
                      (latex-environment . wg21-html-latex-environment)
@@ -666,7 +715,8 @@ INFO is a plist holding export options."
                      (template . my-wg21-html-template))
 
   :filters-alist '((:filter-options . wg21-html-filter-options)
-                   (:filter-parse-tree . wg21-cite-drop-empty-bibliography))
+                   (:filter-parse-tree . (wg21-seed-headline-references
+                                          wg21-cite-drop-empty-bibliography)))
 
   :menu-entry '(?w "Export WG21 Paper"
                    ((?H "As HTML buffer" my-wg21-export-as-html)
@@ -912,9 +962,12 @@ holding contextual information."
           (format "<%s id=\"%s\" class=\"%s\">%s%s</%s>\n"
                   (org-html--container headline info)
                   (format "outline-container-%s" id)
-                  (concat (format "outline-%d" level)
-                          (and extra-class " ")
-                          extra-class)
+                  (string-join
+                   (delq nil (list (format "outline-%d" level)
+                                   extra-class
+                                   (and (org-element-property :WG21_WORDING headline)
+                                        "wg21-wording")))
+                   " ")
                   (format "\n<h%d class=\"heading%s\" id=\"%s\">%s</h%d>\n"
                           level
                           (if headline-class (concat " " headline-class) "")
