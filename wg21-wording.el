@@ -28,6 +28,7 @@
 ;;; Code:
 
 (require 'org-element)
+(require 'seq)
 (defun wg21--headline-slug (headline info)
   "Return a readable anchor derived from HEADLINE's title.
 INFO is the current export state.  The spelling follows Pandoc's
@@ -83,6 +84,16 @@ names.  Repeated derived names receive -2, -3, and so on."
             ancestor (org-element-parent ancestor)))
     found))
 
+(defun wg21-raw-code-block-p (element)
+  "Non-nil if ELEMENT is inside a raw WG21 code or grammar block."
+  (let ((ancestor (org-element-parent element)) found)
+    (while (and ancestor (not found))
+      (setq found (and (eq (org-element-type ancestor) 'special-block)
+                       (member (downcase (org-element-property :type ancestor))
+                               '("codeblock" "itemdecl" "grammar")))
+            ancestor (org-element-parent ancestor)))
+    found))
+
 (defun wg21-special-block-raw-contents (block)
   "Return BLOCK's contents exactly as written, without Org interpretation."
   (let ((begin (org-element-property :contents-begin block))
@@ -90,6 +101,36 @@ names.  Repeated derived names receive -2, -3, and so on."
     (if (and begin end)
         (buffer-substring-no-properties begin end)
       "")))
+
+(defun wg21-block-arguments (block)
+  "Return BLOCK's whitespace-separated parameters.
+Quoting follows ordinary Emacs command-line quoting, which is enough for
+values such as an editorial note's audience."
+  (split-string-and-unquote (or (org-element-property :parameters block) "")))
+
+(defun wg21-block-option (block name)
+  "Return option NAME from BLOCK's parameters, or nil.
+Both `:name value' and `name=value' are accepted."
+  (let ((args (wg21-block-arguments block)) value)
+    (while args
+      (let ((arg (pop args)))
+        (cond
+         ((string= arg (concat ":" name))
+          (setq value (pop args) args nil))
+         ((string-prefix-p (concat name "=") arg)
+          (setq value (substring arg (1+ (length name))) args nil)))))
+    value))
+
+(defun wg21-block-flag-p (block name)
+  "Non-nil when BLOCK has the flag NAME."
+  (member name (wg21-block-arguments block)))
+
+(defun wg21-pnum-label (block)
+  "Return BLOCK's explicit paragraph label, or nil for automatic numbering.
+The compact `#+begin_pnum x+1' form and `:number x+1' are equivalent."
+  (or (wg21-block-option block "number")
+      (seq-find (lambda (arg) (not (string-prefix-p ":" arg)))
+                (wg21-block-arguments block))))
 
 (defun wg21-stable-name-href (stable-name info)
   "Return the HTML target for STABLE-NAME in export context INFO.

@@ -110,6 +110,39 @@ y();
     (should (string-match-p "\\\\pnum" latex))
     (should (string-match-p "\\\\end{wgwording}" latex))))
 
+(ert-deftest latex-added-wording-root-wraps-the-subtree ()
+  (let ((latex (ox-wg21latex-test-export
+                "* Clause\n:PROPERTIES:\n:WG21_WORDING: t\n:WG21_CHANGE: add\n:END:\nText.\n")))
+    (should (< (string-search "\\begin{addedblock}" latex)
+               (string-search "\\begin{wgwording}" latex)))
+    (should (< (string-search "\\end{wgwording}" latex)
+               (string-search "\\end{addedblock}" latex)))))
+
+(ert-deftest latex-explicit-paragraph-number ()
+  (let ((latex (ox-wg21latex-test-export
+                "#+begin_pnum x+2\nAdded wording.\n#+end_pnum\n")))
+    (should (string-match-p (regexp-quote "\\wgexplicitpnum{x+2}") latex))))
+
+(ert-deftest latex-note-like-blocks ()
+  (let ((latex (ox-wg21latex-test-export
+                "#+begin_note :number 5\nN.\n#+end_note\n#+begin_draftnote :audience LEWG\nD.\n#+end_draftnote\n")))
+    (should (string-match-p "\\\\wgsetcounterifdefined{note}{4}" latex))
+    (should (string-match-p "\\\\begin{wgblock}{note}" latex))
+    (should (string-match-p "\\\\wgdraftnote\\[LEWG\\]" latex))))
+
+(ert-deftest latex-stable-name-links-choose-local-or-draft-targets ()
+  (let ((latex (ox-wg21latex-test-export
+                "* Proposed\n:PROPERTIES:\n:CUSTOM_ID: proposed.clause\n:END:\n#+latex: \\\\label{proposed.clause}\n[[sref:proposed.clause]] [[sref:basic.life/2.1]]\n")))
+    (should (string-match-p (regexp-quote "\\hyperref[proposed.clause]{[proposed.clause]}") latex))
+    (should (string-match-p
+             (regexp-quote "\\href{https://eel.is/c++draft/basic.life#2.1}{[basic.life]/2.1}") latex))))
+
+(ert-deftest latex-grammar-is-a-draft-grammar-block ()
+  (let ((latex (ox-wg21latex-test-export
+                "#+begin_grammar\n@\\grammarterm{statement}@\n#+end_grammar\n")))
+    (should (string-match-p "\\\\begin{wgblock}{ncbnf}" latex))
+    (should (string-match-p (regexp-quote "@\\grammarterm{statement}@") latex))))
+
 (ert-deftest latex-specgen-code-block-is-raw ()
   (let ((latex (ox-wg21latex-test-export
                 "#+begin_codeblock\nT @\\exposidnc{value}@; // *not emphasis*, \\ref{optional.general}\n#+end_codeblock\n")))
@@ -232,6 +265,10 @@ y();
   (let* ((latex (wg21-test-export-file
                  'wg21-latex
                  (concat "#+TITLE: T\n#+LATEX_COMPILER: lualatex\n\n* A\n"
+                         "#+begin_pnum x+1\nAdded.\n#+end_pnum\n"
+                         "#+begin_note :number 5\nA note.\n#+end_note\n"
+                         "#+begin_draftnote :audience LEWG\nReview.\n#+end_draftnote\n"
+                         "#+begin_grammar\n@\\grammarterm{statement}@\n#+end_grammar\n"
                          ox-wg21latex-test-cmptbl)))
          (dir (make-temp-file "ox-wg21latex-test" t))
          (default-directory (file-name-as-directory dir)))

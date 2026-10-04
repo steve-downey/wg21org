@@ -59,12 +59,25 @@
      \def\wg@blockend{}}
     {\def\wg@blockend{\end{#1}}\begin{#1}}}
   {\wg@blockend}
+\providecommand{\wgsetcounterifdefined}[2]{%
+  \@ifundefined{c@#1}{}{\setcounter{#1}{#2}}}
 
 %% Footnotes.  The working draft's macros (stdtex/macros.tex, from
 %% common.tex) replace the \footnote command with a footnote
 %% environment; use whichever the document has.
 \providecommand{\wgfootnote}[1]{%
   \@ifundefined{endfootnote}{\footnote{#1}}{\begin{footnote}#1\end{footnote}}}
+
+%% Explicit paragraph labels are needed for edits (`x', `x+1') and for
+%% quoting an existing paragraph without changing every number around it.
+\providecommand{\wgexplicitpnum}[1]{%
+  \noindent\makebox[0pt][l]{\makebox[0pt][r]{%
+    \scriptsize\raisebox{.7ex}{[#1]}\quad}}\ignorespaces}
+
+%% Note-like blocks outside draft wording, and editorial/drafting notes.
+\providecommand{\wgnonnormative}[2]{[\textit{#1:} #2\textit{ --- end #1}]}
+\providecommand{\wgednote}[1]{\textcolor{blue}{[\textit{Editor's note:} #1]}}
+\providecommand{\wgdraftnote}[2][]{\textcolor{blue}{[\textit{Drafting note\if\relax\detokenize{#1}\relax\else\ for #1\fi:} #2]}}
 
 %% The table of contents, without memoir's own entry for it in itself;
 %% only memoir has the starred form.

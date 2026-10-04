@@ -53,9 +53,10 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
   (let ((type (org-element-property :type special-block)))
     (cond
      ((string= type "cmptbl") (wg21-html-cmptbl special-block info))
-     ((string= type "pnum")
-      (format "<div class=\"pnum\">%s</div>\n" contents))
-     ((member type '("codeblock" "itemdecl"))
+     ((string= type "pnum") (wg21-html-pnum special-block contents))
+     ((member type '("note" "example" "ednote" "draftnote"))
+      (wg21-html-nonnormative special-block type contents))
+     ((member type '("codeblock" "itemdecl" "grammar"))
       (wg21-html-raw-code-special-block special-block type info))
      (t (org-html-special-block special-block contents info)))))
 
@@ -70,6 +71,10 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
              "<var>\\1</var>" code)))
     (setq code (replace-regexp-in-string "@\\\\seebelow@" "<var>see below</var>" code)
           code (replace-regexp-in-string "@\\\\impdef@" "<var>implementation-defined</var>" code)
+          code (replace-regexp-in-string "@\\\\added{\\([^}]*\\)}@" "<ins>\\1</ins>" code)
+          code (replace-regexp-in-string "@\\\\removed{\\([^}]*\\)}@" "<del>\\1</del>" code)
+          code (replace-regexp-in-string "@\\\\grammarterm{\\([^}]*\\)}@" "<var>\\1</var>" code)
+          code (replace-regexp-in-string "@\\\\terminal{\\([^}]*\\)}@" "<code>\\1</code>" code)
           code (replace-regexp-in-string
                 "\\\\ref{\\([^}]+\\)}"
                 (lambda (match)
@@ -77,8 +82,31 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
                     (format "<a href=\"%s\">[%s]</a>"
                             (wg21-stable-name-href name info) name)))
                 code))
-    (format "<div class=\"%s\"><pre class=\"src src-C++\">%s</pre></div>\n"
-            type code)))
+    (format "<div class=\"%s\"><pre class=\"%s\">%s</pre></div>\n"
+            type (if (string= type "grammar") "grammar" "src src-C++") code)))
+
+(defun wg21-html-pnum (block contents)
+  "Export a paragraph-number BLOCK containing CONTENTS.
+An explicit label is data rather than CSS-generated text; an automatic block
+keeps using the subclause counter."
+  (if-let* ((label (wg21-pnum-label block)))
+      (format "<div class=\"pnum pnum-explicit\" data-pnum=\"%s\">%s</div>\n"
+              (org-html-encode-plain-text label) contents)
+    (format "<div class=\"pnum\">%s</div>\n" contents)))
+
+(defun wg21-html-nonnormative (block type contents)
+  "Export a note-like BLOCK of TYPE containing CONTENTS."
+  (let* ((unnumbered (wg21-block-flag-p block "unnumbered"))
+         (number (wg21-block-option block "number"))
+         (audience (wg21-block-option block "audience"))
+         (style (and number
+                     (format " style=\"counter-set: wg21-%s %d\""
+                             type (1- (string-to-number number)))))
+         (attrs (if audience
+                    (format " data-audience=\"%s\"" (org-html-encode-plain-text audience))
+                  "")))
+    (format "<div class=\"wg21-%s%s\"%s%s>%s</div>\n"
+            type (if unnumbered " unnumbered" "") (or style "") attrs contents)))
 
 (defun wg21-html-table (table contents info)
   "Export TABLE, applying target-neutral WG21 column proportions."
@@ -384,11 +412,17 @@ Set it to nil to leave math to Org, which uses MathJax."
   "Transcode the LaTeX ELEMENT as MathML, or else with FALLBACK.
 FALLBACK is Org's transcoder, called with ELEMENT, CONTENTS and INFO.
 Using it is recorded in INFO, so the template adds MathJax."
-  (let ((mathml (and (memq (plist-get info :with-latex) '(t mathjax))
-                     (wg21-html--mathml (org-element-property :value element)))))
-    (or mathml
-        (progn (plist-put info :wg21-mathjax t)
-               (funcall fallback element contents info)))))
+  ;; A raw WG21 block reads its bytes from the source buffer and ignores the
+  ;; recursively exported CONTENTS.  Org still visits those children first;
+  ;; draft @\exposid{...}@ escapes look like LaTeX fragments there and would
+  ;; spuriously turn on MathJax for a page which contains no unconverted math.
+  (if (wg21-raw-code-block-p element)
+      ""
+    (let ((mathml (and (memq (plist-get info :with-latex) '(t mathjax))
+                       (wg21-html--mathml (org-element-property :value element)))))
+      (or mathml
+          (progn (plist-put info :wg21-mathjax t)
+                 (funcall fallback element contents info))))))
 
 (defun wg21-html-latex-fragment (fragment contents info)
   "Transcode a LaTeX FRAGMENT to MathML.  CONTENTS is nil.  INFO is the plist."
@@ -966,7 +1000,9 @@ holding contextual information."
                    (delq nil (list (format "outline-%d" level)
                                    extra-class
                                    (and (org-element-property :WG21_WORDING headline)
-                                        "wg21-wording")))
+                                        "wg21-wording")
+                                   (and (equal (org-element-property :WG21_CHANGE headline) "add")
+                                        "wg21-addition")))
                    " ")
                   (format "\n<h%d class=\"heading%s\" id=\"%s\">%s</h%d>\n"
                           level

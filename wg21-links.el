@@ -31,6 +31,7 @@
 
 (require 'ol)
 (require 'ox)
+(require 'org-element)
 
 (defun wg21-links--export (html-tag latex-macro)
   "Return a link export function for an inline wording change.
@@ -47,6 +48,37 @@ for LaTeX."
 
 (org-link-set-parameters "insert" :export (wg21-links--export "ins" "added"))
 (org-link-set-parameters "delete" :export (wg21-links--export "del" "removed"))
+
+(defun wg21-links--local-stable-name-p (name info)
+  "Non-nil when INFO's document defines stable NAME."
+  (org-element-map (plist-get info :parse-tree) 'headline
+    (lambda (headline)
+      (equal name (org-element-property :CUSTOM_ID headline)))
+    info t))
+
+(defun wg21-links--sref-export (path description backend info)
+  "Export a stable-name reference PATH with optional DESCRIPTION."
+  (let* ((parts (split-string path "/" t))
+         (name (car parts))
+         (pnum (cadr parts))
+         (text (or description
+                   (concat "[" name "]" (if pnum (concat "/" pnum) ""))))
+         (local (wg21-links--local-stable-name-p name info))
+         (href (if local
+                   (concat "#" name)
+                 (concat "https://eel.is/c++draft/" name
+                         (if pnum (concat "#" pnum) "")))))
+    (cond
+     ((org-export-derived-backend-p backend 'html)
+      (format "<a class=\"sref\" href=\"%s\">%s</a>" href text))
+     ((org-export-derived-backend-p backend 'latex)
+      (if local
+          (format "\\hyperref[%s]{%s}" name text)
+        (format "\\href{%s}{%s}" href text)))
+     (t text))))
+
+;; [[sref:basic.life]] and [[sref:basic.life/2.1][custom text]].
+(org-link-set-parameters "sref" :export #'wg21-links--sref-export)
 
 (provide 'wg21-links)
 ;;; wg21-links.el ends here

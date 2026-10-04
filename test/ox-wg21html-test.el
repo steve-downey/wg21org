@@ -106,6 +106,11 @@ y();
              html))
     (should-not (string-match-p "@\\\\exposidnc" html))))
 
+(ert-deftest draft-escapes-in-raw-code-do-not-enable-mathjax ()
+  (let ((html (ox-wg21html-test-export
+               "#+begin_codeblock\nT @\\exposidnc{value}@;\n#+end_codeblock\n")))
+    (should-not (string-match-p "MathJax" html))))
+
 (ert-deftest specgen-code-block-references-are-links ()
   (let ((html (ox-wg21html-test-export
                "* Proposed\n:PROPERTIES:\n:CUSTOM_ID: proposed.clause\n:END:\n#+begin_codeblock\n// \\ref{proposed.clause}, \\ref{optional.general}\n#+end_codeblock\n")))
@@ -363,6 +368,36 @@ With DARK, the browser reports a dark system colour scheme."
                "* Clause\n:PROPERTIES:\n:WG21_WORDING: t\n:END:\n#+begin_pnum\n/Effects/: text.\n#+end_pnum\n")))
     (should (string-match-p "class=\"[^\"]*wg21-wording" html))
     (should (string-match-p "class=\"pnum\"" html))))
+
+(ert-deftest added-wording-root-carries-an-html-addition-scope ()
+  (let ((html (ox-wg21html-test-export
+               "* Clause\n:PROPERTIES:\n:WG21_WORDING: t\n:WG21_CHANGE: add\n:END:\nText.\n")))
+    (should (string-match-p "class=\"[^\"]*wg21-addition" html))))
+
+(ert-deftest explicit-paragraph-numbers-survive-html-export ()
+  (let ((html (ox-wg21html-test-export
+               "#+begin_pnum x+2\nAdded wording.\n#+end_pnum\n")))
+    (should (string-match-p
+             (regexp-quote "class=\"pnum pnum-explicit\" data-pnum=\"x+2\"") html))))
+
+(ert-deftest note-like-blocks-carry-number-and-audience ()
+  (let ((html (ox-wg21html-test-export
+               "#+begin_note :number 5\nN.\n#+end_note\n#+begin_draftnote :audience LEWG\nD.\n#+end_draftnote\n")))
+    (should (string-match-p "class=\"wg21-note\" style=\"counter-set: wg21-note 4\"" html))
+    (should (string-match-p "class=\"wg21-draftnote\" data-audience=\"LEWG\"" html))))
+
+(ert-deftest stable-name-links-choose-local-or-draft-targets ()
+  (let ((html (ox-wg21html-test-export
+               "* Proposed\n:PROPERTIES:\n:CUSTOM_ID: proposed.clause\n:END:\n[[sref:proposed.clause]] [[sref:basic.life/2.1]]\n")))
+    (should (string-match-p (regexp-quote "href=\"#proposed.clause\">[proposed.clause]</a>") html))
+    (should (string-match-p
+             (regexp-quote "href=\"https://eel.is/c++draft/basic.life#2.1\">[basic.life]/2.1</a>") html))))
+
+(ert-deftest raw-wording-code-supports-edits-and-grammar ()
+  (let ((html (ox-wg21html-test-export
+               "#+begin_codeblock\nint @\\added{x}@ = @\\removed{y}@;\n#+end_codeblock\n#+begin_grammar\n@\\grammarterm{statement}@ : @\\terminal{break}@\n#+end_grammar\n")))
+    (should (string-match-p "int <ins>x</ins> = <del>y</del>;" html))
+    (should (string-match-p "<pre class=\"grammar\"><var>statement</var> : <code>break</code>" html))))
 
 (ert-deftest abstract-comes-before-contents ()
   (let ((html (ox-wg21html-test-export-file (wg21-test-paper-with-abstract)

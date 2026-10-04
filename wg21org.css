@@ -300,7 +300,7 @@ h5, h6 { font-size: 1rem; }
    reset for every subclause, matching the working draft's paragraph numbers. */
 .wg21-wording,
 .wg21-wording [class^="outline-"] {
-    counter-reset: wg21-pnum;
+    counter-reset: wg21-pnum wg21-note wg21-example;
 }
 .pnum {
     position: relative;
@@ -314,6 +314,47 @@ h5, h6 { font-size: 1rem; }
     font-size: .72em;
     font-variant-numeric: tabular-nums;
 }
+.pnum-explicit {
+    counter-increment: none;
+}
+.pnum-explicit::before {
+    content: "[" attr(data-pnum) "]";
+}
+
+.wg21-note, .wg21-example, .wg21-ednote, .wg21-draftnote {
+    display: block;
+    margin: .8em 1.5em;
+    font-size: .95em;
+}
+.wg21-wording .wg21-note:not(.unnumbered) { counter-increment: wg21-note; }
+.wg21-wording .wg21-example:not(.unnumbered) { counter-increment: wg21-example; }
+.wg21-note::before { content: "[ Note: "; font-style: italic; }
+.wg21-example::before { content: "[ Example: "; font-style: italic; }
+.wg21-wording .wg21-note:not(.unnumbered)::before {
+    content: "[ Note " counter(wg21-note) ": ";
+}
+.wg21-wording .wg21-example:not(.unnumbered)::before {
+    content: "[ Example " counter(wg21-example) ": ";
+}
+.wg21-note::after { content: " — end note ]"; font-style: italic; }
+.wg21-example::after { content: " — end example ]"; font-style: italic; }
+.wg21-ednote, .wg21-draftnote { color: #2456b3; }
+.wg21-ednote::before { content: "[ Editor's note: "; font-style: italic; }
+.wg21-draftnote::before { content: "[ Drafting note: "; font-style: italic; }
+.wg21-draftnote[data-audience]::before {
+    content: "[ Drafting note for " attr(data-audience) ": ";
+}
+.wg21-ednote::after, .wg21-draftnote::after { content: " ]"; }
+
+pre.grammar {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--sans);
+    font-style: italic;
+    white-space: pre-wrap;
+}
+pre.grammar code { font-style: normal; }
 
 .heading [class^="section-number-"] {
     margin-right: .35em;
@@ -429,6 +470,11 @@ ins code, del code, .underline code {
 }
 .addedblock {
     border-left: 3px solid var(--ins-text);
+}
+.wg21-addition {
+    color: var(--ins-text);
+    border-left: 3px solid var(--ins-text);
+    padding-left: .75em;
 }
 .removedblock {
     border-left: 3px solid var(--del-text);

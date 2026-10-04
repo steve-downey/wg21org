@@ -56,7 +56,11 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
     (cond
      ((string= type "cmptbl") (wg21-latex-cmptbl special-block info))
      ((string= type "pnum")
-      (concat "\\pnum\n" contents))
+      (if-let* ((label (wg21-pnum-label special-block)))
+          (format "\\wgexplicitpnum{%s}\n%s" label contents)
+        (concat "\\pnum\n" contents)))
+     ((member type '("note" "example" "ednote" "draftnote"))
+      (wg21-latex-nonnormative special-block type contents))
      ((member type '("codeblock" "itemdecl"))
       ;; listings environments find their end marker by scanning the input;
       ;; hiding it behind wgblock makes the first block consume the paper.
@@ -66,6 +70,9 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
                "\\\\ref{\\([^}]+\\)}" "[\\1]"
                (wg21-special-block-raw-contents special-block))
               type))
+     ((string= type "grammar")
+      (format "\\begin{wgblock}{ncbnf}\n%s\\end{wgblock}\n"
+              (wg21-special-block-raw-contents special-block)))
      (t (wg21-latex--guard-environment
          type (org-latex-special-block special-block contents info))))))
 
@@ -85,12 +92,30 @@ options after \\begin{NAME} is left as it is."
                 (match-string 1 latex))
       latex)))
 
+(defun wg21-latex-nonnormative (block type contents)
+  "Export a note-like BLOCK of TYPE containing CONTENTS."
+  (let ((unnumbered (wg21-block-flag-p block "unnumbered"))
+        (number (wg21-block-option block "number"))
+        (audience (wg21-block-option block "audience")))
+    (cond
+     ((member type '("ednote" "draftnote"))
+      (format "\\wg%s%s{%s}\n" type
+              (if audience (format "[%s]" audience) "") contents))
+     (unnumbered
+      (format "\\wgnonnormative{%s}{%s}\n" (capitalize type) contents))
+     (t
+      (concat (and number
+                   (format "\\wgsetcounterifdefined{%s}{%d}\n" type (1- (string-to-number number))))
+              (format "\\begin{wgblock}{%s}\n%s\\end{wgblock}\n" type contents))))))
+
 (defun wg21-latex-headline (headline contents info)
   "Export HEADLINE, wrapping a generated wording root around its subtree."
   (let ((latex (org-latex-headline headline contents info)))
-    (if (org-element-property :WG21_WORDING headline)
-        (concat "\\begin{wgwording}\n" latex "\\end{wgwording}\n")
-      latex)))
+    (when (org-element-property :WG21_WORDING headline)
+      (setq latex (concat "\\begin{wgwording}\n" latex "\\end{wgwording}\n")))
+    (when (equal (org-element-property :WG21_CHANGE headline) "add")
+      (setq latex (concat "\\begin{addedblock}\n" latex "\\end{addedblock}\n")))
+    latex))
 
 (defun wg21-latex-table (table contents info)
   "Export TABLE, applying target-neutral WG21 column proportions."
