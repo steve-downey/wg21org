@@ -296,6 +296,25 @@ h5, h6 { font-size: 1rem; }
     margin-top: 2.5rem;
 }
 
+/* Generated wording uses explicit range and paragraph markers.  Counters
+   reset for every subclause, matching the working draft's paragraph numbers. */
+.wg21-wording,
+.wg21-wording [class^="outline-"] {
+    counter-reset: wg21-pnum;
+}
+.pnum {
+    position: relative;
+    counter-increment: wg21-pnum;
+}
+.pnum::before {
+    content: "[" counter(wg21-pnum) "]";
+    position: absolute;
+    right: calc(100% + .4em);
+    color: var(--muted);
+    font-size: .72em;
+    font-variant-numeric: tabular-nums;
+}
+
 .heading [class^="section-number-"] {
     margin-right: .35em;
     color: var(--muted);
@@ -456,6 +475,11 @@ table {
     border-collapse: collapse;
     margin: 1em 0;
     font-size: .95em;
+}
+
+table.wg21-spec-table {
+    table-layout: fixed;
+    width: 100%;
 }
 caption {
     caption-side: top;

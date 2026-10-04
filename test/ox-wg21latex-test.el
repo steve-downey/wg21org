@@ -26,6 +26,13 @@
       (setq count (1+ count) start (match-end 0)))
     count))
 
+(ert-deftest latex-headlines-and-links-use-readable-stable-labels ()
+  (let ((latex (ox-wg21latex-test-export
+                "* Changes since R0\nSee [[*Changes since R0][above]].\n")))
+    (should (string-match-p "\\\\label{sec:changes-since-r0}" latex))
+    (should (string-match-p
+             "\\\\hyperref\\[sec:changes-since-r0\\]{above}" latex))))
+
 (defconst ox-wg21latex-test-cmptbl "\
 #+begin_cmptbl
 #+begin_cmptblcell before
@@ -93,6 +100,29 @@ y();
   "A block whose environment the class may lack cannot stop the build."
   (let ((latex (ox-wg21latex-test-export "#+begin_tip\nx\n#+end_tip\n")))
     (should (string-match-p "\\\\begin{wgblock}{tip}\nx\n\\\\end{wgblock}" latex))))
+
+(ert-deftest latex-generated-wording-root-and-paragraphs ()
+  (let ((latex (ox-wg21latex-test-export
+                "* Clause\n:PROPERTIES:\n:WG21_WORDING: t\n:END:\n#+begin_pnum\n/Effects/: text.\n#+end_pnum\n")))
+    (should (string-match-p "\\\\begin{wgwording}" latex))
+    (should (string-match-p "\\\\pnum" latex))
+    (should (string-match-p "\\\\end{wgwording}" latex))))
+
+(ert-deftest latex-specgen-code-block-is-raw ()
+  (let ((latex (ox-wg21latex-test-export
+                "#+begin_codeblock\nT @\\exposidnc{value}@; // *not emphasis*\n#+end_codeblock\n")))
+    (should (string-match-p "\\\\begin{codeblock}" latex))
+    (should (string-match-p
+             "T @\\\\exposidnc{value}@; // \\*not emphasis\\*" latex))
+    (should-not (string-match-p "\\\\begin{wgblock}{codeblock}" latex))))
+
+(ert-deftest latex-wg21-table-columns-become-longtable-widths ()
+  (let ((latex (ox-wg21latex-test-export
+                "#+ATTR_WG21: :columns 18 36 36\n| A | B | C |\n|---+---+---|\n| a | b | c |\n")))
+    (should (string-match-p "\\\\begin{longtable}" latex))
+    (should (string-match-p
+             (regexp-quote "@{}p{.18\\linewidth}p{.36\\linewidth}p{.36\\linewidth}@{}")
+             latex))))
 
 (ert-deftest latex-wording-change-links ()
   (let ((latex (ox-wg21latex-test-export "a [[insert:][new]] b [[delete:][old]]")))
