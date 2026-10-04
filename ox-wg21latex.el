@@ -61,7 +61,11 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
       ;; listings environments find their end marker by scanning the input;
       ;; hiding it behind wgblock makes the first block consume the paper.
       (format "\\begin{%s}\n%s\\end{%s}\n"
-              type (wg21-special-block-raw-contents special-block) type))
+              type
+              (replace-regexp-in-string
+               "\\\\ref{\\([^}]+\\)}" "[\\1]"
+               (wg21-special-block-raw-contents special-block))
+              type))
      (t (wg21-latex--guard-environment
          type (org-latex-special-block special-block contents info))))))
 

@@ -103,17 +103,20 @@ y();
 
 (ert-deftest latex-generated-wording-root-and-paragraphs ()
   (let ((latex (ox-wg21latex-test-export
-                "* Clause\n:PROPERTIES:\n:WG21_WORDING: t\n:END:\n#+begin_pnum\n/Effects/: text.\n#+end_pnum\n")))
+                "* Clause\n:PROPERTIES:\n:UNNUMBERED: t\n:WG21_WORDING: t\n:END:\n#+begin_pnum\n/Effects/: text.\n#+end_pnum\n")))
     (should (string-match-p "\\\\begin{wgwording}" latex))
+    (should (string-match-p "\\\\chapter\\*{Clause}" latex))
+    (should-not (string-match-p "\\\\chapter{Clause}" latex))
     (should (string-match-p "\\\\pnum" latex))
     (should (string-match-p "\\\\end{wgwording}" latex))))
 
 (ert-deftest latex-specgen-code-block-is-raw ()
   (let ((latex (ox-wg21latex-test-export
-                "#+begin_codeblock\nT @\\exposidnc{value}@; // *not emphasis*\n#+end_codeblock\n")))
+                "#+begin_codeblock\nT @\\exposidnc{value}@; // *not emphasis*, \\ref{optional.general}\n#+end_codeblock\n")))
     (should (string-match-p "\\\\begin{codeblock}" latex))
     (should (string-match-p
-             "T @\\\\exposidnc{value}@; // \\*not emphasis\\*" latex))
+             "T @\\\\exposidnc{value}@; // \\*not emphasis\\*, \\[optional.general\\]" latex))
+    (should-not (string-match-p "\\\\ref{" latex))
     (should-not (string-match-p "\\\\begin{wgblock}{codeblock}" latex))))
 
 (ert-deftest latex-wg21-table-columns-become-longtable-widths ()
