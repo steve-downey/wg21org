@@ -1,0 +1,2223 @@
+** Header ~<transcode>~ synopsis [transcode.syn]
+:PROPERTIES:
+:CUSTOM_ID: transcode.syn
+:WG21_WORDING: t
+:END:
+#+latex: \label{transcode.syn}
+
+#+begin_codeblock
+// \ref{transcode.errors}, error types
+
+enum class whatwg_error {
+  invalid_byte,
+  truncated_sequence,
+  overlong_encoding,
+  surrogate_code_point,
+  out_of_range,
+  unmapped_codepoint,
+};
+
+enum class iconv_error {
+  invalid_sequence,
+  incomplete_sequence,
+  output_full,
+  open_failed,
+  system_error,
+};
+
+enum class transcode_error_kind {
+  replacement,
+  expected,
+};
+
+// \ref{transcode.reqs}, range requirements
+
+template<typename T>
+concept @\exposidnc{legacy-byte-type}@ =
+    same_as<T, char> || same_as<T, signed char> || same_as<T, unsigned char> ||
+    same_as<T, byte>; // exposition only
+
+template<typename R>
+concept legacy_byte_range = ranges::range<R> && !is_array_v<remove_cvref_t<R>> &&
+                            @\exposidnc{legacy-byte-type}@<remove_cv_t<ranges::range_value_t<R>>>;
+
+template<typename R>
+concept unicode_scalar_range =
+    ranges::input_range<R> && !is_array_v<remove_cvref_t<R>> &&
+    same_as<remove_cv_t<ranges::range_value_t<R>>, char32_t>;
+
+// \ref{transcode.codec}, encodings
+
+enum class codec {
+  utf_8,
+  replacement,
+  x_user_defined,
+  ibm866,
+  iso_8859_2,
+  iso_8859_3,
+  iso_8859_4,
+  iso_8859_5,
+  iso_8859_6,
+  iso_8859_7,
+  iso_8859_8,
+  iso_8859_8_i,
+  iso_8859_10,
+  iso_8859_13,
+  iso_8859_14,
+  iso_8859_15,
+  iso_8859_16,
+  koi8_r,
+  koi8_u,
+  macintosh,
+  windows_874,
+  windows_1250,
+  windows_1251,
+  windows_1252,
+  windows_1253,
+  windows_1254,
+  windows_1255,
+  windows_1256,
+  windows_1257,
+  windows_1258,
+  x_mac_cyrillic,
+  utf_16be,
+  utf_16le,
+  gbk,
+  gb18030,
+  big5,
+  shift_jis,
+  euc_jp,
+  iso_2022_jp,
+  euc_kr,
+};
+
+// \ref{transcode.codec.label}, label lookup
+
+constexpr optional<codec> get_encoding(string_view label) noexcept;
+
+// \ref{transcode.custom.reqs}, codec requirements
+
+struct decode_result {
+  char32_t code_point{};
+  whatwg_error error{};
+  bool is_error{false};
+};
+
+struct encode_result {
+  unsigned char bytes[8]{};
+  int count{0};
+  bool is_error{false};
+};
+
+// \ref{transcode.custom.reqs}, codec requirements
+
+template<typename C>
+concept decode_codec = semiregular<C> && requires(C& c, const unsigned char*& iter,
+                                                  const unsigned char* sentinel) {
+  { c.decode_one(iter, sentinel) } -> same_as<decode_result>;
+};
+
+template<typename C>
+concept random_access_decode_codec_type =
+    decode_codec<C> && requires(const C& c, unsigned char byte) {
+      { c.decode_byte(byte) } -> same_as<char32_t>;
+    };
+
+template<typename C>
+concept encode_codec = semiregular<C> && requires(C& c, char32_t cp) {
+  { c.encode_one(cp) } -> same_as<encode_result>;
+};
+
+template<typename C>
+concept flushable_decode_codec = decode_codec<C> && requires(C& c) {
+  { c.flush() } -> same_as<optional<decode_result>>;
+};
+
+// \ref{transcode.whatwg.decode}, decoding views
+
+template<codec C, ranges::input_range R,
+         transcode_error_kind E = transcode_error_kind::replacement>
+  requires legacy_byte_range<R>
+class whatwg_decode_view : public ranges::view_interface<whatwg_decode_view<C, R, E>> {
+  R @\exposidnc{base}@; // exposition only
+
+  class @\exposidnc{iterator}@; // exposition only
+
+public:
+  // \ref{transcode.whatwg.decode}, construction and access
+  constexpr explicit whatwg_decode_view(R base);
+
+  constexpr const R& base() const& noexcept;
+  constexpr R base() &&;
+
+  constexpr @\exposidnc{iterator}@ begin();
+  constexpr @\exposidnc{iterator}@ begin() const
+    requires @\exposidnc{const-iterator-compatible-range}@<R> && @\exposidnc{const-sentinel-compatible-range}@<R>;
+  constexpr @\exposidnc{iterator}@ end()
+    requires ranges::forward_range<R> && ranges::common_range<R>;
+  constexpr @\exposidnc{iterator}@ end() const
+    requires ranges::forward_range<const R> && ranges::common_range<const R> &&
+             @\exposidnc{const-iterator-compatible-range}@<R> && @\exposidnc{const-sentinel-compatible-range}@<R>;
+  constexpr default_sentinel_t end() const;
+};
+
+template<codec C> inline constexpr @\placeholder{unspecified}@ whatwg_decode;
+
+template<codec C> inline constexpr @\placeholder{unspecified}@ whatwg_decode_or_error;
+
+template<codec C, input_range R, transcode_error_kind E>
+  requires legacy_byte_range<R>
+inline constexpr bool enable_borrowed_range<whatwg_decode_view<C, R, E>> =
+    borrowed_range<R>;
+
+// \ref{transcode.whatwg.encode}, encoding views
+
+template<codec C, ranges::input_range R,
+         transcode_error_kind E = transcode_error_kind::replacement>
+  requires @\exposidnc{whatwg-encode-input}@<C, R>
+class whatwg_encode_view : public ranges::view_interface<whatwg_encode_view<C, R, E>> {
+  R @\exposidnc{base}@; // exposition only
+
+  class @\exposidnc{iterator}@; // exposition only
+
+public:
+  // \ref{transcode.whatwg.encode}, construction and access
+  constexpr explicit whatwg_encode_view(R base);
+
+  constexpr const R& base() const& noexcept;
+  constexpr R base() &&;
+
+  constexpr @\exposidnc{iterator}@ begin();
+  constexpr @\exposidnc{iterator}@ begin() const
+    requires @\exposidnc{const-iterator-compatible-range}@<R> && @\exposidnc{const-sentinel-compatible-range}@<R>;
+  constexpr @\exposidnc{iterator}@ end()
+    requires ranges::forward_range<R> && ranges::common_range<R>;
+  constexpr @\exposidnc{iterator}@ end() const
+    requires ranges::forward_range<const R> && ranges::common_range<const R> &&
+             @\exposidnc{const-iterator-compatible-range}@<R> && @\exposidnc{const-sentinel-compatible-range}@<R>;
+  constexpr default_sentinel_t end() const;
+};
+
+template<codec C> inline constexpr @\placeholder{unspecified}@ whatwg_encode;
+
+template<codec C> inline constexpr @\placeholder{unspecified}@ whatwg_encode_or_error;
+
+template<codec C, input_range R, transcode_error_kind E>
+  requires @\exposidnc{whatwg-encode-input}@<C, R>
+inline constexpr bool enable_borrowed_range<whatwg_encode_view<C, R, E>> =
+    borrowed_range<R>;
+
+// \ref{transcode.custom.decode}, class template decode_view
+
+template<decode_codec Codec, ranges::input_range R,
+         transcode_error_kind E = transcode_error_kind::replacement>
+  requires legacy_byte_range<R>
+class decode_view : public ranges::view_interface<decode_view<Codec, R, E>> {
+  R @\exposidnc{base}@;      // exposition only
+  Codec @\exposidnc{codec}@; // exposition only
+
+  class @\exposidnc{iterator}@; // exposition only
+
+public:
+  // \ref{transcode.custom.decode}, construction and access
+  constexpr explicit decode_view(R base, Codec codec = {});
+
+  constexpr const R& base() const& noexcept;
+  constexpr R base() &&;
+
+  constexpr @\exposidnc{iterator}@ begin();
+  constexpr @\exposidnc{iterator}@ begin() const
+    requires @\exposidnc{const-iterator-compatible-range}@<R> && @\exposidnc{const-sentinel-compatible-range}@<R>;
+  constexpr @\exposidnc{iterator}@ end()
+    requires ranges::forward_range<R> && ranges::common_range<R>;
+  constexpr @\exposidnc{iterator}@ end() const
+    requires ranges::forward_range<const R> && ranges::common_range<const R> &&
+             @\exposidnc{const-iterator-compatible-range}@<R> && @\exposidnc{const-sentinel-compatible-range}@<R>;
+  constexpr default_sentinel_t end() const;
+};
+
+template<decode_codec Codec> constexpr decode_closure<Codec> decode(Codec codec = {});
+
+template<decode_codec Codec>
+constexpr decode_closure<Codec, transcode_error_kind::expected> decode_or_error(
+    Codec codec = {});
+
+template<decode_codec Codec, ranges::input_range R>
+decode_or_error_view decode_or_error_view =
+    decode_view<Codec, R, transcode_error_kind::expected>;
+
+template<random_access_decode_codec_type Codec, ranges::random_access_range R>
+random_access_decode_or_error_view random_access_decode_or_error_view =
+    random_access_decode_view<Codec, R, transcode_error_kind::expected>;
+
+template<decode_codec Codec>
+decode_or_error_closure decode_or_error_closure =
+    decode_closure<Codec, transcode_error_kind::expected>;
+
+// \ref{transcode.custom.encode}, class template encode_view
+
+template<encode_codec Codec, ranges::input_range R,
+         transcode_error_kind E = transcode_error_kind::replacement>
+  requires unicode_scalar_range<R>
+class encode_view : public ranges::view_interface<encode_view<Codec, R, E>> {
+  R @\exposidnc{base}@;      // exposition only
+  Codec @\exposidnc{codec}@; // exposition only
+
+  class @\exposidnc{iterator}@; // exposition only
+
+public:
+  // \ref{transcode.custom.encode}, construction and access
+  constexpr explicit encode_view(R base, Codec codec = {});
+
+  constexpr const R& base() const& noexcept;
+  constexpr R base() &&;
+
+  constexpr @\exposidnc{iterator}@ begin();
+  constexpr @\exposidnc{iterator}@ begin() const
+    requires @\exposidnc{const-iterator-compatible-range}@<R> && @\exposidnc{const-sentinel-compatible-range}@<R>;
+  constexpr @\exposidnc{iterator}@ end()
+    requires ranges::forward_range<R> && ranges::common_range<R>;
+  constexpr @\exposidnc{iterator}@ end() const
+    requires ranges::forward_range<const R> && ranges::common_range<const R> &&
+             @\exposidnc{const-iterator-compatible-range}@<R> && @\exposidnc{const-sentinel-compatible-range}@<R>;
+  constexpr default_sentinel_t end() const;
+};
+
+template<encode_codec Codec> constexpr encode_closure<Codec> encode(Codec codec = {});
+
+template<encode_codec Codec>
+constexpr encode_closure<Codec, transcode_error_kind::expected> encode_or_error(
+    Codec codec = {});
+
+template<encode_codec Codec, ranges::input_range R>
+encode_or_error_view encode_or_error_view =
+    encode_view<Codec, R, transcode_error_kind::expected>;
+
+template<encode_codec Codec>
+encode_or_error_closure encode_or_error_closure =
+    encode_closure<Codec, transcode_error_kind::expected>;
+
+// \ref{transcode.pipeline}, transcoding pipelines
+
+template<codec From, codec To> inline constexpr @\placeholder{unspecified}@ transcode;
+
+template<decode_codec From, encode_codec To>
+constexpr pluggable_transcode_closure<From, To> pluggable_transcode(From from, To to);
+
+// \ref{transcode.string}, eager transcoding
+
+constexpr bool has_whatwg_encoder(codec encoding) noexcept;
+
+optional<string> transcode_string(span<const char> src, codec from, codec to);
+
+optional<string> transcode_string(span<const char> src, string_view from_label,
+                                  string_view to_label);
+
+// \ref{transcode.bulk}, eager bulk conversion
+
+template<codec C, legacy_byte_range R> constexpr vector<char32_t> decode_to(R&& source);
+
+template<codec C, typename Container = string, unicode_scalar_range R>
+constexpr Container encode_to(R&& source);
+
+template<codec C, legacy_byte_range R, output_iterator<char32_t> Output>
+constexpr void decode_into(R&& source, Output output);
+
+template<codec C, unicode_scalar_range R, output_iterator<char> Output>
+constexpr void encode_into(R&& source, Output output);
+
+template<decode_codec Codec, legacy_byte_range R>
+constexpr vector<char32_t> decode_to(Codec codec, R&& source);
+
+template<encode_codec Codec, typename Container = string, unicode_scalar_range R>
+constexpr Container encode_to(Codec codec, R&& source);
+
+template<decode_codec Codec, legacy_byte_range R, output_iterator<char32_t> Output>
+constexpr void decode_into(Codec codec, R&& source, Output output);
+
+template<encode_codec Codec, unicode_scalar_range R, output_iterator<char> Output>
+constexpr void encode_into(Codec codec, R&& source, Output output);
+
+// \ref{transcode.codec.sniff}, byte order mark sniffing
+
+template<legacy_byte_range R>
+  requires ranges::forward_range<R>
+constexpr optional<codec> sniff_encoding(R&& r) noexcept;
+
+// \ref{transcode.iconv}, iconv adaptors
+
+inline constexpr size_t iconv_min_buffer_size = 4;
+
+struct iconv_functions {
+  iconv_t (*open)(const char* tocode, const char* fromcode);
+  size_t (*convert)(iconv_t cd, char** inbuf, size_t* inbytesleft, char** outbuf,
+                    size_t* outbytesleft);
+  int (*close)(iconv_t cd);
+};
+
+template<typename IconvFns, ranges::input_range R>
+  requires legacy_byte_range<R>
+class iconv_transcode_view
+    : public ranges::view_interface<iconv_transcode_view<IconvFns, R>> {
+  R @\exposidnc{base}@;            // exposition only
+  IconvFns @\exposidnc{fns}@;      // exposition only
+  const char* @\exposidnc{from}@;  // exposition only
+  const char* @\exposidnc{to}@;    // exposition only
+  span<char> @\exposidnc{buffer}@; // exposition only
+
+public:
+  class @\exposidnc{iterator}@; // exposition only
+
+  // \ref{transcode.iconv}, construction and access
+  explicit iconv_transcode_view(R base, IconvFns fns, const char* from, const char* to,
+                                span<char> buf);
+
+  const R& base() const& noexcept;
+  R base() &&;
+
+  @\exposidnc{iterator}@ begin();
+  default_sentinel_t end() const;
+};
+
+template<typename IconvFns, ranges::input_range R>
+  requires legacy_byte_range<R>
+class iconv_transcode_or_error_view
+    : public ranges::view_interface<iconv_transcode_or_error_view<IconvFns, R>> {
+  R @\exposidnc{base}@;            // exposition only
+  IconvFns @\exposidnc{fns}@;      // exposition only
+  const char* @\exposidnc{from}@;  // exposition only
+  const char* @\exposidnc{to}@;    // exposition only
+  span<char> @\exposidnc{buffer}@; // exposition only
+
+public:
+  class @\exposidnc{iterator}@; // exposition only
+
+  // \ref{transcode.iconv}, construction and access
+  explicit iconv_transcode_or_error_view(R base, IconvFns fns, const char* from,
+                                         const char* to, span<char> buf);
+
+  const R& base() const& noexcept;
+  R base() &&;
+
+  @\exposidnc{iterator}@ begin();
+  default_sentinel_t end() const;
+};
+
+inline iconv_functions make_real_iconv_fns() noexcept;
+
+inline auto iconv_transcode(const char* from, const char* to, span<char> buf);
+
+inline auto iconv_transcode_or_error(const char* from, const char* to, span<char> buf);
+
+// \ref{transcode.iconv}, eager conversion
+
+template<typename Container = string, typename IconvFns, legacy_byte_range R>
+Container iconv_transcode_to(R&& source, const char* from, const char* to,
+                             IconvFns fns);
+
+template<typename Container = string, legacy_byte_range R>
+Container iconv_transcode_to(R&& source, const char* from, const char* to);
+
+template<typename IconvFns, legacy_byte_range R, output_iterator<char> Output>
+Output iconv_transcode_into(R&& source, const char* from, const char* to, Output output,
+                            IconvFns fns);
+
+template<legacy_byte_range R, output_iterator<char> Output>
+Output iconv_transcode_into(R&& source, const char* from, const char* to,
+                            Output output);
+
+template<typename Container = string, typename IconvFns, legacy_byte_range R>
+expected<Container, iconv_error> iconv_transcode_to_or_error(R&& source,
+                                                             const char* from,
+                                                             const char* to,
+                                                             IconvFns fns);
+
+template<typename Container = string, legacy_byte_range R>
+expected<Container, iconv_error> iconv_transcode_to_or_error(R&& source,
+                                                             const char* from,
+                                                             const char* to);
+#+end_codeblock
+
+#+begin_pnum
+/Remarks/: What a codec's ~decode_one~ returns.  ~is_error~ says whether the decode failed.  When it did, ~error~ says why and ~code_point~ is U+FFFD REPLACEMENT CHARACTER; when it did not, ~code_point~ is the decoded Unicode scalar value and ~error~ is unspecified.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: What a codec's ~encode_one~ returns.  ~is_error~ says whether the encode failed -- the encoding has no representation for that scalar value. When it did not, ~count~ is the number of bytes written and ~bytes[0]~ through ~bytes[count - 1]~ are the encoded form; when it did, ~count~ is zero and the view substitutes or reports the error as its error kind says.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: ~whatwg_decode_view<C, R, E>~ presents the bytes of ~R~ as the Unicode scalar values the encoding ~C~ decodes them to, one element per decoded scalar value.  A byte sequence the encoding does not allow is a decoding error, reported as ~E~ says: as U+FFFD REPLACEMENT CHARACTER when ~E~ is ~transcode_error_kind::replacement~, and as an ~unexpected~ holding a ~whatwg_error~ when it is ~transcode_error_kind::expected~.  Decoding is lazy: an element is decoded when the iterator reaches it.  Every ~char32_t~ value the view presents is a Unicode scalar value.
+#+end_pnum
+
+#+begin_pnum
+The view models ~random_access_range~ when ~C~ names an encoding that decodes one byte to one scalar value and ~R~ models ~random_access_range~.  How an implementation achieves that is not specified; it is a property of the view rather than a second view.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: ~whatwg_encode_view<C, R, E>~ validates the ~char32_t~ elements of ~R~ as UTF-32 and presents them as the bytes the encoding ~C~ encodes them to, one element per byte.  In replacement mode, an ill-formed UTF-32 code unit is replaced with U+FFFD and that scalar value is encoded normally; in expected mode it yields an ~unexpected~ holding ~whatwg_error::surrogate_code_point~ or ~whatwg_error::out_of_range~.  A scalar value the encoding cannot represent yields ~'?'~ in replacement mode and ~whatwg_error::unmapped_codepoint~ in expected mode.  Encoding is lazy, and one input element can produce several output elements.
+#+end_pnum
+
+#+begin_pnum
+~C~ is required to be an encoding the WHATWG Encoding Standard defines an encoder for.  It defines none for ~utf_16be~, ~utf_16le~, ~replacement~ or ~x_user_defined~, and the view does not accept them.
+#+end_pnum
+
+#+begin_itemdecl
+template<typename R> constexpr auto operator()(R&& r) const;
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: @@latex:\tcode{\exposid{whatwg-encode-input}<C, R>}@@@@html:<code><var>whatwg-encode-input</var>&lt;C, R&gt;</code>@@ is satisfied.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr iterator begin() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models @@latex:\exposid{const-iterator-compatible-range}@@@@html:<code><var>const-iterator-compatible-range</var></code>@@.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr iterator end() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models @@latex:\exposid{const-iterator-compatible-range}@@@@html:<code><var>const-iterator-compatible-range</var></code>@@ and ~R~ models ~range~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr auto size() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models ~sized_range~.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: ~decode_view<Codec, R, E>~ is ~whatwg_decode_view~ ([[#transcode.whatwg.decode][[transcode.whatwg.decode]]]) with the codec supplied as a value rather than named by an enumerator: it presents the bytes of ~R~ as the Unicode scalar values ~Codec~ decodes them to, reports a decoding error as ~E~ says, and decodes lazily.  Everything that clause says about the value type, the error kind and the laziness holds here, of a codec the program wrote rather than one the Encoding Standard defines.  The view does not validate a successful ~code_point~; the program-supplied ~Codec~ is responsible for returning Unicode scalar values as required by ~decode_codec~.
+#+end_pnum
+
+#+begin_pnum
+The view models ~random_access_range~ when ~Codec~ models ~random_access_decode_codec_type~ and ~R~ models ~random_access_range~. When it does, a byte whose value is ~0x80~ or above and for which ~Codec::decode_byte~ returns U+FFFD is reported as ~whatwg_error::invalid_byte~ in expected mode and yields U+FFFD in replacement mode.  This follows from the U+FFFD reservation required by ~random_access_decode_codec_type~ ([[#transcode.custom.reqs][[transcode.custom.reqs]]]).
+#+end_pnum
+
+#+begin_itemdecl
+static constexpr @\exposidnc{iterator}@ @\exposidnc{terminal}@();
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models ~forward_range~.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: ~encode_view<Codec, R, E>~ is ~whatwg_encode_view~ ([[#transcode.whatwg.encode][[transcode.whatwg.encode]]]) with the codec supplied as a value rather than named by an enumerator: it validates the ~char32_t~ elements of ~R~ as UTF-32, presents the resulting scalar values as the bytes ~Codec~ encodes them to, reports an error as ~E~ says, and encodes lazily.  Ill-formed UTF-32 is replaced with U+FFFD before ~Codec::encode_one~ is called in replacement mode and is reported without calling the codec in expected mode.  A custom codec therefore receives only Unicode scalar values.
+#+end_pnum
+
+#+begin_itemdecl
+static constexpr @\exposidnc{iterator}@ @\exposidnc{terminal}@();
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models ~forward_range~.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: The three POSIX ~iconv~ entry points a view calls, as a value the program supplies.  ~open~ opens a conversion descriptor, ~convert~ converts, and ~close~ closes it; each has the signature and the semantics POSIX gives the function of the same name.  The views take this as a template parameter rather than calling ~::iconv~ directly so that a program can supply a different implementation of the same interface -- another library's, or a test's -- and ~make_real_iconv_fns~ is the one bound to the platform's.
+#+end_pnum
+
+#+begin_pnum
+The facilities in this subclause are provided only when a POSIX-conforming ~iconv~ interface, including the required constants and typedefs, is available.  The interface may be supplied by the operating system or by a third-party library.  The type ~iconv_t~ is the type supplied by that interface and denotes its conversion descriptors.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: ~iconv_transcode_view<IconvFns, R>~ presents the bytes of ~R~ converted from the encoding named by ~from~ to the encoding named by ~to~, one element per output byte, using the ~iconv~ implementation ~IconvFns~ names.  Conversion is lazy and proceeds in batches: the view converts into the caller's buffer, yields those bytes, and converts again.
+#+end_pnum
+
+#+begin_pnum
+What the encoding names mean, which pairs convert, and what a conversion does with input the source encoding does not allow are determined by the supplied ~iconv~ interface, not this specification.  That is the point of the adaptor: it gives an interface a program already has a ranges shape and a lifetime, and it does not restate a table it does not own.
+#+end_pnum
+
+#+begin_pnum
+A conversion failure is reported as ~iconv_error~ ([[#transcode.errors][[transcode.errors]]]), which is the granularity POSIX reports at: ~EILSEQ~, ~EINVAL~ and ~E2BIG~ say *that* a byte sequence is not valid, not why, so the WHATWG error vocabulary the other views use would be claiming knowledge the OS does not return.
+#+end_pnum
+
+#+begin_pnum
+The output buffer is the caller's, and is not owned by the view. Its contents between two increments are unspecified, and the program must keep it alive for the lifetime of every iterator the view produces. If ~iconv~ reports ~E2BIG~ without producing a byte, the range ends because its ~char~ value type has no error channel.  A program that needs to detect that condition uses ~iconv_transcode_or_error~, which reports ~iconv_error::output_full~ instead.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: ~iconv_transcode_or_error_view<IconvFns, R>~ is ~iconv_transcode_view~ ([[#transcode.iconv][[transcode.iconv]]]) with the errors reported rather than skipped: its value type is ~expected<char, iconv_error>~, and a conversion failure is an element holding the ~iconv_error~ POSIX reported rather than input the range passes over. The buffer has no minimum-size precondition.  If it cannot hold one indivisible conversion or flush unit, the view reports ~iconv_error::output_full~.
+#+end_pnum
+
+** Error types [transcode.errors]
+:PROPERTIES:
+:CUSTOM_ID: transcode.errors
+:WG21_WORDING: t
+:END:
+#+latex: \label{transcode.errors}
+
+#+begin_itemdecl
+enum class whatwg_error {
+  invalid_byte,
+  truncated_sequence,
+  overlong_encoding,
+  surrogate_code_point,
+  out_of_range,
+  unmapped_codepoint,
+};
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: An operation that fails to decode or to encode reports one of these values.  The enumerators have the meanings in the following table.
+
+#+name: transcode.errors.whatwg
+#+caption: Enum class ~whatwg_error~
+#+ATTR_WG21: :columns 25 67
+| Constant | Meaning |
+|-
+| ~invalid_byte~ | the input holds a byte the encoding does not allow in that position. |
+| ~truncated_sequence~ | the input ends in the middle of a sequence. |
+| ~overlong_encoding~ | the sequence encodes a value that a shorter sequence also encodes. |
+| ~surrogate_code_point~ | a byte sequence decodes to, or a UTF-32 input code unit holds, a surrogate code point, which is not a Unicode scalar value. |
+| ~out_of_range~ | a byte sequence decodes to, or a UTF-32 input code unit holds, a value greater than the largest Unicode scalar value. |
+| ~unmapped_codepoint~ | the encoding has no representation for the Unicode scalar value being encoded. |
+#+end_pnum
+
+#+begin_itemdecl
+enum class iconv_error {
+  invalid_sequence,
+  incomplete_sequence,
+  output_full,
+  open_failed,
+  system_error,
+};
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: An ~iconv~ conversion that fails reports one of these values, which include the three failures POSIX ~iconv~ distinguishes and failures at the boundary of that model.  The enumerators have the meanings in the following table.
+
+#+name: transcode.errors.iconv
+#+caption: Enum class ~iconv_error~
+#+ATTR_WG21: :columns 25 67
+| Constant | Meaning |
+|-
+| ~invalid_sequence~ | the input is not valid in the source encoding, or has no representation in the destination encoding (~EILSEQ~). |
+| ~incomplete_sequence~ | the input ends in the middle of a multibyte sequence (~EINVAL~). |
+| ~output_full~ | the conversion has no room left to write its result (~E2BIG~). |
+| ~open_failed~ | the conversion descriptor could not be opened; ~iconv_open~ uses ~EINVAL~ for an unsupported conversion pair, so this condition is kept distinct from an incomplete input sequence. |
+| ~system_error~ | the conversion failed with an error POSIX does not specify for ~iconv~. |
+#+end_pnum
+
+#+begin_itemdecl
+enum class transcode_error_kind {
+  replacement,
+  expected,
+};
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: A view's error kind says how it reports a failure of the codec it drives.  The enumerators have the meanings in the following table.
+
+#+name: transcode.errors.kind
+#+caption: Enum class ~transcode_error_kind~
+#+ATTR_WG21: :columns 25 67
+| Constant | Meaning |
+|-
+| ~replacement~ | a failure to decode yields U+FFFD REPLACEMENT CHARACTER.  Ill-formed UTF-32 input is first replaced with U+FFFD and then encoded normally; when an encoder cannot represent a scalar value, the encode view yields ~'?'~. The view's value type is the codec's own. |
+| ~expected~ | the view's value type is ~expected<T, whatwg_error>~, and a failure yields an ~unexpected~ holding the error that occurred. |
+#+end_pnum
+
+** Range requirements [transcode.reqs]
+:PROPERTIES:
+:CUSTOM_ID: transcode.reqs
+:WG21_WORDING: t
+:END:
+#+latex: \label{transcode.reqs}
+
+#+begin_itemdecl
+template<typename R>
+concept legacy_byte_range = ranges::range<R> && !is_array_v<remove_cvref_t<R>> &&
+                            @\exposidnc{legacy-byte-type}@<remove_cv_t<ranges::range_value_t<R>>>;
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: An array type does not satisfy ~legacy_byte_range~, so that the terminating null character of a string literal or of a character array is not transcoded along with the rest of the array.  ~views::null_term~ adapts a null-terminated character sequence, and ~span~ a counted buffer.
+#+end_pnum
+
+#+begin_itemdecl
+template<typename R>
+concept unicode_scalar_range =
+    ranges::input_range<R> && !is_array_v<remove_cvref_t<R>> &&
+    same_as<remove_cv_t<ranges::range_value_t<R>>, char32_t>;
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: ~unicode_scalar_range~ constrains the type of a range and not its values.  Its ~char32_t~ elements are interpreted as UTF-32 code units by an encode operation: a code unit that is not a Unicode scalar value is replaced with U+FFFD or reported as an error, according to the operation's error kind.
+#+end_pnum
+
+** Encodings [transcode.codec]
+:PROPERTIES:
+:CUSTOM_ID: transcode.codec
+:WG21_WORDING: t
+:END:
+#+latex: \label{transcode.codec}
+
+#+begin_itemdecl
+enum class codec {
+  utf_8,
+  replacement,
+  x_user_defined,
+  ibm866,
+  iso_8859_2,
+  iso_8859_3,
+  iso_8859_4,
+  iso_8859_5,
+  iso_8859_6,
+  iso_8859_7,
+  iso_8859_8,
+  iso_8859_8_i,
+  iso_8859_10,
+  iso_8859_13,
+  iso_8859_14,
+  iso_8859_15,
+  iso_8859_16,
+  koi8_r,
+  koi8_u,
+  macintosh,
+  windows_874,
+  windows_1250,
+  windows_1251,
+  windows_1252,
+  windows_1253,
+  windows_1254,
+  windows_1255,
+  windows_1256,
+  windows_1257,
+  windows_1258,
+  x_mac_cyrillic,
+  utf_16be,
+  utf_16le,
+  gbk,
+  gb18030,
+  big5,
+  shift_jis,
+  euc_jp,
+  iso_2022_jp,
+  euc_kr,
+};
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: Each enumerator names the encoding of the same name in the WHATWG Encoding Standard, whose table of encodings is normative and is not restated here: an encoding is what that standard says it is, and a specification that copied the list would be a second one to keep current. ~codec::replacement~ is that standard's ~replacement~ encoding, which decodes any non-empty input to a single U+FFFD REPLACEMENT CHARACTER, and ~codec::x_user_defined~ its ~x-user-defined~.
+#+end_pnum
+
+*** Label lookup [transcode.codec.label]
+:PROPERTIES:
+:CUSTOM_ID: transcode.codec.label
+:END:
+#+latex: \label{transcode.codec.label}
+
+#+begin_itemdecl
+constexpr optional<codec> get_encoding(string_view label) noexcept;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: The ~codec~ whose WHATWG label set contains ~label~, and ~nullopt~ if no encoding has that label.  Leading and trailing ASCII whitespace is ignored and the comparison is ASCII case-insensitive, which is the Encoding Standard's "get an encoding" algorithm.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: An encoding's labels are the alternative names a document may spell it with -- ~latin1~, ~iso-8859-1~ and ~windows-1252~ are all labels of ~codec::windows_1252~ -- so a lookup that fails is a name no encoding claims, not an encoding that cannot be represented.
+#+end_pnum
+
+*** Byte order mark sniffing [transcode.codec.sniff]
+:PROPERTIES:
+:CUSTOM_ID: transcode.codec.sniff
+:END:
+#+latex: \label{transcode.codec.sniff}
+
+#+begin_itemdecl
+template<legacy_byte_range R> constexpr optional<codec> sniff_encoding(R&& r) noexcept;
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models ~forward_range~.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: The encoding ~r~ begins with a byte order mark for:
+
+- ~codec::utf_8~, if ~r~ begins with ~EF BB BF~;
+- ~codec::utf_16be~, if ~r~ begins with ~FE FF~;
+- ~codec::utf_16le~, if ~r~ begins with ~FF FE~;
+- ~nullopt~ otherwise.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: This is the byte order mark half of the Encoding Standard's "decide the fallback encoding" step: what to do when there is no mark is a question about the document and its transport, which a library cannot answer.  The mark itself is not consumed -- a decode view strips a leading U+FEFF for the UTF codecs on its own -- so the range can be passed on unchanged.
+#+end_pnum
+
+#+begin_pnum
+~R~ is required to be a ~forward_range~ for that last sentence to be true. Examining the mark means advancing an iterator over it, and on a single-pass range those bytes are not there afterwards: sniffing a stream and then decoding it would drop the prefix, and sniffing a stream with no mark -- the common case -- would drop the first two bytes of the document. Nothing in the signature would say so.  A caller holding an ~input_range~ has to materialize enough of it to look twice.
+#+end_pnum
+
+** Decoding views [transcode.whatwg.decode]
+:PROPERTIES:
+:CUSTOM_ID: transcode.whatwg.decode
+:WG21_WORDING: t
+:END:
+#+latex: \label{transcode.whatwg.decode}
+
+#+begin_itemdecl
+constexpr const R& base() const& noexcept;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return @\exposidnc{base}@;
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+constexpr R base() &&;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return move(@\exposidnc{base}@);
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+constexpr explicit whatwg_decode_view(R base);
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Initializes ~$base$~ with ~std::move(base)~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ begin();
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ over ~$base$~, positioned at its first decoded element.  Decoding the first element is part of forming the iterator: a view over an input range cannot say whether it is empty without reading it.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ begin() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models @@latex:\exposid{const-iterator-compatible-range}@@@@html:<code><var>const-iterator-compatible-range</var></code>@@ and ~R~ models @@latex:\exposid{const-sentinel-compatible-range}@@@@html:<code><var>const-sentinel-compatible-range</var></code>@@.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ over ~$base$~, positioned at its first decoded element.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ end();
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models ~forward_range~ and ~R~ models ~common_range~.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ that compares equal to an iterator that has decoded every element of ~$base$~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ end() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/:
+
+- ~R~ models ~forward_range~,
+- ~R~ models ~common_range~,
+- ~R~ models @@latex:\exposid{const-iterator-compatible-range}@@@@html:<code><var>const-iterator-compatible-range</var></code>@@,
+- ~R~ models @@latex:\exposid{const-sentinel-compatible-range}@@@@html:<code><var>const-sentinel-compatible-range</var></code>@@.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ that compares equal to an iterator that has decoded every element of ~$base$~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr default_sentinel_t end() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: ~default_sentinel~.
+#+end_pnum
+
+#+begin_itemdecl
+template<codec C> inline constexpr @\placeholder{unspecified}@ whatwg_decode;
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: The name ~whatwg_decode<C>~ denotes a range adaptor object.  Given a subexpression ~E~ that models ~legacy_byte_range~, the expression ~whatwg_decode<C>(E)~ and ~E | whatwg_decode<C>~ are each expression-equivalent to a ~whatwg_decode_view<C, views::all_t<decltype((E))>>~ over ~E~.  An ~E~ of array type is ill-formed: a string literal carries a terminating null character that a decode would render, and ~views::null_term~ ([[#null.term.adaptor][[null.term.adaptor]]]) is how a null-terminated sequence becomes a range.
+#+end_pnum
+
+#+begin_itemdecl
+template<codec C> inline constexpr @\placeholder{unspecified}@ whatwg_decode_or_error;
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: ~whatwg_decode_or_error<C>~ is ~whatwg_decode<C>~ with ~transcode_error_kind::expected~: the view it adapts to has value type ~expected<char32_t, whatwg_error>~, and a decoding error is the error rather than U+FFFD.
+#+end_pnum
+
+*** Class ~whatwg_decode_view::iterator~ [transcode.whatwg.decode.iterator]
+:PROPERTIES:
+:CUSTOM_ID: transcode.whatwg.decode.iterator
+:END:
+#+latex: \label{transcode.whatwg.decode.iterator}
+
+#+begin_itemdecl
+constexpr iterator(base_iter current, base_sent end);
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Initializes ~$current$~ with ~std::move(current)~ and ~$end$~ with ~std::move(end)~, then decodes the first element.  When ~C~ is a UTF encoding and that element is U+FEFF BYTE ORDER MARK, it is discarded and the next element decoded in its place: a byte order mark is how the encoding was chosen, not text the document contains.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr result_t operator*() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return @\exposidnc{value}@;
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@& operator++();
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Decodes the next element of the base range, or, if none remains, makes ~*this~ equal to ~end()~.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: ~*this~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ operator++(int);
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models ~forward_range~.
+#+end_pnum
+
+#+begin_pnum
+/Effects/: Equivalent to:
+
+#+begin_codeblock
+auto tmp = *this;
+++*this;
+return tmp;
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+constexpr void operator++(int);
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~ranges::forward_range<R>~ is ~false~.
+#+end_pnum
+
+#+begin_pnum
+/Effects/: Equivalent to:
+
+#+begin_codeblock
+++*this;
+#+end_codeblock
+#+end_pnum
+
+** Encoding views [transcode.whatwg.encode]
+:PROPERTIES:
+:CUSTOM_ID: transcode.whatwg.encode
+:WG21_WORDING: t
+:END:
+#+latex: \label{transcode.whatwg.encode}
+
+#+begin_itemdecl
+constexpr const R& base() const& noexcept;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return @\exposidnc{base}@;
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+constexpr R base() &&;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return move(@\exposidnc{base}@);
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+constexpr explicit whatwg_encode_view(R base);
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Initializes ~$base$~ with ~std::move(base)~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ begin();
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ over ~$base$~, positioned at the first byte of its first encoded element.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ begin() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models @@latex:\exposid{const-iterator-compatible-range}@@@@html:<code><var>const-iterator-compatible-range</var></code>@@ and ~R~ models @@latex:\exposid{const-sentinel-compatible-range}@@@@html:<code><var>const-sentinel-compatible-range</var></code>@@.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ over ~$base$~, positioned at the first byte of its first encoded element.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ end();
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models ~forward_range~ and ~R~ models ~common_range~.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ that compares equal to an iterator that has encoded every element of ~$base$~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ end() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/:
+
+- ~R~ models ~forward_range~,
+- ~R~ models ~common_range~,
+- ~R~ models @@latex:\exposid{const-iterator-compatible-range}@@@@html:<code><var>const-iterator-compatible-range</var></code>@@,
+- ~R~ models @@latex:\exposid{const-sentinel-compatible-range}@@@@html:<code><var>const-sentinel-compatible-range</var></code>@@.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ that compares equal to an iterator that has encoded every element of ~$base$~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr default_sentinel_t end() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: ~default_sentinel~.
+#+end_pnum
+
+#+begin_itemdecl
+template<codec C> inline constexpr @\placeholder{unspecified}@ whatwg_encode;
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: The name ~whatwg_encode<C>~ denotes a range adaptor object.  Given a subexpression ~E~ that models ~unicode_scalar_range~, the expression ~whatwg_encode<C>(E)~ and ~E | whatwg_encode<C>~ are each expression-equivalent to a ~whatwg_encode_view<C, views::all_t<decltype((E))>>~ over ~E~.  An ~E~ of array type is ill-formed.
+#+end_pnum
+
+#+begin_itemdecl
+template<codec C> inline constexpr @\placeholder{unspecified}@ whatwg_encode_or_error;
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: ~whatwg_encode_or_error<C>~ is ~whatwg_encode<C>~ with ~transcode_error_kind::expected~: the view it adapts to has value type ~expected<char, whatwg_error>~, and validation and encoding errors are reported rather than replaced.
+#+end_pnum
+
+*** Class ~whatwg_encode_view::iterator~ [transcode.whatwg.encode.iterator]
+:PROPERTIES:
+:CUSTOM_ID: transcode.whatwg.encode.iterator
+:END:
+#+latex: \label{transcode.whatwg.encode.iterator}
+
+#+begin_itemdecl
+constexpr iterator(base_iter current, base_sent end);
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Initializes ~$current$~ with ~std::move(current)~ and ~$end$~ with ~std::move(end)~, then encodes the first element.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr auto operator*() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: The byte at the current position of the encoded element, or the error the encoding of that element produced.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@& operator++();
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Advances to the next byte of the encoded element, encoding the next element of the base range when the current one is exhausted; if no element remains, makes ~*this~ equal to ~end()~.  When ~C~ is a stateful encoding, exhausting the base range also emits whatever the encoding owes to return to its initial state.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: ~*this~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ operator++(int);
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models ~forward_range~.
+#+end_pnum
+
+#+begin_pnum
+/Effects/: Equivalent to:
+
+#+begin_codeblock
+auto tmp = *this;
+++*this;
+return tmp;
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+constexpr void operator++(int);
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~ranges::forward_range<R>~ is ~false~.
+#+end_pnum
+
+#+begin_pnum
+/Effects/: Equivalent to:
+
+#+begin_codeblock
+++*this;
+#+end_codeblock
+#+end_pnum
+
+** Codec requirements [transcode.custom.reqs]
+:PROPERTIES:
+:CUSTOM_ID: transcode.custom.reqs
+:WG21_WORDING: t
+:END:
+#+latex: \label{transcode.custom.reqs}
+
+#+begin_itemdecl
+template<typename C>
+concept decode_codec = semiregular<C> && requires(C& c, const unsigned char*& iter,
+                                                  const unsigned char* sentinel) {
+  { c.decode_one(iter, sentinel) } -> same_as<decode_result>;
+};
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: A type models ~decode_codec~ if it can decode one Unicode scalar value from a byte sequence.  ~c.decode_one(iter, sentinel)~ reads from ~iter~ up to but not past ~sentinel~, advances ~iter~ by the bytes it consumed, and returns what it decoded or the error that stopped it.  It is called only with ~iter != sentinel~.  A codec that consumes no byte does not terminate the view that drives it.
+#+end_pnum
+
+#+begin_pnum
+A codec is a value: ~semiregular~ because a view owns one and copies it, and a codec that decodes a sequence with state keeps that state in itself, not in the range.
+#+end_pnum
+
+#+begin_itemdecl
+template<typename C>
+concept random_access_decode_codec_type =
+    decode_codec<C> && requires(const C& c, unsigned char byte) {
+      { c.decode_byte(byte) } -> same_as<char32_t>;
+    };
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: A type models ~random_access_decode_codec_type~ if each byte decodes to one scalar value independently of every other: ~c.decode_byte(byte)~ returns what ~byte~ alone decodes to, and U+FFFD if it decodes to nothing.  For byte values ~0x80~ and above, U+FFFD is reserved as that "decodes to nothing" signal; the author of such a codec cannot map one of those bytes to U+FFFD itself.  A view over such a codec is a ~random_access_range~, since the *n*th element is the *n*th byte.
+#+end_pnum
+
+#+begin_itemdecl
+template<typename C>
+concept encode_codec = semiregular<C> && requires(C& c, char32_t cp) {
+  { c.encode_one(cp) } -> same_as<encode_result>;
+};
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: A type models ~encode_codec~ if it can encode one Unicode scalar value to bytes.  ~c.encode_one(cp)~ returns the encoded form of ~cp~, or an error if the encoding has no representation for it.  An encode view validates its UTF-32 input before calling this function, so ~cp~ is always a Unicode scalar value.
+#+end_pnum
+
+#+begin_itemdecl
+template<typename C>
+concept flushable_decode_codec = decode_codec<C> && requires(C& c) {
+  { c.flush() } -> same_as<optional<decode_result>>;
+};
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: A type models ~flushable_decode_codec~ if it can owe output after the last byte.  ~c.flush()~ is called once, when the input is exhausted, and returns what the codec still owes -- a truncation error for a sequence that ended mid-way, say -- or ~nullopt~ if it owes nothing.  A codec that does not model this concept is asked for nothing at the end of the input.
+#+end_pnum
+
+** Class template ~decode_view~ [transcode.custom.decode]
+:PROPERTIES:
+:CUSTOM_ID: transcode.custom.decode
+:WG21_WORDING: t
+:END:
+#+latex: \label{transcode.custom.decode}
+
+#+begin_itemdecl
+constexpr const R& base() const& noexcept;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return @\exposidnc{base}@;
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+constexpr R base() &&;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return move(@\exposidnc{base}@);
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+constexpr explicit decode_view(R base, Codec codec = {});
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Initializes ~$base$~ with ~std::move(base)~ and ~$codec$~ with ~codec~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ begin();
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ over ~$base$~ and a copy of ~$codec$~, positioned at its first decoded element.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ begin() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models @@latex:\exposid{const-iterator-compatible-range}@@@@html:<code><var>const-iterator-compatible-range</var></code>@@ and ~R~ models @@latex:\exposid{const-sentinel-compatible-range}@@@@html:<code><var>const-sentinel-compatible-range</var></code>@@.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ over ~$base$~ and a copy of ~$codec$~, positioned at its first decoded element.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ end();
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models ~forward_range~ and ~R~ models ~common_range~.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ that compares equal to an iterator that has decoded every element of ~$base$~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ end() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/:
+
+- ~R~ models ~forward_range~,
+- ~R~ models ~common_range~,
+- ~R~ models @@latex:\exposid{const-iterator-compatible-range}@@@@html:<code><var>const-iterator-compatible-range</var></code>@@,
+- ~R~ models @@latex:\exposid{const-sentinel-compatible-range}@@@@html:<code><var>const-sentinel-compatible-range</var></code>@@.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ that compares equal to an iterator that has decoded every element of ~$base$~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr default_sentinel_t end() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: ~default_sentinel~.
+#+end_pnum
+
+#+begin_itemdecl
+template<decode_codec Codec> constexpr @\seebelow@ decode(Codec codec = {});
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: A range adaptor object over ~codec~.  Given a subexpression ~E~ that models ~legacy_byte_range~, ~decode(codec)(E)~ and ~E | decode(codec)~ are each expression-equivalent to a ~decode_view<Codec, views::all_t<decltype((E))>>~ over ~E~ and a copy of ~codec~.  An ~E~ of array type is ill-formed.
+#+end_pnum
+
+#+begin_itemdecl
+template<decode_codec Codec> constexpr @\seebelow@ decode_or_error(Codec codec = {});
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: ~decode(codec)~ with ~transcode_error_kind::expected~: the view it adapts to has value type ~expected<char32_t, whatwg_error>~, and a decoding error is the error rather than U+FFFD.
+#+end_pnum
+
+*** Class ~decode_view::iterator~ [transcode.custom.decode.iterator]
+:PROPERTIES:
+:CUSTOM_ID: transcode.custom.decode.iterator
+:END:
+#+latex: \label{transcode.custom.decode.iterator}
+
+#+begin_itemdecl
+constexpr iterator(base_iter current, base_sent end, Codec codec);
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Initializes ~$current$~ with ~std::move(current)~, ~$end$~ with ~std::move(end)~ and the iterator's own copy of the codec with ~codec~, then decodes the first element.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr result_t operator*() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return @\exposidnc{value}@;
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@& operator++();
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Decodes the next element of the base range, or, if none remains, makes ~*this~ equal to ~end()~.  When ~Codec~ models ~flushable_decode_codec~, exhausting the base range calls ~flush()~ once and yields what it returns, if anything.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: ~*this~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ operator++(int);
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models ~forward_range~.
+#+end_pnum
+
+#+begin_pnum
+/Effects/: Equivalent to:
+
+#+begin_codeblock
+auto tmp = *this;
+++*this;
+return tmp;
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+constexpr void operator++(int);
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~ranges::forward_range<R>~ is ~false~.
+#+end_pnum
+
+#+begin_pnum
+/Effects/: Equivalent to:
+
+#+begin_codeblock
+++*this;
+#+end_codeblock
+#+end_pnum
+
+** Class template ~encode_view~ [transcode.custom.encode]
+:PROPERTIES:
+:CUSTOM_ID: transcode.custom.encode
+:WG21_WORDING: t
+:END:
+#+latex: \label{transcode.custom.encode}
+
+#+begin_itemdecl
+constexpr const R& base() const& noexcept;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return @\exposidnc{base}@;
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+constexpr R base() &&;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return move(@\exposidnc{base}@);
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+constexpr explicit encode_view(R base, Codec codec = {});
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Initializes ~$base$~ with ~std::move(base)~ and ~$codec$~ with ~codec~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ begin();
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ over ~$base$~ and a copy of ~$codec$~, positioned at the first byte of its first encoded element.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ begin() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models @@latex:\exposid{const-iterator-compatible-range}@@@@html:<code><var>const-iterator-compatible-range</var></code>@@ and ~R~ models @@latex:\exposid{const-sentinel-compatible-range}@@@@html:<code><var>const-sentinel-compatible-range</var></code>@@.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ over ~$base$~ and a copy of ~$codec$~, positioned at the first byte of its first encoded element.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ end();
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models ~forward_range~ and ~R~ models ~common_range~.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ that compares equal to an iterator that has encoded every element of ~$base$~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ end() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/:
+
+- ~R~ models ~forward_range~,
+- ~R~ models ~common_range~,
+- ~R~ models @@latex:\exposid{const-iterator-compatible-range}@@@@html:<code><var>const-iterator-compatible-range</var></code>@@,
+- ~R~ models @@latex:\exposid{const-sentinel-compatible-range}@@@@html:<code><var>const-sentinel-compatible-range</var></code>@@.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ that compares equal to an iterator that has encoded every element of ~$base$~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr default_sentinel_t end() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: ~default_sentinel~.
+#+end_pnum
+
+#+begin_itemdecl
+template<encode_codec Codec> constexpr @\seebelow@ encode(Codec codec = {});
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: A range adaptor object over ~codec~.  Given a subexpression ~E~ that models ~unicode_scalar_range~, ~encode(codec)(E)~ and ~E | encode(codec)~ are each expression-equivalent to an ~encode_view<Codec, views::all_t<decltype((E))>>~ over ~E~ and a copy of ~codec~.
+#+end_pnum
+
+#+begin_itemdecl
+template<encode_codec Codec> constexpr @\seebelow@ encode_or_error(Codec codec = {});
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: ~encode(codec)~ with ~transcode_error_kind::expected~: the view it adapts to has value type ~expected<char, whatwg_error>~, and an encoding or UTF-32 validation error is reported rather than replaced.
+#+end_pnum
+
+*** Class ~encode_view::iterator~ [transcode.custom.encode.iterator]
+:PROPERTIES:
+:CUSTOM_ID: transcode.custom.encode.iterator
+:END:
+#+latex: \label{transcode.custom.encode.iterator}
+
+#+begin_itemdecl
+constexpr iterator(base_iter current, base_sent end, Codec codec);
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Initializes ~$current$~ with ~std::move(current)~, ~$end$~ with ~std::move(end)~ and the iterator's own copy of the codec with ~codec~, then encodes the first element.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr result_t operator*() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: The byte at the current position of the encoded element, or the error the encoding of that element produced.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@& operator++();
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Advances to the next byte of the encoded element, encoding the next element of the base range when the current one is exhausted; if no element remains, makes ~*this~ equal to ~end()~.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: ~*this~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr @\exposidnc{iterator}@ operator++(int);
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~R~ models ~forward_range~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr void operator++(int);
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~ranges::forward_range<R>~ is ~false~.
+#+end_pnum
+
+** Transcoding pipelines [transcode.pipeline]
+:PROPERTIES:
+:CUSTOM_ID: transcode.pipeline
+:WG21_WORDING: t
+:END:
+#+latex: \label{transcode.pipeline}
+
+#+begin_itemdecl
+template<codec From, codec To> inline constexpr @\placeholder{unspecified}@ transcode;
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: The name ~transcode<From, To>~ denotes a range adaptor object. Given a subexpression ~E~ that models ~legacy_byte_range~, ~transcode<From, To>(E)~ and ~E | transcode<From, To>~ are each expression-equivalent to ~E | whatwg_decode<From> | whatwg_encode<To>~. An ~E~ of array type is ill-formed.
+#+end_pnum
+
+#+begin_pnum
+The composition is the specification: the pipeline decodes and re-encodes one element at a time, and it is lazy because its parts are. A scalar value ~To~ cannot represent is an encoding error, reported as ~whatwg_encode~ reports one; a byte sequence ~From~ does not allow is a decoding error, and the U+FFFD it decodes to is what gets encoded.
+#+end_pnum
+
+#+begin_itemdecl
+template<decode_codec From, encode_codec To>
+constexpr @\seebelow@ pluggable_transcode(From from, To to);
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: A range adaptor object over ~from~ and ~to~.  Given a subexpression ~E~ that models ~legacy_byte_range~, ~pluggable_transcode(from, to)(E)~ and ~E | pluggable_transcode(from, to)~ are each expression-equivalent to ~E | decode(from) | encode(to)~.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: This is ~transcode~ ([[#transcode.pipeline][[transcode.pipeline]]]) with codecs supplied as values rather than named by enumerators.
+#+end_pnum
+
+** Eager transcoding [transcode.string]
+:PROPERTIES:
+:CUSTOM_ID: transcode.string
+:WG21_WORDING: t
+:END:
+#+latex: \label{transcode.string}
+
+#+begin_itemdecl
+constexpr bool has_whatwg_encoder(codec encoding) noexcept;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: ~true~ if the WHATWG Encoding Standard defines an encoder for ~encoding~, and ~false~ otherwise.
+#+end_pnum
+
+#+begin_itemdecl
+optional<string> transcode_string(span<const char> src, codec from, codec to);
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: ~nullopt~ if the WHATWG Encoding Standard defines no encoder for ~to~; otherwise, the bytes of ~src~, decoded as ~from~ and re-encoded as ~to~. Errors are substituted rather than reported: a byte sequence ~from~ does not allow decodes to U+FFFD, and a scalar value ~to~ cannot represent encodes to ~'?'~.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: This is ~transcode~ ([[#transcode.pipeline][[transcode.pipeline]]]) run to completion into a ~string~, which is what a caller who wants the whole result and not a view writes.  ~src | transcode<From, To> | ranges::to<string>()~ is the same thing with the codecs known at compile time.
+#+end_pnum
+
+#+begin_itemdecl
+optional<string> transcode_string(span<const char> src, string_view from_label,
+                                  string_view to_label);
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: ~transcode_string(src, *get_encoding(from_label), *get_encoding(to_label))~, and ~nullopt~ if either label names no encoding ([[#transcode.codec.label][[transcode.codec.label]]]) or the target encoding has no WHATWG encoder.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: This is the overload a program uses when the encodings are a runtime choice -- a ~Content-Type~ header, a command-line option -- which is what labels are for.
+#+end_pnum
+
+** Eager bulk conversion [transcode.bulk]
+:PROPERTIES:
+:CUSTOM_ID: transcode.bulk
+:WG21_WORDING: t
+:END:
+#+latex: \label{transcode.bulk}
+
+#+begin_itemdecl
+template<codec C, legacy_byte_range R> constexpr vector<char32_t> decode_to(R&& source);
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return forward<R>(source) | whatwg_decode<C> | ranges::to<vector<char32_t>>();
+#+end_codeblock
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: Each of these is the pipeline it names, run to completion.  They add no behaviour to it: the errors are the decoding view's, substituted rather than reported ([[#transcode.whatwg.decode][[transcode.whatwg.decode]]]), and a caller who wants them reported writes the pipeline with ~whatwg_decode_or_error~ instead. What they add is the name, for the case a caller wants the whole result rather than a view over it.
+#+end_pnum
+
+#+begin_itemdecl
+template<codec C, typename Container = string, unicode_scalar_range R>
+constexpr Container encode_to(R&& source);
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return forward<R>(source) | whatwg_encode<C> | ranges::to<Container>();
+#+end_codeblock
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: ~Container~ is the caller's choice of result, defaulted to ~string~ because that is what encoded bytes are usually wanted in.
+#+end_pnum
+
+#+begin_itemdecl
+template<codec C, legacy_byte_range R, output_iterator<char32_t> Output>
+constexpr void decode_into(R&& source, Output output);
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Equivalent to:
+
+#+begin_codeblock
+ranges::copy(forward<R>(source) | whatwg_decode<C>, output);
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+template<codec C, unicode_scalar_range R, output_iterator<char> Output>
+constexpr void encode_into(R&& source, Output output);
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Equivalent to:
+
+#+begin_codeblock
+ranges::copy(forward<R>(source) | whatwg_encode<C>, output);
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+template<decode_codec Codec, legacy_byte_range R>
+constexpr vector<char32_t> decode_to(Codec codec, R&& source);
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return forward<R>(source) | decode(codec) | ranges::to<vector<char32_t>>();
+#+end_codeblock
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: The same four operations over a codec supplied as a value ([[#transcode.custom.reqs][[transcode.custom.reqs]]]), for a codec chosen at run time or one the ~codec~ enumeration does not name.
+#+end_pnum
+
+#+begin_itemdecl
+template<encode_codec Codec, typename Container = string, unicode_scalar_range R>
+constexpr Container encode_to(Codec codec, R&& source);
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return forward<R>(source) | encode(codec) | ranges::to<Container>();
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+template<decode_codec Codec, legacy_byte_range R, output_iterator<char32_t> Output>
+constexpr void decode_into(Codec codec, R&& source, Output output);
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Equivalent to:
+
+#+begin_codeblock
+ranges::copy(forward<R>(source) | decode(codec), output);
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+template<encode_codec Codec, unicode_scalar_range R, output_iterator<char> Output>
+constexpr void encode_into(Codec codec, R&& source, Output output);
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Equivalent to:
+
+#+begin_codeblock
+ranges::copy(forward<R>(source) | encode(codec), output);
+#+end_codeblock
+#+end_pnum
+
+** iconv adaptors [transcode.iconv]
+:PROPERTIES:
+:CUSTOM_ID: transcode.iconv
+:WG21_WORDING: t
+:END:
+#+latex: \label{transcode.iconv}
+
+#+begin_itemdecl
+const R& base() const& noexcept;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return @\exposidnc{base}@;
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+R base() &&;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return move(@\exposidnc{base}@);
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+const R& base() const& noexcept;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return @\exposidnc{base}@;
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+R base() &&;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return move(@\exposidnc{base}@);
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+inline constexpr size_t iconv_min_buffer_size = 4;
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: The smallest output buffer accepted by ~iconv_transcode_view~. An ~iconv~ implementation can still report ~E2BIG~ without producing a byte when a destination encoding needs a larger indivisible output unit.
+#+end_pnum
+
+#+begin_itemdecl
+explicit iconv_transcode_view(R base, IconvFns fns, const char* from, const char* to,
+                              span<char> buf);
+#+end_itemdecl
+
+#+begin_pnum
+/Preconditions/: ~buf.size() >= iconv_min_buffer_size~ is ~true~.
+#+end_pnum
+
+#+begin_pnum
+/Effects/: Initializes the view with ~std::move(base)~, ~std::move(fns)~, ~from~, ~to~ and ~buf~.  No conversion descriptor is opened: ~begin~ opens one.
+#+end_pnum
+
+#+begin_itemdecl
+@\exposidnc{iterator}@ begin();
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ over ~$base$~ holding a conversion descriptor opened by ~$fns$.open($to$, $from$)~.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: Each call opens a descriptor, so a view converts once per ~begin~. The iterator owns the descriptor and closes it, which is what makes the adaptor leak-free where the POSIX interface is not.
+#+end_pnum
+
+#+begin_itemdecl
+default_sentinel_t end() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: ~default_sentinel~.
+#+end_pnum
+
+#+begin_itemdecl
+explicit iconv_transcode_or_error_view(R base, IconvFns fns, const char* from,
+                                       const char* to, span<char> buf);
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Initializes the view with ~std::move(base)~, ~std::move(fns)~, ~from~, ~to~ and ~buf~.
+#+end_pnum
+
+#+begin_itemdecl
+@\exposidnc{iterator}@ begin();
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: An ~$iterator$~ over ~$base$~ holding a conversion descriptor opened by ~$fns$.open($to$, $from$)~.
+#+end_pnum
+
+#+begin_itemdecl
+default_sentinel_t end() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: ~default_sentinel~.
+#+end_pnum
+
+#+begin_itemdecl
+inline iconv_functions make_real_iconv_fns() noexcept;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: An ~iconv_functions~ whose members are the ~iconv_open~, ~iconv~ and ~iconv_close~ functions supplied by the available POSIX-conforming ~iconv~ interface.
+#+end_pnum
+
+#+begin_itemdecl
+inline @\seebelow@ iconv_transcode(const char* from, const char* to, span<char> buf);
+#+end_itemdecl
+
+#+begin_pnum
+/Preconditions/: ~buf.size() >= iconv_min_buffer_size~ is ~true~.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: A range adaptor object.  Given a subexpression ~E~ that models ~legacy_byte_range~, ~iconv_transcode(from, to, buf)(E)~ and ~E | iconv_transcode(from, to, buf)~ are each expression-equivalent to an ~iconv_transcode_view~ ([[#transcode.iconv][[transcode.iconv]]]) over ~E~, ~make_real_iconv_fns()~, ~from~, ~to~ and ~buf~.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: ~buf~ is the caller's, and every iterator the adaptor produces converts into it.  Two ranges adapted with the same buffer must not be iterated at the same time.
+#+end_pnum
+
+#+begin_itemdecl
+inline @\seebelow@ iconv_transcode_or_error(const char* from, const char* to,
+                                         span<char> buf);
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: ~iconv_transcode(from, to, buf)~ with the errors reported rather than skipped: the view it adapts to has value type ~expected<char, iconv_error>~.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: Unlike ~iconv_transcode~, this adaptor accepts a buffer of any size.  If ~iconv~ reports ~E2BIG~ without producing output, the adapted view reports ~iconv_error::output_full~.
+#+end_pnum
+
+#+begin_itemdecl
+template<typename Container = string, typename IconvFns, legacy_byte_range R>
+Container iconv_transcode_to(R&& source, const char* from, const char* to,
+                             IconvFns fns);
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: A ~Container~ holding the bytes of ~source~ converted from ~from~ to ~to~ by ~fns~.  Input the conversion does not accept is skipped, as it is by ~iconv_transcode_view~ ([[#transcode.iconv][[transcode.iconv]]]).  The result is empty when the conversion descriptor cannot be opened -- which is what ~iconv_open~ failing means, and is not distinguishable here from an empty input.  An unexpected system failure ends conversion and returns the bytes produced before the failure.  Use ~iconv_transcode_to_or_error~ when either distinction matters.
+#+end_pnum
+
+#+begin_itemdecl
+template<typename Container = string, legacy_byte_range R>
+Container iconv_transcode_to(R&& source, const char* from, const char* to);
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return iconv_transcode_to<Container>(forward<R>(source), from, to,
+                                     make_real_iconv_fns());
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+template<typename IconvFns, legacy_byte_range R, output_iterator<char> Output>
+Output iconv_transcode_into(R&& source, const char* from, const char* to, Output output,
+                            IconvFns fns);
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Converts the bytes of ~source~ from ~from~ to ~to~ by ~fns~ and writes them through ~output~.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: The value of ~output~ after the last byte written.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: If the conversion descriptor cannot be opened, no bytes are written and the unchanged iterator is returned.  This is not distinguishable from empty input; use ~iconv_transcode_to_or_error~ when the distinction matters.  An unexpected system failure similarly returns the iterator after the last byte successfully written.
+#+end_pnum
+
+#+begin_itemdecl
+template<legacy_byte_range R, output_iterator<char> Output>
+Output iconv_transcode_into(R&& source, const char* from, const char* to,
+                            Output output);
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return iconv_transcode_into(forward<R>(source), from, to, move(output),
+                            make_real_iconv_fns());
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+template<typename Container = string, typename IconvFns, legacy_byte_range R>
+expected<Container, iconv_error> iconv_transcode_to_or_error(R&& source,
+                                                             const char* from,
+                                                             const char* to,
+                                                             IconvFns fns);
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: A ~Container~ holding the converted bytes, or the first ~iconv_error~ the conversion reported.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: This is the eager form of ~iconv_transcode_or_error~ ([[#transcode.iconv][[transcode.iconv]]]): it stops at the first failure rather than skipping it, which is the difference between a conversion a program wants to know about and one it wants to get through.
+#+end_pnum
+
+#+begin_itemdecl
+template<typename Container = string, legacy_byte_range R>
+expected<Container, iconv_error> iconv_transcode_to_or_error(R&& source,
+                                                             const char* from,
+                                                             const char* to);
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return iconv_transcode_to_or_error<Container>(forward<R>(source), from, to,
+                                              make_real_iconv_fns());
+#+end_codeblock
+#+end_pnum
+
+*** Classes ~iconv_transcode_view::iterator~ and ~iconv_transcode_or_error_view::iterator~ [transcode.iconv.iterator]
+:PROPERTIES:
+:CUSTOM_ID: transcode.iconv.iterator
+:END:
+#+latex: \label{transcode.iconv.iterator}
+
+#+begin_itemdecl
+iterator(@\exposidnc{iterator}@&&) noexcept;
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Takes over ~other~'s conversion descriptor and leaves ~other~ holding none.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: The iterator is move-only.  A conversion descriptor is an OS-owned handle that cannot be duplicated, so copying one would either close it twice or leak it.
+#+end_pnum
+
+#+begin_itemdecl
+@\exposidnc{iterator}@& operator=(@\exposidnc{iterator}@&&) noexcept;
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Closes the descriptor ~*this~ holds, if any, then takes over ~other~'s and leaves ~other~ holding none.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: ~*this~.
+#+end_pnum
+
+#+begin_itemdecl
+~@\exposidnc{iterator}@();
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Closes the conversion descriptor, if ~*this~ holds one.
+#+end_pnum
+
+#+begin_itemdecl
+char operator*() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: The converted byte at the current position of the output buffer.
+#+end_pnum
+
+#+begin_itemdecl
+@\exposidnc{iterator}@& operator++();
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Advances to the next converted byte, converting more input when the buffer is exhausted; if no input and no unconverted bytes remain, makes ~*this~ equal to ~default_sentinel~.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: ~*this~.
+#+end_pnum
+
+#+begin_pnum
+/Remarks/: Input the conversion does not accept is skipped one byte at a time -- what POSIX reports as ~EILSEQ~ -- so the range ends where the input does rather than at the first byte a converter refuses.  A program that needs to know *that* it happened uses ~iconv_transcode_or_error~ ([[#transcode.iconv][[transcode.iconv]]]).
+#+end_pnum
+
+#+begin_itemdecl
+void operator++(int);
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Equivalent to:
+
+#+begin_codeblock
+++*this;
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+iterator(@\exposidnc{iterator}@&&) noexcept;
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Takes over ~other~'s conversion descriptor and leaves ~other~ holding none.
+#+end_pnum
+
+#+begin_itemdecl
+@\exposidnc{iterator}@& operator=(@\exposidnc{iterator}@&&) noexcept;
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Closes the descriptor ~*this~ holds, if any, then takes over ~other~'s and leaves ~other~ holding none.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: ~*this~.
+#+end_pnum
+
+#+begin_itemdecl
+~@\exposidnc{iterator}@();
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Closes the conversion descriptor, if ~*this~ holds one.
+#+end_pnum
+
+#+begin_itemdecl
+expected<char, iconv_error> operator*() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: The converted byte at the current position of the output buffer, or the ~iconv_error~ the conversion reported there.
+#+end_pnum
+
+#+begin_itemdecl
+@\exposidnc{iterator}@& operator++();
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Advances to the next element, converting more input when the buffer is exhausted; if no input and no unconverted bytes remain, makes ~*this~ equal to ~default_sentinel~.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: ~*this~.
+#+end_pnum
+
+#+begin_itemdecl
+void operator++(int);
+#+end_itemdecl
+
+#+begin_pnum
+/Effects/: Equivalent to:
+
+#+begin_codeblock
+++*this;
+#+end_codeblock
+#+end_pnum
+
+** Header ~<null_term>~ synopsis [null.term.syn]
+:PROPERTIES:
+:CUSTOM_ID: null.term.syn
+:WG21_WORDING: t
+:END:
+#+latex: \label{null.term.syn}
+
+#+begin_codeblock
+struct null_sentinel_t {
+  // \ref{null.term.sentinel}, comparison
+  template<input_iterator I>
+    requires requires(I i) {
+      { *i == 0 };
+    }
+  friend constexpr bool operator==(const I& it, null_sentinel_t);
+};
+
+inline constexpr null_sentinel_t null_sentinel{};
+
+template<contiguous_iterator I>
+class null_term_view : public ranges::view_interface<null_term_view<I>> {
+  I @\exposidnc{ptr}@{}; // exposition only
+
+public:
+  // \ref{null.term.view}, construction and access
+  constexpr null_term_view() = default;
+  constexpr explicit null_term_view(I ptr);
+
+  constexpr I begin() const;
+  constexpr null_sentinel_t end() const;
+};
+
+// \ref{null.term.adaptor}, range adaptor object
+
+inline constexpr @\placeholder{unspecified}@ null_term;
+#+end_codeblock
+
+** Class ~null_sentinel_t~ [null.term.sentinel]
+:PROPERTIES:
+:CUSTOM_ID: null.term.sentinel
+:WG21_WORDING: t
+:END:
+#+latex: \label{null.term.sentinel}
+
+#+begin_itemdecl
+template<input_iterator I>
+friend constexpr bool operator==(const I& it, null_sentinel_t);
+#+end_itemdecl
+
+#+begin_pnum
+/Constraints/: ~requires(I i) { { *i == 0 }; }~ is ~true~.
+#+end_pnum
+
+#+begin_pnum
+/Returns/: ~*it == 0~.
+#+end_pnum
+
+** Class template ~null_term_view~ [null.term.view]
+:PROPERTIES:
+:CUSTOM_ID: null.term.view
+:WG21_WORDING: t
+:END:
+#+latex: \label{null.term.view}
+
+#+begin_itemdecl
+constexpr null_term_view() = default;
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: The resulting view is singular. It may be assigned to and destroyed, but iterating it results in undefined behavior because the iterator returned by ~begin()~ has no reachable terminator.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr explicit null_term_view(I ptr);
+#+end_itemdecl
+
+#+begin_pnum
+/Preconditions/: There is an iterator ~i~ reachable from ~ptr~ by a finite sequence of applications of ~++~ such that ~*i == 0~, and every element from ~ptr~ through ~i~, inclusive, is within the lifetime of a single object.
+#+end_pnum
+
+#+begin_pnum
+/Effects/: Initializes @@latex:\exposid{ptr}@@@@html:<code><var>ptr</var></code>@@ with ~ptr~.
+#+end_pnum
+
+#+begin_itemdecl
+constexpr I begin() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: Equivalent to:
+
+#+begin_codeblock
+return @\exposidnc{ptr}@;
+#+end_codeblock
+#+end_pnum
+
+#+begin_itemdecl
+constexpr null_sentinel_t end() const;
+#+end_itemdecl
+
+#+begin_pnum
+/Returns/: ~null_sentinel_t()~.
+#+end_pnum
+
+** ~views::null_term~ [null.term.adaptor]
+:PROPERTIES:
+:CUSTOM_ID: null.term.adaptor
+:WG21_WORDING: t
+:END:
+#+latex: \label{null.term.adaptor}
+
+#+begin_itemdecl
+inline constexpr @\placeholder{unspecified}@ null_term;
+#+end_itemdecl
+
+#+begin_pnum
+/Remarks/: The name ~views::null_term~ denotes a range adaptor object.  Given a subexpression ~E~, the expression ~views::null_term(E)~ is expression-equivalent to ~null_term_view(E)~ when ~E~ has pointer type, and to ~null_term_view(static_cast<const T*>(E))~ when ~E~ has array type with element type ~T~.  For any other type it is ill-formed, so that a range carrying no terminator is a diagnosed error and not a silent one. The precondition of ~null_term_view~'s converting constructor applies to ~E~ after any array-to-pointer conversion.
+#+end_pnum
