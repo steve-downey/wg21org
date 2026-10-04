@@ -148,11 +148,11 @@ a();
   (let ((html (ox-wg21html-test-export
                "* Proposed\n:PROPERTIES:\n:CUSTOM_ID: proposed.clause\n:END:\n#+begin_codeblock\n// \\ref{proposed.clause}, \\ref{optional.general}\n#+end_codeblock\n")))
     (should (string-match-p
-             (regexp-quote "<a href=\"#proposed.clause\">[proposed.clause]</a>")
+             (regexp-quote "<a class=\"sref\" href=\"#proposed.clause\">[proposed.clause]</a>")
              html))
     (should (string-match-p
              (regexp-quote
-              "<a href=\"https://eel.is/c++draft/optional.general\">[optional.general]</a>")
+              "<a class=\"sref\" href=\"https://eel.is/c++draft/optional.general\">[optional.general]</a>")
              html))))
 
 (ert-deftest ordinary-headlines-have-readable-stable-anchors ()
@@ -261,6 +261,12 @@ With DARK, the browser reports a dark system colour scheme."
   (let ((html (ox-wg21html-test-export "a [[insert:][new]] b [[delete:][old]]")))
     (should (string-match-p "<ins>new</ins>" html))
     (should (string-match-p "<del>old</del>" html))))
+
+(ert-deftest substitution-and-mark-links ()
+  (let ((html (ox-wg21html-test-export
+               "Use [[replace:%2Fnew%20text%2F][old /text/]] and [[mark:][important *text*]].\n")))
+    (should (string-match-p "<del>old <i>text</i></del><ins><i>new text</i></ins>" html))
+    (should (string-match-p "<mark>important <b>text</b></mark>" html))))
 
 (ert-deftest code-uses-face-classes ()
   (let* ((org-html-htmlize-output-type 'inline-css)
@@ -435,7 +441,8 @@ inspect (plain)
   (let ((html (ox-wg21html-test-export
                "* Clause\n:PROPERTIES:\n:WG21_WORDING: t\n:END:\n#+begin_pnum\n/Effects/: text.\n#+end_pnum\n")))
     (should (string-match-p "class=\"[^\"]*wg21-wording" html))
-    (should (string-match-p "class=\"pnum\"" html))))
+    (should (string-match-p "class=\"pnum pnum-explicit\"" html))
+    (should (string-match-p "data-pnum=\"1\"" html))))
 
 (ert-deftest added-wording-root-carries-an-html-addition-scope ()
   (let ((html (ox-wg21html-test-export
@@ -445,8 +452,53 @@ inspect (plain)
 (ert-deftest explicit-paragraph-numbers-survive-html-export ()
   (let ((html (ox-wg21html-test-export
                "#+begin_pnum x+2\nAdded wording.\n#+end_pnum\n")))
+    (should (string-match-p "class=\"pnum pnum-explicit\"" html))
+    (should (string-search "data-pnum=\"x+2\"" html))))
+
+(ert-deftest automatic-paragraph-number-paths-and-local-links ()
+  (let ((html (ox-wg21html-test-export
+               (concat "* Clause\n:PROPERTIES:\n:CUSTOM_ID: example.clause\n"
+                       ":WG21_WORDING: t\n:END:\n"
+                       "#+begin_pnum 2\nPinned.\n#+end_pnum\n"
+                       "#+begin_pnum #.#\nNested.\n#+end_pnum\n"
+                       "#+begin_pnum #.#\nNested again.\n#+end_pnum\n"
+                       "#+begin_pnum #\nNext.\n#+end_pnum\n"
+                       "See [[sref:example.clause/2.2]].\n"))))
+    (dolist (label '("2" "2.1" "2.2" "3"))
+      (should (string-match-p (format "data-pnum=\"%s\"" label) html)))
     (should (string-match-p
-             (regexp-quote "class=\"pnum pnum-explicit\" data-pnum=\"x+2\"") html))))
+             "href=\"#example.clause-2.2\".*>\\[example.clause\\]/2.2</a>"
+             html))))
+
+(ert-deftest wording-lists-can-be-paragraph-numbered ()
+  (let ((html (ox-wg21html-test-export
+               (concat "#+begin_wording :pnums lists\n"
+                       "1. First.\n"
+                       "2. Second.\n"
+                       "   - Nested.\n"
+                       "   1. [@5] Pinned nested.\n"
+                       "3. Third.\n"
+                       "#+end_wording\n"))))
+    (dolist (label '("1" "2" "2.1" "2.5" "3"))
+      (should (string-match-p (format "data-pnum=\"%s\"" label) html)))
+    (should-not (string-match-p "<ol" html))))
+
+(ert-deftest raw-wording-code-markup-is-balanced-and-nestable ()
+  (let ((html (ox-wg21html-test-export
+               (concat "#+begin_codeblock\n"
+                       "f(@\\added{T{1, 2}, @\\emph{term}@}@);\n"
+                       "@\\replace{old<T>{}}{new<T>{}}@\n"
+                       "#+end_codeblock\n"))))
+    (should (string-match-p
+             (regexp-quote "f(<ins>T{1, 2}, <var>term</var></ins>);") html))
+    (should (string-match-p
+             (regexp-quote "<del>old&lt;T&gt;{}</del><ins>new&lt;T&gt;{}</ins>") html))))
+
+(ert-deftest malformed-raw-wording-code-markup-is-an-error ()
+  (should-error
+   (ox-wg21html-test-export
+    "#+begin_codeblock\n@\\added{unfinished\n#+end_codeblock\n")
+   :type 'user-error))
 
 (ert-deftest note-like-blocks-carry-number-and-audience ()
   (let ((html (ox-wg21html-test-export

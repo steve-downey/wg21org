@@ -141,7 +141,7 @@ int plain;
     (should (string-match-p "\\\\begin{wgwording}" latex))
     (should (string-match-p "\\\\chapter\\*{Clause}" latex))
     (should-not (string-match-p "\\\\chapter{Clause}" latex))
-    (should (string-match-p "\\\\pnum" latex))
+    (should (string-match-p (regexp-quote "\\wgexplicitpnum{1}") latex))
     (should (string-match-p "\\\\end{wgwording}" latex))))
 
 (ert-deftest latex-added-wording-root-wraps-the-subtree ()
@@ -198,6 +198,32 @@ int plain;
   (let ((latex (ox-wg21latex-test-export "a [[insert:][new]] b [[delete:][old]]")))
     (should (string-match-p "\\\\added{new}" latex))
     (should (string-match-p "\\\\removed{old}" latex))))
+
+(ert-deftest latex-substitution-and-mark-links ()
+  (let ((latex (ox-wg21latex-test-export
+                "Use [[replace:%2Fnew%2F][old /text/]] and [[mark:][important *text*]].\n")))
+    (should (string-match-p
+             (regexp-quote "\\removed{old \\emph{text}}\\added{\\emph{new}}") latex))
+    (should (string-match-p
+             (regexp-quote "\\wgmark{important \\textbf{text}}") latex))))
+
+(ert-deftest latex-wording-lists-can-be-paragraph-numbered ()
+  (let ((latex (ox-wg21latex-test-export
+                (concat "#+begin_wording :pnums lists\n"
+                        "1. First.\n2. Second.\n   - Nested.\n3. Third.\n"
+                        "#+end_wording\n"))))
+    (dolist (label '("1" "2" "2.1" "3"))
+      (should (string-match-p
+               (regexp-quote (format "\\wgexplicitpnum{%s}" label)) latex)))
+    (should-not (string-match-p "\\\\begin{enumerate}" latex))))
+
+(ert-deftest latex-raw-code-markup-nests-without-nested-escape-delimiters ()
+  (let ((latex (ox-wg21latex-test-export
+                (concat "#+begin_codeblock\n"
+                        "@\\added{T{1}, @\\emph{term}@}@\n"
+                        "#+end_codeblock\n"))))
+    (should (string-match-p
+             (regexp-quote "@\\added{T{1}, \\textit{term}}@") latex))))
 
 (ert-deftest latex-title-block ()
   (let ((latex (wg21-test-export-file
@@ -299,6 +325,7 @@ int plain;
   (let* ((latex (wg21-test-export-file
                  'wg21-latex
                  (concat "#+TITLE: T\n#+LATEX_COMPILER: lualatex\n\n* A\n"
+                         "[[mark:][Marked *text*]] and [[replace:new][old]].\n"
                          "#+begin_pnum x+1\nAdded.\n#+end_pnum\n"
                          "#+begin_note :number 5\nA note.\n#+end_note\n"
                          "#+begin_draftnote :audience LEWG\nReview.\n#+end_draftnote\n"

@@ -3,6 +3,69 @@
 The exporters use ordinary Org syntax where Org already has a suitable
 construct.  This page documents the WG21-specific additions.
 
+## Proposed wording
+
+Paragraphs use `pnum` blocks.  An omitted label or `#` advances the current
+paragraph; dotted labels maintain independent nested counts.  Decimal and
+literal components pin that part of the path:
+
+```org
+#+begin_wording
+#+begin_pnum 2
+Pinned paragraph.
+#+end_pnum
+#+begin_pnum #.#
+Paragraph 2.1.
+#+end_pnum
+#+begin_pnum #.#
+Paragraph 2.2.
+#+end_pnum
+#+begin_pnum #
+Paragraph 3.
+#+end_pnum
+#+end_wording
+```
+
+For list-shaped wording, opt in with `#+begin_wording :pnums lists`.  Its
+top-level ordered items become paragraphs and nested ordered or unordered
+items become dotted subparagraphs.  Org counter cookies such as `[@5]` pin a
+component.  Use explicit `pnum` blocks for literal labels such as `x` and
+`x+1`.
+
+HTML paragraph numbers are self-links.  Within a generated clause whose
+stable name is `example.clause`, `[[sref:example.clause/2.1]]` links directly
+to paragraph 2.1.
+
+Inline additions and removals use `[[insert:][new text]]` and
+`[[delete:][old text]]`.  The shorthand
+`[[replace:new text][old text]]` emits the removal followed by the addition.
+URL-encode characters that have link syntax in the replacement; for example,
+`[[replace:%2Fnew%2F][old]]` italicizes the replacement.
+Use `[[mark:][highlighted text]]` for neutral highlighting.  Org markup is
+allowed in the displayed text.
+
+### Wording code and grammar
+
+`codeblock`, `itemdecl`, and `grammar` blocks are literal draft code, not Org
+source blocks.  They recognize balanced draft escapes, including nested
+escapes and C++ braces:
+
+```org
+#+begin_codeblock
+void f(@\added{T{1, 2}, @\emph{term}@}@);
+@\replace{old<T>{}}{new<T>{}}@
+#+end_codeblock
+```
+
+The supported commands are `added`, `removed`, `replace`, `mark`, `emph`,
+`math`, `sref`, `exposid`, `exposidnc`, `placeholder`, `grammarterm`,
+`terminal`, `seebelow`, `impdef`, `impdefnc`, and `unspec`.  Bare `\ref{name}`
+in code comments is also recognized.  Unclosed arguments and missing closing
+`@` delimiters stop export with a diagnostic.
+
+These escapes do not apply to ordinary `src` blocks.  Those remain literal
+Org source blocks suitable for live or transcluded code.
+
 ## Comparison tables
 
 The compact form declares headings once and takes source blocks as cells,

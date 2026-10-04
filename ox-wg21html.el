@@ -64,38 +64,80 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
      (t (org-html-special-block special-block contents info)))))
 
 (defun wg21-html-raw-code-special-block (block type info)
-  "Export specgen BLOCK of TYPE as uninterpreted C++ code."
-  (let ((code (org-html-encode-plain-text
-               (wg21-special-block-raw-contents block))))
-    (dolist (macro '("exposid" "exposidnc" "placeholder"))
-      (setq code
-            (replace-regexp-in-string
-             (format "@\\\\%s{\\([^}]+\\)}@" macro)
-             "<var>\\1</var>" code)))
-    (setq code (replace-regexp-in-string "@\\\\seebelow@" "<var>see below</var>" code)
-          code (replace-regexp-in-string "@\\\\impdef@" "<var>implementation-defined</var>" code)
-          code (replace-regexp-in-string "@\\\\added{\\([^}]*\\)}@" "<ins>\\1</ins>" code)
-          code (replace-regexp-in-string "@\\\\removed{\\([^}]*\\)}@" "<del>\\1</del>" code)
-          code (replace-regexp-in-string "@\\\\grammarterm{\\([^}]*\\)}@" "<var>\\1</var>" code)
-          code (replace-regexp-in-string "@\\\\terminal{\\([^}]*\\)}@" "<code>\\1</code>" code)
-          code (replace-regexp-in-string
-                "\\\\ref{\\([^}]+\\)}"
-                (lambda (match)
-                  (let ((name (match-string 1 match)))
-                    (format "<a href=\"%s\">[%s]</a>"
-                            (wg21-stable-name-href name info) name)))
-                code))
+  "Export specgen BLOCK of TYPE with balanced embedded wording markup."
+  (let ((code (wg21-html-code-markup
+               (wg21-code-markup-parse
+                (wg21-special-block-raw-contents block)) info)))
     (format "<div class=\"%s\"><pre class=\"%s\">%s</pre></div>\n"
             type (if (string= type "grammar") "grammar" "src src-C++") code)))
 
+(defun wg21-html-code-markup (nodes info)
+  "Render parsed raw code NODES as HTML using export INFO."
+  (mapconcat
+   (lambda (node)
+     (if (stringp node)
+         (org-html-encode-plain-text node)
+       (let* ((command (nth 1 node))
+              (arguments (nth 2 node))
+              (render (lambda (index)
+                        (wg21-html-code-markup (nth index arguments) info))))
+         (pcase command
+           ((or "exposid" "exposidnc" "placeholder" "grammarterm" "emph")
+            (format "<var>%s</var>" (funcall render 0)))
+           ("terminal" (format "<code>%s</code>" (funcall render 0)))
+           ((or "seebelow") "<var>see below</var>")
+           ((or "impdef" "impdefnc") "<var>implementation-defined</var>")
+           ("unspec" "<var>unspecified</var>")
+           ("added" (format "<ins>%s</ins>" (funcall render 0)))
+           ("removed" (format "<del>%s</del>" (funcall render 0)))
+           ("replace" (format "<del>%s</del><ins>%s</ins>"
+                              (funcall render 0) (funcall render 1)))
+           ("mark" (format "<mark>%s</mark>" (funcall render 0)))
+           ("math" (or (wg21-html--mathml
+                         (format "$%s$" (funcall render 0)))
+                       (format "<var>%s</var>" (funcall render 0))))
+           ((or "ref" "sref")
+            (let ((name (funcall render 0)))
+              (format "<a class=\"sref\" href=\"%s\">[%s]</a>"
+                      (wg21-stable-name-href name info) name)))
+           (_ (user-error "Unknown WG21 code escape \\%s" command))))))
+   nodes ""))
+
 (defun wg21-html-pnum (block contents)
-  "Export a paragraph-number BLOCK containing CONTENTS.
-An explicit label is data rather than CSS-generated text; an automatic block
-keeps using the subclause counter."
-  (if-let* ((label (wg21-pnum-label block)))
-      (format "<div class=\"pnum pnum-explicit\" data-pnum=\"%s\">%s</div>\n"
-              (org-html-encode-plain-text label) contents)
-    (format "<div class=\"pnum\">%s</div>\n" contents)))
+  "Export paragraph-number BLOCK with a self-link around its number."
+  (format "<div class=\"pnum pnum-explicit\">%s%s</div>\n"
+          (wg21-html-pnum-marker block) contents))
+
+(defun wg21-html-pnum-marker (element)
+  "Return ELEMENT's linked paragraph-number marker."
+  (let ((label (or (wg21-pnum-resolved-label element) "?"))
+        (anchor (or (wg21-pnum-anchor element) "pnum")))
+    (format (concat "<a class=\"pnum-number\" id=\"%s\" href=\"#%s\" "
+                    "data-pnum=\"%s\" aria-label=\"Paragraph %s\"></a>")
+            anchor anchor
+            (org-html-encode-plain-text label)
+            (org-html-encode-plain-text label))))
+
+(defun wg21-html-item (item contents info)
+  "Export paragraph-numbered ITEM, otherwise use the ordinary exporter."
+  (if (not (org-element-property :WG21_PNUM item))
+      (org-html-item item contents info)
+    (let ((marker (wg21-html-pnum-marker item)))
+      (if (org-element-property :WG21_PNUM_TOP item)
+          (format "<div class=\"pnum pnum-list-paragraph\">%s%s</div>\n"
+                  marker contents)
+        (let ((html (org-html-item item contents info)))
+          (if (string-match "<li[^>]*>" html)
+              (concat (substring html 0 (match-end 0)) marker
+                      (substring html (match-end 0)))
+            html))))))
+
+(defun wg21-html-plain-list (plain-list contents info)
+  "Flatten a top-level paragraph-numbered PLAIN-LIST."
+  (if (seq-some (lambda (item) (org-element-property :WG21_PNUM_TOP item))
+                (org-element-contents plain-list))
+      contents
+    (org-html-plain-list plain-list contents info)))
 
 (defun wg21-html-nonnormative (block type contents)
   "Export a note-like BLOCK of TYPE containing CONTENTS."
@@ -774,6 +816,8 @@ INFO is a plist holding export options."
     (:html-wrap-src-lines nil nil org-html-wrap-src-lines))
 
   :translate-alist '((special-block . my-html-special-block)
+                     (item . wg21-html-item)
+                     (plain-list . wg21-html-plain-list)
                      (table . wg21-html-table)
                      (src-block . wg21-html-src-block)
                      (latex-fragment . wg21-html-latex-fragment)
@@ -785,6 +829,7 @@ INFO is a plist holding export options."
 
   :filters-alist '((:filter-options . wg21-html-filter-options)
                    (:filter-parse-tree . (wg21-code-apply-default-language
+                                          wg21-resolve-paragraph-numbers
                                           wg21-seed-headline-references
                                           wg21-cite-add-bibliography
                                           wg21-cite-diagnose-paper-revisions

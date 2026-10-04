@@ -23,6 +23,7 @@
     --ins-bg: #e2f4e4;
     --del-text: #9f1a1f;
     --del-bg: #fbe3e3;
+    --mark-bg: #fff29a;
     --sidebar-bg: #f5f4ef;
 
     --serif: "Iowan Old Style", "Charter", "Bitstream Charter", "Sitka Text",
@@ -52,6 +53,7 @@
         --ins-bg: #1b3322;
         --del-text: #ffa4a4;
         --del-bg: #3d1e21;
+        --mark-bg: #665b00;
         --sidebar-bg: #1b1c23;
     }
 }
@@ -69,6 +71,7 @@
         --ins-bg: #1b3322;
         --del-text: #ffa4a4;
         --del-bg: #3d1e21;
+        --mark-bg: #665b00;
         --sidebar-bg: #1b1c23;
     }
 }
@@ -116,6 +119,12 @@ a {
 }
 a:visited {
     color: var(--link-visited);
+}
+
+mark {
+    color: inherit;
+    background: var(--mark-bg);
+    padding: 0 .08em;
 }
 
 p, ul, ol, dl, blockquote, figure {
@@ -306,19 +315,20 @@ h5, h6 { font-size: 1rem; }
     position: relative;
     counter-increment: wg21-pnum;
 }
-.pnum::before {
-    content: "[" counter(wg21-pnum) "]";
+li:has(> .pnum-number) {
+    position: relative;
+}
+.pnum-number::before {
+    content: "[" attr(data-pnum) "]";
     position: absolute;
     right: calc(100% + .4em);
     color: var(--muted);
     font-size: .72em;
     font-variant-numeric: tabular-nums;
+    text-decoration: none;
 }
 .pnum-explicit {
     counter-increment: none;
-}
-.pnum-explicit::before {
-    content: "[" attr(data-pnum) "]";
 }
 
 .wg21-note, .wg21-example, .wg21-ednote, .wg21-draftnote {

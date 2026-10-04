@@ -59,9 +59,10 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
     (cond
      ((string= type "cmptbl") (wg21-latex-cmptbl special-block info))
      ((string= type "pnum")
-      (if-let* ((label (wg21-pnum-label special-block)))
-          (format "\\wgexplicitpnum{%s}\n%s" label contents)
-        (concat "\\pnum\n" contents)))
+      (let ((label (or (wg21-pnum-resolved-label special-block) "?"))
+            (anchor (or (wg21-pnum-anchor special-block) "pnum")))
+        (format "\\hypertarget{%s}{}\\wgexplicitpnum{%s}\n%s"
+                anchor label contents)))
      ((member type '("note" "example" "ednote" "draftnote"))
       (wg21-latex-nonnormative special-block type contents))
      ((member type '("codeblock" "itemdecl"))
@@ -69,15 +70,73 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
       ;; hiding it behind wgblock makes the first block consume the paper.
       (format "\\begin{%s}\n%s\\end{%s}\n"
               type
-              (replace-regexp-in-string
-               "\\\\ref{\\([^}]+\\)}" "[\\1]"
-               (wg21-special-block-raw-contents special-block))
+              (wg21-latex-code-markup
+               (wg21-code-markup-parse
+                (wg21-special-block-raw-contents special-block)) info)
               type))
      ((string= type "grammar")
       (format "\\begin{wgblock}{ncbnf}\n%s\\end{wgblock}\n"
-              (wg21-special-block-raw-contents special-block)))
+              (wg21-latex-code-markup
+               (wg21-code-markup-parse
+                (wg21-special-block-raw-contents special-block)) info)))
      (t (wg21-latex--guard-environment
          type (org-latex-special-block special-block contents info))))))
+
+(defun wg21-latex-code-markup (nodes info &optional tex-mode)
+  "Render parsed raw code NODES as draft LaTeX using export INFO."
+  (mapconcat
+   (lambda (node)
+     (if (stringp node)
+         node
+       (let* ((command (nth 1 node))
+              (arguments (nth 2 node))
+              (render (lambda (index)
+                        (wg21-latex-code-markup
+                         (nth index arguments) info t)))
+              (escape (lambda (latex)
+                        (if tex-mode latex (concat "@" latex "@")))))
+         (pcase command
+           ("ref" (format "[%s]" (funcall render 0)))
+           ("sref"
+            (let ((name (funcall render 0)))
+              (funcall escape
+                       (format "\\href{%s}{[%s]}"
+                               (wg21-stable-name-href name info) name))))
+           ("replace"
+            (concat (funcall escape (format "\\removed{%s}" (funcall render 0)))
+                    (funcall escape (format "\\added{%s}" (funcall render 1)))))
+           ("mark" (funcall escape (format "\\wgmark{%s}" (funcall render 0))))
+           ("emph" (funcall escape (format "\\textit{%s}" (funcall render 0))))
+           ("math" (funcall escape (format "$%s$" (funcall render 0))))
+           (_ (funcall
+               escape
+               (format "\\%s%s" command
+                       (mapconcat (lambda (argument)
+                                    (format "{%s}"
+                                            (wg21-latex-code-markup argument info t)))
+                                  arguments ""))))))))
+   nodes ""))
+
+(defun wg21-latex-pnum-marker (element)
+  "Return ELEMENT's paragraph number and hyperlink target."
+  (format "\\hypertarget{%s}{}\\wgexplicitpnum{%s}\n"
+          (or (wg21-pnum-anchor element) "pnum")
+          (or (wg21-pnum-resolved-label element) "?")))
+
+(defun wg21-latex-item (item contents info)
+  "Export paragraph-numbered ITEM, otherwise use the ordinary exporter."
+  (if (not (org-element-property :WG21_PNUM item))
+      (org-latex-item item contents info)
+    (if (org-element-property :WG21_PNUM_TOP item)
+        (concat (wg21-latex-pnum-marker item) contents "\n")
+      (concat "\\item " (wg21-latex-pnum-marker item) contents "\n"))))
+
+(defun wg21-latex-plain-list (plain-list contents info)
+  "Flatten a top-level paragraph-numbered PLAIN-LIST."
+  (if (seq-some (lambda (item) (org-element-property :WG21_PNUM_TOP item))
+                (org-element-contents plain-list))
+      contents
+    (org-latex-plain-list plain-list contents info)))
 
 (defun wg21-latex--guard-environment (name latex)
   "Set LATEX, the environment NAME, in a wgblock environment.
@@ -532,6 +591,8 @@ the #+TOC keyword."
     (:wg21-toc-command nil nil wg21-toc-command))
 
   :translate-alist '((special-block . my-latex-special-block)
+                     (item . wg21-latex-item)
+                     (plain-list . wg21-latex-plain-list)
                      (headline . wg21-latex-headline)
                      (table . wg21-latex-table)
                      (src-block . wg21-latex-src-block)
@@ -540,6 +601,7 @@ the #+TOC keyword."
 
   :filters-alist '((:filter-options . wg21-latex-filter-options)
                    (:filter-parse-tree . (wg21-code-apply-default-language
+                                          wg21-resolve-paragraph-numbers
                                           wg21-seed-headline-references
                                           wg21-cite-add-bibliography
                                           wg21-cite-diagnose-paper-revisions

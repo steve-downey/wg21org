@@ -22,6 +22,8 @@
 ;;
 ;;   [[insert:][new text]]   added text
 ;;   [[delete:][old text]]   removed text
+;;   [[replace:new text][old text]] substituted text
+;;   [[mark:][important text]] highlighted text
 ;;
 ;; The description is the text; the link path is ignored.  In HTML
 ;; they export as <ins> and <del>; in LaTeX as \added and \removed from
@@ -49,6 +51,34 @@ for LaTeX."
 (org-link-set-parameters "insert" :export (wg21-links--export "ins" "added"))
 (org-link-set-parameters "delete" :export (wg21-links--export "del" "removed"))
 
+(defun wg21-links--replace-export (replacement original backend info)
+  "Export ORIGINAL replaced by REPLACEMENT for BACKEND."
+  (setq replacement (org-link-decode replacement))
+  (setq replacement
+        (org-export-data
+         (org-element-parse-secondary-string
+          replacement (org-element-restriction 'paragraph))
+         info))
+  (cond
+   ((org-export-derived-backend-p backend 'html)
+    (format "<del>%s</del><ins>%s</ins>" original replacement))
+   ((org-export-derived-backend-p backend 'latex)
+    (format "\\removed{%s}\\added{%s}" original replacement))
+   (t (concat original replacement))))
+
+(defun wg21-links--mark-export (path description backend _info)
+  "Export highlighted DESCRIPTION, falling back to PATH, for BACKEND."
+  (let ((text (or description (org-link-decode path))))
+    (cond
+     ((org-export-derived-backend-p backend 'html)
+      (format "<mark>%s</mark>" text))
+     ((org-export-derived-backend-p backend 'latex)
+      (format "\\wgmark{%s}" text))
+     (t text))))
+
+(org-link-set-parameters "replace" :export #'wg21-links--replace-export)
+(org-link-set-parameters "mark" :export #'wg21-links--mark-export)
+
 (defun wg21-links--local-stable-name-p (name info)
   "Non-nil when INFO's document defines stable NAME."
   (org-element-map (plist-get info :parse-tree) 'headline
@@ -65,7 +95,7 @@ for LaTeX."
                    (concat "[" name "]" (if pnum (concat "/" pnum) ""))))
          (local (wg21-links--local-stable-name-p name info))
          (href (if local
-                   (concat "#" name)
+                   (concat "#" name (if pnum (concat "-" pnum) ""))
                  (concat "https://eel.is/c++draft/" name
                          (if pnum (concat "#" pnum) "")))))
     (cond
@@ -73,7 +103,9 @@ for LaTeX."
       (format "<a class=\"sref\" href=\"%s\">%s</a>" href text))
      ((org-export-derived-backend-p backend 'latex)
       (if local
-          (format "\\hyperref[%s]{%s}" name text)
+          (if pnum
+              (format "\\hyperlink{%s-%s}{%s}" name pnum text)
+            (format "\\hyperref[%s]{%s}" name text))
         (format "\\href{%s}{%s}" href text)))
      (t text))))
 
