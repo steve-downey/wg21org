@@ -43,6 +43,9 @@
 (require 'wg21-front
          (expand-file-name "wg21-front"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-code
+         (expand-file-name "wg21-code"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 (defun my-html-special-block (special-block contents info)
   "Process my special block.  SPECIAL-BLOCK CONTENTS INFO.
@@ -149,16 +152,19 @@ plist."
                (format "<%s>%s</%s>" tag (match-string 2 edit) tag))))
          (org-html-src-block src-block contents info)
          t t))
-    (org-html-src-block src-block contents info)))
+    (let ((wg21-code-current-cpp-keywords (plist-get info :wg21-cpp-keywords))
+          (org-html-htmlize-output-type
+           (if (wg21-code-raw-p src-block) nil org-html-htmlize-output-type)))
+      (org-html-src-block src-block contents info))))
 
 ;;; Comparison tables
 
 ;; Rows are grouped by wg21-cmptbl.el, shared with the LaTeX exporter.
 
-(defun wg21-html--cmptbl-row (row tag columns info)
+(defun wg21-html--cmptbl-row (row tag columns headers info)
   "Return ROW as a <tr>, with cells as TAG elements.
 COLUMNS is the width of the table.  INFO is the export plist."
-  (if (not (wg21-cmptbl-cell-p (car row)))
+  (if (not (wg21-cmptbl-any-cell-p (car row)))
       (let ((note (org-trim (org-export-data (car row) info))))
         (if (string-empty-p note) ""
           (format "<tr><td class=\"cmptbl-note\" colspan=\"%d\">%s</td></tr>\n"
@@ -167,11 +173,12 @@ COLUMNS is the width of the table.  INFO is the export plist."
      "<tr>"
      (mapconcat
       (lambda (cell)
-        (let ((side (wg21-cmptbl-side cell)))
+        (let* ((column (cl-position cell row :test #'eq))
+               (side (wg21-cmptbl-column-class cell column headers)))
           (format "<%s%s>%s</%s>"
                   tag
                   (if side (format " class=\"cmptbl-%s\"" side) "")
-                  (org-trim (org-export-data (org-element-contents cell) info))
+                  (org-trim (org-export-data (wg21-cmptbl-cell-contents cell) info))
                   tag)))
       row "")
      ;; A row missing its after cell still spans the table.
@@ -184,17 +191,38 @@ COLUMNS is the width of the table.  INFO is the export plist."
   "Transcode the comparison table CMPTBL into an HTML table.
 INFO is a plist holding export options."
   (let* ((rows (wg21-cmptbl-rows cmptbl))
-         (columns (apply #'max 1 (mapcar (lambda (row) (if (wg21-cmptbl-cell-p (car row)) (length row) 1))
-                                         rows)))
-         (head (and (wg21-cmptbl-header-p (car rows)) (pop rows)))
+         (headers (wg21-cmptbl-headers cmptbl))
+         (widths (wg21-cmptbl-widths cmptbl))
+         (columns (apply #'max (if headers (length headers) 1)
+                         (mapcar (lambda (row)
+                                   (if (wg21-cmptbl-any-cell-p (car row)) (length row) 1))
+                                 rows)))
+         (head (and (not headers) (wg21-cmptbl-header-p (car rows)) (pop rows)))
+         (caption (org-export-get-caption cmptbl))
          (name (org-element-property :name cmptbl)))
+    (when (and widths (/= (length widths) columns))
+      (user-error "Comparison table has %d columns but %d widths"
+                  columns (length widths)))
     (concat
      (format "<table class=\"cmptbl\"%s>\n"
              (if name (format " id=\"%s\"" (org-html--reference cmptbl info)) ""))
+     (and caption (format "<caption>%s</caption>\n" (org-export-data caption info)))
+     (and widths
+          (concat "<colgroup>"
+                  (mapconcat (lambda (width)
+                               (format "<col style=\"width: %s%%\">" width))
+                             widths "")
+                  "</colgroup>\n"))
+     (and headers
+          (concat "<thead>\n<tr>"
+                  (mapconcat (lambda (header)
+                               (format "<th>%s</th>" (org-html-encode-plain-text header)))
+                             headers "")
+                  "</tr>\n</thead>\n"))
      (and head
-          (concat "<thead>\n" (wg21-html--cmptbl-row head "th" columns info) "</thead>\n"))
+          (concat "<thead>\n" (wg21-html--cmptbl-row head "th" columns headers info) "</thead>\n"))
      "<tbody>\n"
-     (mapconcat (lambda (row) (wg21-html--cmptbl-row row "td" columns info)) rows "")
+     (mapconcat (lambda (row) (wg21-html--cmptbl-row row "td" columns headers info)) rows "")
      "</tbody>\n</table>\n")))
 
 
@@ -268,7 +296,11 @@ CONTENTS is the transcoded body.  INFO is a plist holding export options."
          (version (plist-get git :version)))
     (concat
      "<div data-fill-with=\"spec-metadata\">\n<dl>\n"
-     "<dt>Document #:</dt><dd>" (org-export-data docnumber info) "</dd>\n"
+     "<dt>Document #:</dt><dd>" (org-export-data docnumber info)
+     (when-let* ((number (wg21-front-paper-number docnumber)))
+       (format " [<a href=\"https://wg21.link/P%s\">Latest</a>] [<a href=\"https://wg21.link/P%s/status\">Status</a>]"
+               number number))
+     "</dd>\n"
      "<dt>Date:</dt><dd>" (org-export-data date info) "</dd>\n"
      "<dt>Project:</dt><dd>" (org-export-data (plist-get info :project) info) "</dd>\n"
      "<dt>Audience:</dt><dd>" (org-export-data audience info) "</dd>\n"
@@ -313,6 +345,7 @@ Org's default style, and papers carry no scripts; an html-style or
 html-scripts item in #+OPTIONS would otherwise turn them back on.
 Return INFO."
   (setq-local org-html-htmlize-output-type wg21-html-htmlize-output-type)
+  (wg21-cite-default-options info)
   (plist-put info :html-head-include-default-style nil)
   (plist-put info :html-head-include-scripts nil)
   info)
@@ -733,6 +766,8 @@ INFO is a plist holding export options."
     (:toc-div-id "TOC_DIV_ID" nil wg21-toc-div-id nil)
     (:wg21-style "WG21_STYLE" nil wg21-html-style split)
     (:wg21-code-style "WG21_CODE_STYLE" nil wg21-html-code-style split)
+    (:wg21-code-language "WG21_CODE_LANGUAGE" nil nil nil)
+    (:wg21-cpp-keywords "WG21_CPP_KEYWORDS" nil nil split)
     ;; Only an address the paper gives, not the exporting user's.
     (:email "EMAIL" nil "" t)
     (:html-self-link-headlines nil nil t)
@@ -749,7 +784,10 @@ INFO is a plist holding export options."
                      (template . my-wg21-html-template))
 
   :filters-alist '((:filter-options . wg21-html-filter-options)
-                   (:filter-parse-tree . (wg21-seed-headline-references
+                   (:filter-parse-tree . (wg21-code-apply-default-language
+                                          wg21-seed-headline-references
+                                          wg21-cite-add-bibliography
+                                          wg21-cite-diagnose-paper-revisions
                                           wg21-cite-drop-empty-bibliography)))
 
   :menu-entry '(?w "Export WG21 Paper"

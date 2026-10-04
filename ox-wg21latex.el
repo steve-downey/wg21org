@@ -42,6 +42,9 @@
 (require 'wg21-front
          (expand-file-name "wg21-front"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-code
+         (expand-file-name "wg21-code"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 ;; Loaded when present; the export falls back to plain verbatim code.
 (require 'engrave-faces nil t)
@@ -154,7 +157,11 @@ is nil.  INFO is the export plist."
                 environment code
                 (if (string-suffix-p "\n" code) "" "\n")
                 environment))
-    (org-latex-src-block src-block contents info)))
+    (let ((wg21-code-current-cpp-keywords (plist-get info :wg21-cpp-keywords))
+          (info (if (wg21-code-raw-p src-block)
+                    (plist-put (copy-sequence info) :latex-src-block-backend 'verbatim)
+                  info)))
+      (org-latex-src-block src-block contents info))))
 
 ;;; Comparison tables
 
@@ -168,7 +175,9 @@ breakable code box sit in a longtable cell.  COLUMNS is the width of
 the table.  INFO is the export plist."
   (let ((cells (mapcar (lambda (cell)
                          (format "\\begin{wgcmptblcell}\n%s\n\\end{wgcmptblcell}"
-                                 (org-trim (org-export-data (org-element-contents cell) info))))
+                                 (org-trim
+                                  (org-export-data
+                                   (wg21-cmptbl-cell-contents cell) info))))
                        row)))
     (mapconcat #'identity
                (append cells (make-list (max 0 (- columns (length cells))) ""))
@@ -198,18 +207,49 @@ COLUMNS is the width of the table.  INFO is the export plist."
   "Transcode the comparison table CMPTBL into a wgcmptbl environment.
 INFO is a plist holding export options."
   (let* ((rows (wg21-cmptbl-rows cmptbl))
-         (columns (apply #'max 2 (mapcar (lambda (row)
-                                           (if (wg21-cmptbl-cell-p (car row)) (length row) 1))
-                                         rows)))
-         (head (and (wg21-cmptbl-header-p (car rows)) (pop rows)))
+         (headers (wg21-cmptbl-headers cmptbl))
+         (given-widths (wg21-cmptbl-widths cmptbl))
+         (columns (apply #'max (if headers (length headers) 2)
+                         (mapcar (lambda (row)
+                                   (if (wg21-cmptbl-any-cell-p (car row)) (length row) 1))
+                                 rows)))
+         (widths (or given-widths
+                     (let* ((width (/ 100 columns))
+                            (last (- 100 (* width (1- columns)))))
+                       (append (make-list (1- columns) (number-to-string width))
+                               (list (number-to-string last))))))
+         (head (and (not headers) (wg21-cmptbl-header-p (car rows)) (pop rows)))
+         (caption (org-export-get-caption cmptbl))
+         (column-spec
+          (concat "@{}"
+                  (mapconcat
+                   (lambda (width)
+                     (format "p{\\dimexpr \\linewidth/100*%s-\\wgcmptblgaps/100*%s\\relax}"
+                             width width))
+                   widths
+                   "@{\\hspace{\\wgcmptblgap}}")
+                  "@{}"))
          (body (delq nil
                      (mapcar (lambda (row)
-                               (if (wg21-cmptbl-cell-p (car row))
+                               (if (wg21-cmptbl-any-cell-p (car row))
                                    (wg21-latex--cmptbl-cells row columns info)
                                  (wg21-latex--cmptbl-note row columns info)))
                              rows))))
+    (when (and given-widths (/= (length given-widths) columns))
+      (user-error "Comparison table has %d columns but %d widths"
+                  columns (length given-widths)))
     (concat
-     "\\begin{wgcmptbl}\n\\toprule\n"
+     (format "\\begin{wgcmptbl}{%d}{%s}\n" columns column-spec)
+     (and caption
+          (format "\\caption{%s} \\\\\n" (org-export-data caption info)))
+     "\\toprule\n"
+     (and headers
+          (concat
+           (mapconcat (lambda (header)
+                        (format "\\multicolumn{1}{c}{\\textbf{%s}}"
+                                (org-latex-plain-text header info)))
+                      headers " & ")
+           " \\\\\n\\midrule\n\\endhead\n"))
      (when head
        (concat (wg21-latex--cmptbl-head head columns info)
                " \\\\\n\\midrule\n\\endhead\n"))
@@ -334,6 +374,7 @@ prolog is already there.  INFO is the export plist; return it."
                           (format "^[ \t]*\\\\\\(?:include\\|input\\){%s\\(?:\\.tex\\)?}[ \t]*\n?"
                                   (regexp-quote name))
                           "" (or (plist-get info :latex-header) ""))))))
+  (wg21-cite-default-options info)
   info)
 
 (defun wg21-latex--preamble (info)
@@ -486,6 +527,8 @@ the #+TOC keyword."
     (:latex-src-block-backend nil nil
      (if (featurep 'engrave-faces) 'engraved org-latex-src-block-backend))
     (:latex-engraved-theme "LATEX_ENGRAVED_THEME" nil wg21-latex-engraved-theme)
+    (:wg21-code-language "WG21_CODE_LANGUAGE" nil nil nil)
+    (:wg21-cpp-keywords "WG21_CPP_KEYWORDS" nil nil split)
     (:wg21-toc-command nil nil wg21-toc-command))
 
   :translate-alist '((special-block . my-latex-special-block)
@@ -496,7 +539,10 @@ the #+TOC keyword."
                      (template . my-wg21-latex-template))
 
   :filters-alist '((:filter-options . wg21-latex-filter-options)
-                   (:filter-parse-tree . (wg21-seed-headline-references
+                   (:filter-parse-tree . (wg21-code-apply-default-language
+                                          wg21-seed-headline-references
+                                          wg21-cite-add-bibliography
+                                          wg21-cite-diagnose-paper-revisions
                                           wg21-cite-drop-empty-bibliography)))
 
   :menu-entry '(?w "WG21 Papers"

@@ -97,6 +97,39 @@ y();
              "int</span> <span[^>]*>a</span> = 1;\n<span[^>]*>int</span>"
              html))))
 
+(ert-deftest cmptbl-compact-form-has-caption-widths-and-general-columns ()
+  (let ((html (ox-wg21html-test-export
+               "#+caption: Three choices
+#+attr_wg21: :columns 20 30 50
+#+begin_cmptbl :headers \"Portable | POSIX | Native\"
+#+begin_src C++
+a();
+#+end_src
+#+begin_src C++
+b();
+#+end_src
+#+begin_src C++
+c();
+#+end_src
+#+end_cmptbl
+")))
+    (should (string-match-p "<caption>Three choices</caption>" html))
+    (should (string-match-p "<col style=\"width: 20%\">" html))
+    (should (string-match-p "<th>Portable</th><th>POSIX</th><th>Native</th>" html))
+    (should (= 3 (ox-wg21html-test-count "<td class=\"cmptbl-" html)))))
+
+(ert-deftest cmptbl-rejects-a-width-count-mismatch ()
+  (should-error
+   (ox-wg21html-test-export
+    "#+attr_wg21: :columns 60 40
+#+begin_cmptbl :headers \"A | B | C\"
+#+begin_src C++
+a();
+#+end_src
+#+end_cmptbl
+")
+   :type 'user-error))
+
 (ert-deftest specgen-code-block-is-raw-code ()
   (let ((html (ox-wg21html-test-export
                "#+begin_codeblock\nT @\\exposidnc{value}@; // *not emphasis*\n#+end_codeblock\n")))
@@ -237,6 +270,21 @@ With DARK, the browser reports a dark system colour scheme."
     (should (string-match-p "class=\"org-rainbow-delimiters-depth-1\"" html))
     (should-not (string-match-p "style=\"" html))))
 
+(ert-deftest document-code-default-keywords-and-raw-override ()
+  (let ((html (ox-wg21html-test-export
+               "#+WG21_CODE_LANGUAGE: C++
+#+WG21_CPP_KEYWORDS: inspect
+#+begin_src
+inspect (value) {}
+#+end_src
+#+begin_src text
+inspect (plain)
+#+end_src
+")))
+    (should (string-match-p "org-keyword[^>]*>inspect" html))
+    (should (string-match-p
+             "<pre class=\"src src-text\"><code>inspect (plain)" html))))
+
 (ert-deftest git-remote-web-url ()
   (dolist (case '(("git@github.com:steve-downey/wg21org.git"
                    . "https://github.com/steve-downey/wg21org")
@@ -357,6 +405,26 @@ With DARK, the browser reports a dark system colour scheme."
              "<a href=\"https://doi.org/10.17487/RFC3514\" title=\"[^\"]*Security Flag[^\"]*\">"
              html))
     (should-not (string-match-p "href=\"#citeproc_bib_item" html))))
+
+(ert-deftest title-citation-uses-the-default-wg21-index ()
+  (let ((html (ox-wg21html-test-export "See [[cite-title:P2996R8]].")))
+    (should (string-match-p
+             "href=\"https://wg21.link/p2996r8\">\\[P2996R8\\] (.*Reflection"
+             html))
+    (should (string-match-p ">References<" html))
+    (should (string-match-p "P2996R8: Reflection" html))))
+
+(ert-deftest wg21-citation-needs-no-bibliography-boilerplate ()
+  (let ((html (ox-wg21html-test-export-file
+               "#+TITLE: T\n* Intro\nSee [cite:@P2996R13].\n")))
+    (should (string-match-p ">References<" html))
+    (should (string-match-p "Reflection for C.*26" html))))
+
+(ert-deftest recognized-paper-number-has-latest-and-status-links ()
+  (let ((html (ox-wg21html-test-export-file
+               "#+TITLE: T\n#+DOCNUMBER: D4246R1\n* A\n")))
+    (should (string-match-p "https://wg21.link/P4246\">Latest" html))
+    (should (string-match-p "https://wg21.link/P4246/status\">Status" html))))
 
 (ert-deftest wording-code-is-not-highlighted ()
   (let ((html (ox-wg21html-test-export-file wg21-test-wording-paper)))

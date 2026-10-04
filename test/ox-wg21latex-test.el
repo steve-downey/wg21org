@@ -86,6 +86,40 @@ y();
     (should-not (string-match-p "\\\\endhead" latex))
     (should (= 4 (ox-wg21latex-test-count "\\\\begin{wgcmptblcell}" latex)))))
 
+(ert-deftest latex-cmptbl-compact-form-has-caption-widths-and-columns ()
+  (let ((latex (ox-wg21latex-test-export
+                "#+caption: Three choices
+#+attr_wg21: :columns 20 30 50
+#+begin_cmptbl :headers \"Portable | POSIX | Native\"
+#+begin_src C++
+a();
+#+end_src
+#+begin_src C++
+b();
+#+end_src
+#+begin_src C++
+c();
+#+end_src
+#+end_cmptbl
+")))
+    (should (string-match-p "\\\\begin{wgcmptbl}{3}" latex))
+    (should (string-match-p "\\\\caption{Three choices}" latex))
+    (should (string-match-p "linewidth/100\\*20" latex))
+    (should (= 3 (ox-wg21latex-test-count "\\\\begin{wgcmptblcell}" latex)))))
+
+(ert-deftest latex-document-code-default-and-raw-override ()
+  (let ((latex (ox-wg21latex-test-export
+                "#+WG21_CODE_LANGUAGE: C++
+#+begin_src
+int highlighted;
+#+end_src
+#+begin_src text
+int plain;
+#+end_src
+")))
+    (should (string-match-p "highlighted" latex))
+    (should (string-match-p "\\\\begin{verbatim}\nint plain;" latex))))
+
 (ert-deftest latex-block-names-ignore-case ()
   (let ((latex (ox-wg21latex-test-export "#+BEGIN_ABSTRACT\nx\n#+END_ABSTRACT\n")))
     (should (string-match-p "\\\\begin{wgblock}{abstract}" latex))))

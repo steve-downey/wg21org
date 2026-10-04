@@ -28,6 +28,15 @@
 (require 'org-element)
 (require 'ox)
 
+(defun wg21-front-paper-number (docnumber)
+  "Return the numeric part of a recognized P-paper DOCNUMBER.
+Both PxxxxRn and its pre-publication DxxxxRn spelling identify the
+same paper series.  Return nil for placeholders and N papers."
+  (when (and (stringp docnumber)
+             (string-match "\\`[PD]\\([0-9]+\\)R[0-9]+\\'"
+                           (string-trim docnumber)))
+    (match-string 1 (string-trim docnumber))))
+
 (defun wg21-front-abstract (info)
   "Return the paper's abstract block, if it comes before any headline.
 That is a #+begin_abstract block in the text that opens the paper.
