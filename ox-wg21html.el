@@ -199,6 +199,16 @@ plist."
            (if (wg21-code-raw-p src-block) nil org-html-htmlize-output-type)))
       (org-html-src-block src-block contents info))))
 
+(defun wg21-html-inline-src-block (inline-src-block contents info)
+  "Transcode INLINE-SRC-BLOCK with WG21 code defaults and keywords.
+CONTENTS and INFO have their usual Org exporter meanings."
+  (let ((org-babel-default-inline-header-args
+         (wg21-code-inline-header-args))
+        (wg21-code-current-cpp-keywords
+         (or (plist-get info :wg21-cpp-keywords)
+             wg21-code-current-cpp-keywords)))
+    (org-html-inline-src-block inline-src-block contents info)))
+
 ;;; Comparison tables
 
 ;; Rows are grouped by wg21-cmptbl.el, shared with the LaTeX exporter.
@@ -808,7 +818,7 @@ INFO is a plist holding export options."
     (:toc-div-id "TOC_DIV_ID" nil wg21-toc-div-id nil)
     (:wg21-style "WG21_STYLE" nil wg21-html-style split)
     (:wg21-code-style "WG21_CODE_STYLE" nil wg21-html-code-style split)
-    (:wg21-code-language "WG21_CODE_LANGUAGE" nil nil nil)
+    (:wg21-code-language "WG21_CODE_LANGUAGE" nil wg21-code-language nil)
     (:wg21-cpp-keywords "WG21_CPP_KEYWORDS" nil nil split)
     ;; Only an address the paper gives, not the exporting user's.
     (:email "EMAIL" nil "" t)
@@ -820,6 +830,7 @@ INFO is a plist holding export options."
                      (plain-list . wg21-html-plain-list)
                      (table . wg21-html-table)
                      (src-block . wg21-html-src-block)
+                     (inline-src-block . wg21-html-inline-src-block)
                      (latex-fragment . wg21-html-latex-fragment)
                      (latex-environment . wg21-html-latex-environment)
                      (inner-template . my-wg21-html-inner-template)

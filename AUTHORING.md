@@ -104,8 +104,8 @@ is absent from the index.
 
 ## Code highlighting
 
-Source blocks continue to use Org's normal language name.  A document can fill
-in the language of otherwise-unlabelled blocks and teach Emacs font-lock about
+Unlabelled source blocks default to C++, so the usual paper needs no language
+option.  A document can change that default and teach Emacs font-lock about
 proposed C++ keywords:
 
 ```org
@@ -114,9 +114,18 @@ proposed C++ keywords:
 ```
 
 An explicit language overrides the document default.  Use `text` (or
-`fundamental`) for an unhighlighted block.  Org source blocks are literal by
-default; they do not enable embedded prose markup.  Proposed wording blocks
-retain their separate added/removed markup rules.
+`fundamental`) for an unhighlighted block.  Inline `~code~` stays plain
+monospace.  Use native Org inline source when highlighting is useful:
+
+```org
+A plain name is ~vector~; a C++ declaration is src_cpp{int value;}.
+```
+
+Inline source exports its code without evaluation by default, including in
+headings.  Normal Org properties and element parameters override that default
+when evaluation or results are intentional.  Org source blocks are literal;
+they do not enable embedded prose markup.  Proposed wording blocks retain
+their separate, unhighlighted added/removed markup rules.
 
 ## Paper metadata
 

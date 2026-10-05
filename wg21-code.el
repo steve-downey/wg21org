@@ -20,8 +20,27 @@
 (require 'org-element)
 (require 'ob-core)
 
+(defvar wg21-code-language "C++"
+  "Default language for otherwise-unlabelled source blocks.")
+
 (defvar wg21-code-current-cpp-keywords nil
   "Additional C++ keywords active while one source block is exported.")
+
+(defun wg21-code-inline-header-args ()
+  "Return Org inline-source defaults suitable for a WG21 paper.
+
+Inline source is presentation code unless the paper says otherwise: export
+the code and do not evaluate it.  Buffer properties and element parameters
+are merged later by Org and therefore override these defaults."
+  (org-babel-merge-params
+   org-babel-default-inline-header-args
+   '((:exports . "code") (:eval . "never-export"))))
+
+;; Babel expands inline source before the backend's element transcoders run,
+;; so establish the presentation-safe defaults as soon as a WG21 backend is
+;; loaded.  Org merges buffer properties and element parameters afterward.
+(setq org-babel-default-inline-header-args
+      (wg21-code-inline-header-args))
 
 (define-derived-mode wg21-c++-mode c++-mode "WG21 C++"
   "C++ mode with the current paper's proposed keywords highlighted."

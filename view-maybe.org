@@ -394,28 +394,28 @@ constexpr explicit maybe_view(Maybe&& maybe)
     noexcept(std::is_nothrow_move_constructible_v<Maybe>);
 #+end_src
 
-/Effects/: Initializes value_ with src_C++[:exports code]{std::move(maybe)}.
+/Effects/: Initializes value_ with src_C++{std::move(maybe)}.
 
 #+begin_src C++
 template<class... Args>
 constexpr maybe_view(in_place_t, Args&&... args);
 #+end_src
 
-/Effects/: Initializes value_ as if by src_C++[:exports code]{value_{in_place, std::forward<Args>(args)...}}.
+/Effects/: Initializes value_ as if by src_C++{value_{in_place, std::forward<Args>(args)...}}.
 
 #+begin_src C++
 constexpr T* begin() noexcept;
 constexpr const T* begin() const noexcept;
 #+end_src
 
-/Effects/: Equivalent to: src_C++[:exports code]{return data();}.
+/Effects/: Equivalent to: src_C++{return data();}.
 
 #+begin_src C++
 constexpr T* end() noexcept;
 constexpr const T* end() const noexcept;
 #+end_src
 
-/Effects/: Equivalent to: src_C++[:exports code]{return data() + size();}.
+/Effects/: Equivalent to: src_C++{return data() + size();}.
 
 #+begin_src C++
 static constexpr ptrdiff_t size() noexcept;

@@ -109,8 +109,7 @@ c();
 
 (ert-deftest latex-document-code-default-and-raw-override ()
   (let ((latex (ox-wg21latex-test-export
-                "#+WG21_CODE_LANGUAGE: C++
-#+begin_src
+                "#+begin_src
 int highlighted;
 #+end_src
 #+begin_src text
@@ -119,6 +118,25 @@ int plain;
 ")))
     (should (string-match-p "highlighted" latex))
     (should (string-match-p "\\\\begin{verbatim}\nint plain;" latex))))
+
+(ert-deftest latex-document-code-language-overrides-cpp-default ()
+  (let ((latex (ox-wg21latex-test-export
+                "#+WG21_CODE_LANGUAGE: text
+#+begin_src
+int plain;
+#+end_src
+")))
+    (should (string-match-p "\\\\begin{verbatim}\nint plain;" latex))))
+
+(ert-deftest latex-inline-source-is-highlighted-and-plain-code-is-not ()
+  (let ((latex (ox-wg21latex-test-export
+                "#+WG21_CPP_KEYWORDS: inspect
+* Heading src_cpp{inspect(value);}
+Paragraph src_cpp{inspect(value);} and ~inspect~.
+")))
+    (should (string-match-p "Heading .*\\\\EFk{inspect}" latex))
+    (should (string-match-p "Paragraph .*\\\\EFk{inspect}" latex))
+    (should (string-match-p "and \\\\texttt{inspect}" latex))))
 
 (ert-deftest latex-block-names-ignore-case ()
   (let ((latex (ox-wg21latex-test-export "#+BEGIN_ABSTRACT\nx\n#+END_ABSTRACT\n")))

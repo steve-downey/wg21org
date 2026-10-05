@@ -172,7 +172,9 @@ options after \\begin{NAME} is left as it is."
 
 (defun wg21-latex-headline (headline contents info)
   "Export HEADLINE, wrapping a generated wording root around its subtree."
-  (let ((latex (org-latex-headline headline contents info)))
+  (let ((wg21-code-current-cpp-keywords (plist-get info :wg21-cpp-keywords))
+        (latex nil))
+    (setq latex (org-latex-headline headline contents info))
     (when (org-element-property :WG21_WORDING headline)
       (setq latex (concat "\\begin{wgwording}\n" latex "\\end{wgwording}\n")))
     (when (equal (org-element-property :WG21_CHANGE headline) "add")
@@ -221,6 +223,16 @@ is nil.  INFO is the export plist."
                     (plist-put (copy-sequence info) :latex-src-block-backend 'verbatim)
                   info)))
       (org-latex-src-block src-block contents info))))
+
+(defun wg21-latex-inline-src-block (inline-src-block contents info)
+  "Transcode INLINE-SRC-BLOCK with WG21 code defaults and keywords.
+CONTENTS and INFO have their usual Org exporter meanings."
+  (let ((org-babel-default-inline-header-args
+         (wg21-code-inline-header-args))
+        (wg21-code-current-cpp-keywords
+         (or (plist-get info :wg21-cpp-keywords)
+             wg21-code-current-cpp-keywords)))
+    (org-latex-inline-src-block inline-src-block contents info)))
 
 ;;; Comparison tables
 
@@ -586,7 +598,7 @@ the #+TOC keyword."
     (:latex-src-block-backend nil nil
      (if (featurep 'engrave-faces) 'engraved org-latex-src-block-backend))
     (:latex-engraved-theme "LATEX_ENGRAVED_THEME" nil wg21-latex-engraved-theme)
-    (:wg21-code-language "WG21_CODE_LANGUAGE" nil nil nil)
+    (:wg21-code-language "WG21_CODE_LANGUAGE" nil wg21-code-language nil)
     (:wg21-cpp-keywords "WG21_CPP_KEYWORDS" nil nil split)
     (:wg21-toc-command nil nil wg21-toc-command))
 
@@ -596,6 +608,7 @@ the #+TOC keyword."
                      (headline . wg21-latex-headline)
                      (table . wg21-latex-table)
                      (src-block . wg21-latex-src-block)
+                     (inline-src-block . wg21-latex-inline-src-block)
                      (footnote-reference . wg21-latex-footnote-reference)
                      (template . my-wg21-latex-template))
 

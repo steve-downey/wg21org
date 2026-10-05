@@ -278,8 +278,7 @@ With DARK, the browser reports a dark system colour scheme."
 
 (ert-deftest document-code-default-keywords-and-raw-override ()
   (let ((html (ox-wg21html-test-export
-               "#+WG21_CODE_LANGUAGE: C++
-#+WG21_CPP_KEYWORDS: inspect
+               "#+WG21_CPP_KEYWORDS: inspect
 #+begin_src
 inspect (value) {}
 #+end_src
@@ -290,6 +289,50 @@ inspect (plain)
     (should (string-match-p "org-keyword[^>]*>inspect" html))
     (should (string-match-p
              "<pre class=\"src src-text\"><code>inspect (plain)" html))))
+
+(ert-deftest document-code-language-overrides-cpp-default ()
+  (let ((html (ox-wg21html-test-export
+               "#+WG21_CODE_LANGUAGE: text
+#+begin_src
+inspect (plain)
+#+end_src
+")))
+    (should (string-match-p
+             "<pre class=\"src src-text\"><code>inspect (plain)" html))))
+
+(ert-deftest inline-source-defaults-to-unevaluated-highlighted-code ()
+  (let ((html (ox-wg21html-test-export
+               "#+WG21_CPP_KEYWORDS: inspect
+* Heading src_cpp{inspect(value);}
+Paragraph src_cpp{inspect(value);} and ~inspect~.
+")))
+    (should (string-match-p
+             "Heading <code class=\"src src-cpp\"><span class=\"org-keyword\">inspect"
+             html))
+    (should (string-match-p
+             "Paragraph <code class=\"src src-cpp\"><span class=\"org-keyword\">inspect"
+             html))
+    (should (string-match-p "and <code>inspect</code>" html))))
+
+(ert-deftest inline-source-paper-properties-override-wg21-defaults ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "#+PROPERTY: header-args:emacs-lisp :exports results :eval yes
+Value src_emacs-lisp{(+ 2 3)}.
+")
+    (let ((org-export-use-babel t)
+          (html (org-export-as 'wg21-html nil nil t)))
+      (should (string-match-p "Value <code>5</code>" html))
+      (should-not (string-match-p "(+ 2 3)" html)))))
+
+(ert-deftest inline-source-element-parameters-override-wg21-defaults ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "Value src_emacs-lisp[:exports results :eval yes]{(+ 3 4)}.\n")
+    (let ((org-export-use-babel t)
+          (html (org-export-as 'wg21-html nil nil t)))
+      (should (string-match-p "Value <code>7</code>" html))
+      (should-not (string-match-p "(+ 3 4)" html)))))
 
 (ert-deftest git-remote-web-url ()
   (dolist (case '(("git@github.com:steve-downey/wg21org.git"
