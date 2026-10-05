@@ -93,9 +93,17 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
            ("replace" (format "<del>%s</del><ins>%s</ins>"
                               (funcall render 0) (funcall render 1)))
            ("mark" (format "<mark>%s</mark>" (funcall render 0)))
-           ("math" (or (wg21-html--mathml
-                         (format "$%s$" (funcall render 0)))
-                       (format "<var>%s</var>" (funcall render 0))))
+           ("math"
+            (let ((tex
+                   (mapconcat
+                    (lambda (part)
+                      (if (stringp part)
+                          part
+                        (user-error "Nested WG21 markup inside math")))
+                    (nth 0 arguments) "")))
+              (or (wg21-html--mathml (format "$%s$" tex))
+                  (format "<var>%s</var>"
+                          (org-html-encode-plain-text tex)))))
            ((or "ref" "sref")
             (let ((name (funcall render 0)))
               (format "<a class=\"sref\" href=\"%s\">[%s]</a>"

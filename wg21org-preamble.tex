@@ -77,7 +77,7 @@
 
 %% Note-like blocks outside draft wording, and editorial/drafting notes.
 \providecommand{\wgnonnormative}[2]{[\textit{#1:} #2\textit{ --- end #1}]}
-\providecommand{\wgednote}[1]{\textcolor{blue}{[\textit{Editor's note:} #1]}}
+\providecommand{\wgednote}[2][]{\textcolor{blue}{[\textit{Editor's note\if\relax\detokenize{#1}\relax\else\ for #1\fi:} #2]}}
 \providecommand{\wgdraftnote}[2][]{\textcolor{blue}{[\textit{Drafting note\if\relax\detokenize{#1}\relax\else\ for #1\fi:} #2]}}
 
 %% The table of contents, without memoir's own entry for it in itself;

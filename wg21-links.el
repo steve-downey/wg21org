@@ -34,6 +34,9 @@
 (require 'ol)
 (require 'ox)
 (require 'org-element)
+(require 'wg21-wording
+         (expand-file-name "wg21-wording"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 (defun wg21-links--export (html-tag latex-macro)
   "Return a link export function for an inline wording change.
@@ -79,13 +82,6 @@ for LaTeX."
 (org-link-set-parameters "replace" :export #'wg21-links--replace-export)
 (org-link-set-parameters "mark" :export #'wg21-links--mark-export)
 
-(defun wg21-links--local-stable-name-p (name info)
-  "Non-nil when INFO's document defines stable NAME."
-  (org-element-map (plist-get info :parse-tree) 'headline
-    (lambda (headline)
-      (equal name (org-element-property :CUSTOM_ID headline)))
-    info t))
-
 (defun wg21-links--sref-export (path description backend info)
   "Export a stable-name reference PATH with optional DESCRIPTION."
   (let* ((parts (split-string path "/" t))
@@ -93,7 +89,7 @@ for LaTeX."
          (pnum (cadr parts))
          (text (or description
                    (concat "[" name "]" (if pnum (concat "/" pnum) ""))))
-         (local (wg21-links--local-stable-name-p name info))
+         (local (wg21-local-stable-name-p name info))
          (href (if local
                    (concat "#" name (if pnum (concat "-" pnum) ""))
                  (concat "https://eel.is/c++draft/" name

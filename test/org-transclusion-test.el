@@ -41,4 +41,21 @@
             (should-error (wg21org-enable-transclusion))))
       (delete-directory directory t))))
 
+(ert-deftest disabled-and-literal-transclusions-are-not-required ()
+  (with-temp-buffer
+    (org-mode)
+    (org-transclusion-mode -1)
+    (insert "#+transclude: [[file:missing.cpp::missing]] :disable-auto\n"
+            "#+begin_example\n"
+            "#+transclude: [[file:missing.cpp::example]]\n"
+            "#+end_example\n"
+            "#+begin_src text\n"
+            "#+transclude: [[file:missing.cpp::source]]\n"
+            "#+end_src\n")
+    (wg21org-enable-transclusion)
+    (should-not
+     (seq-some (lambda (overlay)
+                 (eq (overlay-get overlay 'face) 'org-transclusion))
+               (overlays-in (point-min) (point-max))))))
+
 ;;; org-transclusion-test.el ends here

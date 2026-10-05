@@ -100,8 +100,10 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
            ("sref"
             (let ((name (funcall render 0)))
               (funcall escape
-                       (format "\\href{%s}{[%s]}"
-                               (wg21-stable-name-href name info) name))))
+                       (if (wg21-local-stable-name-p name info)
+                           (format "\\hyperref[%s]{[%s]}" name name)
+                         (format "\\href{%s}{[%s]}"
+                                 (wg21-stable-name-href name info) name)))))
            ("replace"
             (concat (funcall escape (format "\\removed{%s}" (funcall render 0)))
                     (funcall escape (format "\\added{%s}" (funcall render 1)))))
@@ -186,15 +188,23 @@ options after \\begin{NAME} is left as it is."
   (let ((widths (wg21-table-columns table)))
     (if (not widths)
         (org-latex-table table contents info)
-      (let ((copy (org-element-copy table)))
-        (org-element-put-property
-         copy :attr_latex
-         (list (concat ":environment longtable :align @{}"
-                       (mapconcat (lambda (width)
-                                    (format "p{.%s\\linewidth}" width))
-                                  widths "")
-                       "@{}")))
-        (org-latex-table copy contents info)))))
+      (let* ((original (org-element-property :attr_latex table))
+             (override
+              (concat ":environment longtable :align @{}"
+                      (mapconcat
+                       (lambda (width)
+                         (format "p{%.2f\\linewidth}"
+                                 (/ (string-to-number width) 100.0)))
+                       widths "")
+                      "@{}")))
+        (unwind-protect
+            (progn
+              ;; Keep TABLE itself so Org's reference cache and author-supplied
+              ;; ATTR_LATEX options still apply.  First occurrence wins.
+              (org-element-put-property table :attr_latex
+                                        (cons override original))
+              (org-latex-table table contents info))
+          (org-element-put-property table :attr_latex original))))))
 
 ;;; Wording
 
@@ -592,6 +602,7 @@ the #+TOC keyword."
     (:wg21-latex-prolog "WG21_LATEX_PROLOG" nil wg21-latex-prolog t)
     (:latex-class "LATEX_CLASS" nil wg21-latex-class t)
     (:latex-class-options "LATEX_CLASS_OPTIONS" nil wg21-latex-class-options t)
+    (:latex-prefer-user-labels nil nil t)
     ;; Only an address the paper gives, not the exporting user's.
     (:email "EMAIL" nil "" t)
     ;; Code set as in the editor; see `wg21-latex-engraved-theme'.

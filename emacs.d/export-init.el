@@ -66,11 +66,20 @@ interactive use.  Export must be stricter: a stale UUID must not silently
 remove an example from a paper."
   (when (derived-mode-p 'org-mode)
     (let ((case-fold-search t)
-          (expected 0))
-      (save-excursion
-        (goto-char (point-min))
-        (while (re-search-forward "^[ \t]*#\\+transclude:" nil t)
-          (setq expected (1+ expected))))
+          (expected
+           (length
+            (delq
+             nil
+             (org-element-map (org-element-parse-buffer) 'keyword
+               (lambda (keyword)
+                 (when (string-equal-ignore-case
+                        (org-element-property :key keyword) "transclude")
+                   (save-excursion
+                     (goto-char (org-element-property :begin keyword))
+                     (unless (plist-get
+                              (org-transclusion-keyword-string-to-plist)
+                              :disable-auto)
+                       t)))))))))
       ;; org-transclusion normally calls `org-indent-region' after insertion.
       ;; For source transclusions that also invokes the language indenter and
       ;; changes the spelling shown in the paper.  These directives are at

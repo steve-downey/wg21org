@@ -526,6 +526,12 @@ Value src_emacs-lisp{(+ 2 3)}.
       (should (string-match-p (format "data-pnum=\"%s\"" label) html)))
     (should-not (string-match-p "<ol" html))))
 
+(ert-deftest nested-list-needs-a-numbered-parent ()
+  (let ((html (ox-wg21html-test-export
+               "#+begin_wording :pnums lists\n- Unnumbered.\n  1. Nested.\n#+end_wording\n")))
+    (should-not (string-match-p "data-pnum=\".1\"" html))
+    (should-not (string-match-p "class=\"pnum-number\"" html))))
+
 (ert-deftest raw-wording-code-markup-is-balanced-and-nestable ()
   (let ((html (ox-wg21html-test-export
                (concat "#+begin_codeblock\n"
@@ -536,6 +542,16 @@ Value src_emacs-lisp{(+ 2 3)}.
              (regexp-quote "f(<ins>T{1, 2}, <var>term</var></ins>);") html))
     (should (string-match-p
              (regexp-quote "<del>old&lt;T&gt;{}</del><ins>new&lt;T&gt;{}</ins>") html))))
+
+(ert-deftest raw-wording-code-math-is-escaped-exactly-once ()
+  (let (input)
+    (cl-letf (((symbol-function 'wg21-html--mathml)
+               (lambda (tex) (setq input tex) nil)))
+      (let ((html (ox-wg21html-test-export
+                   "#+begin_codeblock\n@\\math{a < b}@\n#+end_codeblock\n")))
+        (should (equal input "$a < b$"))
+        (should (string-match-p (regexp-quote "<var>a &lt; b</var>") html))
+        (should-not (string-match-p "&amp;lt;" html))))))
 
 (ert-deftest malformed-raw-wording-code-markup-is-an-error ()
   (should-error

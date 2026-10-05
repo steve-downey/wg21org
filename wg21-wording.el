@@ -264,7 +264,8 @@ Return (RESOLVED . NEW-STATE)."
           (setq outer-list ancestor))
         (setq ancestor (org-element-parent ancestor)))
       (when (and outer-list
-                 (or parent-item
+                 (or (and parent-item
+                          (org-element-property :WG21_PNUM parent-item))
                      (eq (org-element-property :type outer-list) 'ordered)))
         (list scope parent-item)))))
 
@@ -313,15 +314,19 @@ Return (RESOLVED . NEW-STATE)."
                  (assign element scope label (null parent)))))))))
     tree))
 
+(defun wg21-local-stable-name-p (stable-name info)
+  "Non-nil when INFO's document defines STABLE-NAME as a CUSTOM_ID."
+  (org-element-map
+      (plist-get info :parse-tree) 'headline
+    (lambda (headline)
+      (equal stable-name (org-element-property :CUSTOM_ID headline)))
+    info t))
+
 (defun wg21-stable-name-href (stable-name info)
   "Return the HTML target for STABLE-NAME in export context INFO.
 Use a local CUSTOM_ID when this paper defines the stable name, and the
 current working draft otherwise."
-  (if (org-element-map
-          (plist-get info :parse-tree) 'headline
-        (lambda (headline)
-          (equal stable-name (org-element-property :CUSTOM_ID headline)))
-        info t)
+  (if (wg21-local-stable-name-p stable-name info)
       (concat "#" stable-name)
     (concat "https://eel.is/c++draft/" stable-name)))
 

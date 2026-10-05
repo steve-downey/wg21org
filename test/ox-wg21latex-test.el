@@ -177,14 +177,16 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
 
 (ert-deftest latex-note-like-blocks ()
   (let ((latex (ox-wg21latex-test-export
-                "#+begin_note :number 5\nN.\n#+end_note\n#+begin_draftnote :audience LEWG\nD.\n#+end_draftnote\n")))
+                "#+begin_note :number 5\nN.\n#+end_note\n#+begin_draftnote :audience LEWG\nD.\n#+end_draftnote\n#+begin_ednote :audience CWG\nE.\n#+end_ednote\n")))
     (should (string-match-p "\\\\wgsetcounterifdefined{note}{4}" latex))
     (should (string-match-p "\\\\begin{wgblock}{note}" latex))
-    (should (string-match-p "\\\\wgdraftnote\\[LEWG\\]" latex))))
+    (should (string-match-p "\\\\wgdraftnote\\[LEWG\\]" latex))
+    (should (string-match-p "\\\\wgednote\\[CWG\\]" latex))))
 
 (ert-deftest latex-stable-name-links-choose-local-or-draft-targets ()
   (let ((latex (ox-wg21latex-test-export
-                "* Proposed\n:PROPERTIES:\n:CUSTOM_ID: proposed.clause\n:END:\n#+latex: \\\\label{proposed.clause}\n[[sref:proposed.clause]] [[sref:basic.life/2.1]]\n")))
+                "* Proposed\n:PROPERTIES:\n:CUSTOM_ID: proposed.clause\n:END:\n[[sref:proposed.clause]] [[sref:basic.life/2.1]]\n")))
+    (should (string-match-p (regexp-quote "\\label{proposed.clause}") latex))
     (should (string-match-p (regexp-quote "\\hyperref[proposed.clause]{[proposed.clause]}") latex))
     (should (string-match-p
              (regexp-quote "\\href{https://eel.is/c++draft/basic.life#2.1}{[basic.life]/2.1}") latex))))
@@ -206,11 +208,14 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
 
 (ert-deftest latex-wg21-table-columns-become-longtable-widths ()
   (let ((latex (ox-wg21latex-test-export
-                "#+ATTR_WG21: :columns 18 36 36\n| A | B | C |\n|---+---+---|\n| a | b | c |\n")))
+                "#+name: tbl\n#+caption: Cap\n#+attr_latex: :booktabs t\n#+ATTR_WG21: :columns 5 95\n| A | B |\n|---+---|\n| a | b |\n\nSee [[tbl]].\n")))
     (should (string-match-p "\\\\begin{longtable}" latex))
     (should (string-match-p
-             (regexp-quote "@{}p{.18\\linewidth}p{.36\\linewidth}p{.36\\linewidth}@{}")
-             latex))))
+             (regexp-quote "@{}p{0.05\\linewidth}p{0.95\\linewidth}@{}")
+             latex))
+    (should (string-match-p (regexp-quote "\\caption{\\label{tbl}Cap}") latex))
+    (should (string-match-p (regexp-quote "\\toprule") latex))
+    (should (string-match-p (regexp-quote "See \\ref{tbl}.") latex))))
 
 (ert-deftest latex-wording-change-links ()
   (let ((latex (ox-wg21latex-test-export "a [[insert:][new]] b [[delete:][old]]")))
@@ -235,6 +240,12 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
                (regexp-quote (format "\\wgexplicitpnum{%s}" label)) latex)))
     (should-not (string-match-p "\\\\begin{enumerate}" latex))))
 
+(ert-deftest latex-nested-list-needs-a-numbered-parent ()
+  (let ((latex (ox-wg21latex-test-export
+                "#+begin_wording :pnums lists\n- Unnumbered.\n  1. Nested.\n#+end_wording\n")))
+    (should-not (string-match-p (regexp-quote "\\wgexplicitpnum{.1}") latex))
+    (should-not (string-match-p "\\\\wgexplicitpnum" latex))))
+
 (ert-deftest latex-raw-code-markup-nests-without-nested-escape-delimiters ()
   (let ((latex (ox-wg21latex-test-export
                 (concat "#+begin_codeblock\n"
@@ -242,6 +253,14 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
                         "#+end_codeblock\n"))))
     (should (string-match-p
              (regexp-quote "@\\added{T{1}, \\textit{term}}@") latex))))
+
+(ert-deftest latex-raw-code-local-sref-uses-the-headline-label ()
+  (let ((latex (ox-wg21latex-test-export
+                "* Proposed\n:PROPERTIES:\n:CUSTOM_ID: proposed.clause\n:END:\n#+begin_codeblock\n@\\sref{proposed.clause}@\n#+end_codeblock\n")))
+    (should (string-match-p
+             (regexp-quote "@\\hyperref[proposed.clause]{[proposed.clause]}@")
+             latex))
+    (should-not (string-match-p (regexp-quote "\\href{#proposed.clause}") latex))))
 
 (ert-deftest latex-title-block ()
   (let ((latex (wg21-test-export-file
@@ -347,6 +366,7 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
                          "#+begin_pnum x+1\nAdded.\n#+end_pnum\n"
                          "#+begin_note :number 5\nA note.\n#+end_note\n"
                          "#+begin_draftnote :audience LEWG\nReview.\n#+end_draftnote\n"
+                         "#+begin_ednote :audience CWG\nEditorial review.\n#+end_ednote\n"
                          "#+begin_grammar\n@\\grammarterm{statement}@\n#+end_grammar\n"
                          ox-wg21latex-test-cmptbl)))
          (dir (make-temp-file "ox-wg21latex-test" t))
