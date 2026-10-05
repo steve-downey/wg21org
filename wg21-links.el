@@ -56,6 +56,7 @@ for LaTeX."
 
 (defun wg21-links--replace-export (replacement original backend info)
   "Export ORIGINAL replaced by REPLACEMENT for BACKEND."
+  (setq original (or original ""))
   (setq replacement (org-link-decode replacement))
   (setq replacement
         (org-export-data

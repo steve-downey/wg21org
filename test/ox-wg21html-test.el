@@ -102,7 +102,7 @@ y();
                "#+caption: Three choices
 #+attr_wg21: :columns 20 30 50
 #+begin_cmptbl :headers \"Portable | POSIX | Native\"
-#+begin_src C++
+#+begin_src C++ :exports code
 a();
 #+end_src
 #+begin_src C++
@@ -116,7 +116,9 @@ c();
     (should (string-match-p "<caption>Three choices</caption>" html))
     (should (string-match-p "<col style=\"width: 20%\">" html))
     (should (string-match-p "<th>Portable</th><th>POSIX</th><th>Native</th>" html))
-    (should (= 3 (ox-wg21html-test-count "<td class=\"cmptbl-" html)))))
+    (dolist (column '("portable" "posix" "native"))
+      (should (string-match-p (format "<td class=\"cmptbl-%s\"" column) html)))
+    (should-not (string-match-p "cmptbl-:exports" html))))
 
 (ert-deftest cmptbl-rejects-a-width-count-mismatch ()
   (should-error
@@ -138,6 +140,18 @@ a();
               "<pre class=\"src src-C++\">T <var>value</var>; // *not emphasis*\n</pre>")
              html))
     (should-not (string-match-p "@\\\\exposidnc" html))))
+
+(ert-deftest draft-code-macros-are-rendered-or-rejected-in-html ()
+  (let ((html (ox-wg21html-test-export
+               "#+begin_codeblock\n@\\libconcept{sentinel_for}@<@\\tcode{I}@>\n#+end_codeblock\n")))
+    (should (string-match-p
+             (regexp-quote "<var>sentinel_for</var>&lt;<code>I</code>&gt;") html))
+    (should-not (string-search "@\\libconcept" html))
+    (should-not (string-search "@\\tcode" html)))
+  (should-error
+   (ox-wg21html-test-export
+    "#+begin_codeblock\n@\\notawordingmacro{x}@\n#+end_codeblock\n")
+   :type 'user-error))
 
 (ert-deftest draft-escapes-in-raw-code-do-not-enable-mathjax ()
   (let ((html (ox-wg21html-test-export
@@ -267,6 +281,11 @@ With DARK, the browser reports a dark system colour scheme."
                "Use [[replace:%2Fnew%20text%2F][old /text/]] and [[mark:][important *text*]].\n")))
     (should (string-match-p "<del>old <i>text</i></del><ins><i>new text</i></ins>" html))
     (should (string-match-p "<mark>important <b>text</b></mark>" html))))
+
+(ert-deftest substitution-without-original-text-is-an-insertion ()
+  (let ((html (ox-wg21html-test-export "Use [[replace:new]].\n")))
+    (should (string-match-p "<del></del><ins>new</ins>" html))
+    (should-not (string-match-p "nil" html))))
 
 (ert-deftest code-uses-face-classes ()
   (let* ((org-html-htmlize-output-type 'inline-css)
@@ -467,6 +486,7 @@ Value src_emacs-lisp{(+ 2 3)}.
   (let ((html (ox-wg21html-test-export-file
                "#+TITLE: T\n* Intro\nSee [cite:@P2996R13].\n")))
     (should (string-match-p ">References<" html))
+    (should (string-match-p "id=\"references\"" html))
     (should (string-match-p "Reflection for C.*26" html))))
 
 (ert-deftest recognized-paper-number-has-latest-and-status-links ()

@@ -625,9 +625,9 @@ the #+TOC keyword."
 
   :filters-alist '((:filter-options . wg21-latex-filter-options)
                    (:filter-parse-tree . (wg21-code-apply-default-language
+                                          wg21-cite-add-bibliography
                                           wg21-resolve-paragraph-numbers
                                           wg21-seed-headline-references
-                                          wg21-cite-add-bibliography
                                           wg21-cite-diagnose-paper-revisions
                                           wg21-cite-drop-empty-bibliography)))
 
@@ -813,6 +813,8 @@ EXT-PLIST, when provided, is a property list with external
 parameters overriding Org default settings, but still inferior to
 file-local settings."
   (interactive)
+  (when (fboundp 'wg21org-enable-transclusion)
+    (wg21org-enable-transclusion))
   (let ((outfile (org-export-output-file-name ".tex" subtreep)))
     (org-export-to-file 'wg21-latex outfile
       async subtreep visible-only body-only ext-plist)))
@@ -847,6 +849,8 @@ file-local settings.
 
 Return PDF file's name."
   (interactive)
+  (when (fboundp 'wg21org-enable-transclusion)
+    (wg21org-enable-transclusion))
   (let ((outfile (org-export-output-file-name ".tex" subtreep)))
     (org-export-to-file 'wg21-latex outfile
       async subtreep visible-only body-only ext-plist

@@ -82,9 +82,11 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
               (render (lambda (index)
                         (wg21-html-code-markup (nth index arguments) info))))
          (pcase command
-           ((or "exposid" "exposidnc" "placeholder" "grammarterm" "emph")
+           ((or "exposid" "exposidnc" "placeholder" "grammarterm" "emph"
+                "libconcept")
             (format "<var>%s</var>" (funcall render 0)))
-           ("terminal" (format "<code>%s</code>" (funcall render 0)))
+           ((or "terminal" "tcode")
+            (format "<code>%s</code>" (funcall render 0)))
            ((or "seebelow") "<var>see below</var>")
            ((or "impdef" "impdefnc") "<var>implementation-defined</var>")
            ("unspec" "<var>unspecified</var>")
@@ -848,9 +850,9 @@ INFO is a plist holding export options."
 
   :filters-alist '((:filter-options . wg21-html-filter-options)
                    (:filter-parse-tree . (wg21-code-apply-default-language
+                                          wg21-cite-add-bibliography
                                           wg21-resolve-paragraph-numbers
                                           wg21-seed-headline-references
-                                          wg21-cite-add-bibliography
                                           wg21-cite-diagnose-paper-revisions
                                           wg21-cite-drop-empty-bibliography)))
 
@@ -1230,6 +1232,8 @@ file-local settings.
 
 Return output file's name."
   (interactive)
+  (when (fboundp 'wg21org-enable-transclusion)
+    (wg21org-enable-transclusion))
   (let* ((extension (concat
 		             (when (> (length org-html-extension) 0) ".")
 		             (or (plist-get ext-plist :html-extension)

@@ -107,7 +107,7 @@ names.  Repeated derived names receive -2, -3, and so on."
   '(("added" . 1) ("removed" . 1) ("replace" . 2) ("mark" . 1)
     ("emph" . 1) ("math" . 1) ("sref" . 1)
     ("exposid" . 1) ("exposidnc" . 1) ("placeholder" . 1)
-    ("grammarterm" . 1) ("terminal" . 1)
+    ("grammarterm" . 1) ("terminal" . 1) ("libconcept" . 1) ("tcode" . 1)
     ("seebelow" . 0) ("impdef" . 0) ("impdefnc" . 0) ("unspec" . 0))
   "Balanced escapes recognized inside raw WG21 code blocks.")
 
@@ -141,21 +141,28 @@ nested escapes."
                           (list (wg21-code-markup-parse (car argument)))) nodes)
               (setq position (cdr argument)))
           (let* ((command (match-string 1 text))
-                 (arity (cdr (assoc command wg21-code-markup-commands))))
-            (if (null arity)
-                (progn
-                  (push (match-string 0 text) nodes)
-                  (setq position (match-end 0)))
-              (let ((cursor (match-end 0)) arguments)
+                 (entry (assoc command wg21-code-markup-commands))
+                 (arity (cdr entry))
+                 (cursor (match-end 0))
+                 arguments)
+            (if entry
                 (dotimes (_ arity)
                   (let ((argument (wg21-code-markup--braced text cursor)))
                     (push (wg21-code-markup-parse (car argument)) arguments)
                     (setq cursor (cdr argument))))
-                (unless (and (< cursor (length text)) (= (aref text cursor) ?@))
-                  (user-error "WG21 code escape \\%s at offset %d lacks closing @"
+              (progn
+                (unless (and (< cursor (length text)) (= (aref text cursor) ?{))
+                  (user-error "WG21 code escape \\%s at offset %d needs an argument"
                               command start))
-                (push (list 'wg21-code command (nreverse arguments)) nodes)
-                (setq position (1+ cursor))))))))
+                (while (and (< cursor (length text)) (= (aref text cursor) ?{))
+                  (let ((argument (wg21-code-markup--braced text cursor)))
+                    (push (wg21-code-markup-parse (car argument)) arguments)
+                    (setq cursor (cdr argument))))))
+            (unless (and (< cursor (length text)) (= (aref text cursor) ?@))
+              (user-error "WG21 code escape \\%s at offset %d lacks closing @"
+                          command start))
+            (push (list 'wg21-code command (nreverse arguments)) nodes)
+            (setq position (1+ cursor))))))
     (when (< position (length text))
       (push (substring text position) nodes))
     (nreverse nodes)))

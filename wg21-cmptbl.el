@@ -148,7 +148,8 @@ its own, a list of just that element, so it is shown rather than dropped."
 
 (defun wg21-cmptbl-column-class (cell column headers)
   "Return a CSS-safe column name for CELL at COLUMN, using HEADERS."
-  (or (wg21-cmptbl-side cell)
+  (or (and (wg21-cmptbl-cell-p cell)
+           (wg21-cmptbl-side cell))
       (when-let* ((header (nth column headers)))
         (let ((slug (downcase (replace-regexp-in-string "[^[:alnum:]]+" "-" header))))
           (string-trim slug "-+" "-+")))

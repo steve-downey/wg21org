@@ -96,8 +96,6 @@ remove an example from a paper."
           (error "Materialized %d of %d transclusions in %s; check file paths and UUID markers"
                  materialized expected (or buffer-file-name (buffer-name))))))))
 
-(add-hook 'org-mode-hook #'wg21org-enable-transclusion)
-
 ;; Source blocks are fontified by their major mode, so code faces
 ;; follow the editor: rainbow-delimiters colours brackets by depth.
 (add-hook 'prog-mode-hook #'rainbow-delimiters-mode)

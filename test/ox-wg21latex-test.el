@@ -230,6 +230,11 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
     (should (string-match-p
              (regexp-quote "\\wgmark{important \\textbf{text}}") latex))))
 
+(ert-deftest latex-substitution-without-original-text-is-an-insertion ()
+  (let ((latex (ox-wg21latex-test-export "Use [[replace:new]].\n")))
+    (should (string-match-p (regexp-quote "\\removed{}\\added{new}") latex))
+    (should-not (string-match-p "nil" latex))))
+
 (ert-deftest latex-wording-lists-can-be-paragraph-numbered ()
   (let ((latex (ox-wg21latex-test-export
                 (concat "#+begin_wording :pnums lists\n"
@@ -298,6 +303,16 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
                 (wg21-test-bibliography-files))))
     (should (string-match-p "\\\\href{https://doi.org/10.17487/RFC3514}{" latex))
     (should-not (string-match-p "^[^%]*\\\\cslcitation{[0-9]" latex))))
+
+(ert-deftest latex-auto-added-references-has-a-stable-label ()
+  (let ((latex (wg21-test-export-file
+                'wg21-latex
+                "#+TITLE: T\n#+BIBLIOGRAPHY: refs.bib\n* Intro\nSee [cite:@rfc3514].\n"
+                (wg21-test-bibliography-files))))
+    (should (string-match-p
+             (concat (regexp-quote "\\") "\\(?:chapter\\|section\\){References}")
+             latex))
+    (should (string-match-p (regexp-quote "\\label{sec:references}") latex))))
 
 (ert-deftest latex-prolog-is-common-by-default ()
   (let ((latex (wg21-test-export-file

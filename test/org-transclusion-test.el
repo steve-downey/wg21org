@@ -41,6 +41,25 @@
             (should-error (wg21org-enable-transclusion))))
       (delete-directory directory t))))
 
+(ert-deftest export-entry-points-fail-when-transclusion-is-stale ()
+  (let* ((directory (make-temp-file "wg21org-transclusion-export-" t))
+         (paper (expand-file-name "paper.org" directory))
+         buffer)
+    (unwind-protect
+        (progn
+          (with-temp-file paper
+            (insert "#+TITLE: Missing example\n"
+                    "#+transclude: [[file:missing.cpp::missing-uuid]] :src cpp\n"))
+          ;; Errors from mode hooks are swallowed by file visiting.  This test
+          ;; exercises the actual synchronous export entry points instead.
+          (setq buffer (find-file-noselect paper))
+          (with-current-buffer buffer
+            (dolist (export '(my-wg21-export-to-html my-wg21-export-to-latex))
+              (org-transclusion-mode -1)
+              (should-error (funcall export)))))
+      (when (buffer-live-p buffer) (kill-buffer buffer))
+      (delete-directory directory t))))
+
 (ert-deftest disabled-and-literal-transclusions-are-not-required ()
   (with-temp-buffer
     (org-mode)
