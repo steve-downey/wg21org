@@ -574,10 +574,11 @@ Value src_emacs-lisp{(+ 2 3)}.
         (should-not (string-match-p "&amp;lt;" html))))))
 
 (ert-deftest malformed-raw-wording-code-markup-is-an-error ()
-  (should-error
-   (ox-wg21html-test-export
-    "#+begin_codeblock\n@\\added{unfinished\n#+end_codeblock\n")
-   :type 'user-error))
+  (dolist (code '("@\\added{unfinished" "@\\foo{x} oops"))
+    (should-error
+     (ox-wg21html-test-export
+      (format "#+begin_codeblock\n%s\n#+end_codeblock\n" code))
+     :type 'user-error)))
 
 (ert-deftest unmodelled-raw-wording-code-escape-is-an-html-error ()
   (dolist (code '("@\\opt[x]{y}@" "@\\added{p}\\removed{q}@" "@\\textsc{e}@"))

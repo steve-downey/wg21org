@@ -139,12 +139,14 @@ Return (ARGUMENTS . END), or nil when an argument is unbalanced."
 
 (defun wg21-code-markup--close (text start)
   "Return the position of the escape-closing @ in TEXT after START, or nil.
-An @ inside braces belongs to a nested escape and does not close."
-  (let ((depth 0) (position start) found)
-    (while (and (not found) (< position (length text)))
+An @ inside braces belongs to a nested escape and does not close.  Once all
+braces are closed, an escape cannot continue onto another code line."
+  (let ((depth 0) (position start) found stopped)
+    (while (and (not found) (not stopped) (< position (length text)))
       (pcase (aref text position)
         (?{ (setq depth (1+ depth)))
         (?} (setq depth (max 0 (1- depth))))
+        (?\n (when (= depth 0) (setq stopped t)))
         (?@ (when (= depth 0) (setq found position))))
       (setq position (1+ position)))
     found))
@@ -154,8 +156,9 @@ An @ inside braces belongs to a nested escape and does not close."
 Nodes have the form (wg21-code COMMAND ARGUMENTS); ordinary text remains a
 string.  Unlike the old regex substitutions, arguments may contain braces or
 nested escapes.  An escape that does not take the shape \\cmd{...}...@,
-such as one with an optional argument or several macros, is kept verbatim
-as (wg21-code-raw LATEX), LATEX being the text between the @ delimiters."
+such as one with an optional argument or several macros, is kept as
+(wg21-code-raw LATEX NODES), where LATEX is the original text between the
+@ delimiters and NODES parses any nested escapes inside it."
   (let ((position 0) nodes)
     (while (string-match "@\\\\\\([[:alpha:]]+\\)\\|\\\\ref{" text position)
       (let ((start (match-beginning 0)))
@@ -186,9 +189,10 @@ as (wg21-code-raw LATEX), LATEX being the text between the @ delimiters."
                       (unless close
                         (user-error "WG21 code escape \\%s at offset %d lacks closing @"
                                     command start))
-                      (push (list 'wg21-code-raw
-                                  (substring text (1+ start) close))
-                            nodes)
+                      (let ((latex (substring text (1+ start) close)))
+                        (push (list 'wg21-code-raw latex
+                                    (wg21-code-markup-parse latex))
+                              nodes))
                       (setq position (1+ close)))))
               ;; Unknown commands are arbitrary LaTeX.  Keep the common
               ;; \cmd{...}...@ shape structured so nested escapes render,
@@ -205,13 +209,18 @@ as (wg21-code-raw LATEX), LATEX being the text between the @ delimiters."
                   (let ((close (wg21-code-markup--close text cursor)))
                     (if close
                         (progn
-                          (push (list 'wg21-code-raw
-                                      (substring text (1+ start) close))
-                                nodes)
+                          (let ((latex (substring text (1+ start) close)))
+                            (push (list 'wg21-code-raw latex
+                                        (wg21-code-markup-parse latex))
+                                  nodes))
                           (setq position (1+ close)))
-                      ;; No closing @: this is not an escape at all.
-                      (push "@" nodes)
-                      (setq position (1+ start)))))))))))
+                      (if (car arguments)
+                          (user-error "WG21 code escape \\%s at offset %d lacks closing @"
+                                      command start)
+                        ;; An @ followed by a C++ escape such as "mail@\\n"
+                        ;; is ordinary code, not draft markup.
+                        (push "@" nodes)
+                        (setq position (1+ start))))))))))))
     (when (< position (length text))
       (push (substring text position) nodes))
     (nreverse nodes)))

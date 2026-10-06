@@ -89,7 +89,8 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
      (cond
       ((stringp node) node)
       ((eq (car node) 'wg21-code-raw)
-       (if tex-mode (nth 1 node) (concat "@" (nth 1 node) "@")))
+       (let ((latex (wg21-latex-code-markup (nth 2 node) info t)))
+         (if tex-mode latex (concat "@" latex "@"))))
       (t
        (let* ((command (nth 1 node))
               (arguments (nth 2 node))

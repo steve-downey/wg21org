@@ -63,7 +63,10 @@ The supported commands are `added`, `removed`, `replace`, `mark`, `emph`,
 in code comments is also recognized.  Unclosed arguments of these commands and
 missing closing `@` delimiters stop export with a diagnostic.  Any other escape
 (another macro, an optional argument, several macros in one escape) passes
-through to LaTeX unchanged; HTML export stops with a diagnostic naming it.
+through to LaTeX unchanged, while supported escapes nested inside it are still
+expanded and have their inner `@` delimiters removed.  HTML export stops with
+a diagnostic naming the unmodelled outer escape.  A braced macro that starts
+an escape still requires its closing `@`.
 
 These escapes do not apply to ordinary `src` blocks.  Those remain literal
 Org source blocks suitable for live or transcluded code.
