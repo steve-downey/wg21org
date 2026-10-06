@@ -11,6 +11,10 @@ ORG_TRANSCLUSION_SOURCES := $(ORG_TRANSCLUSION)/org-transclusion.el \
 	$(ORG_TRANSCLUSION)/org-transclusion-src-lines.el \
 	$(ORG_TRANSCLUSION)/text-clone.el
 
+TRANSCODE_WORDING := wording/wording.org
+TRANSCODE_WORDING_GENERATOR := ../wording/generate.sh
+SPECGEN ?= specgen
+
 EXPORT_HTML = WG21_BABEL=$(BABEL) $(EMACS) --batch --init-directory=emacs.d \
 	--load emacs.d/export-init.el \
 	--eval '(setq enable-local-variables :all)' \
@@ -40,6 +44,8 @@ LATEXMK_ENGINE = $$(sed -n 's/^% Intended LaTeX compiler: \(pdf\)\{0,1\}\(.*\)la
 %.html: %.org ox-wg21html.el wg21-links.el wg21-git.el wg21-cmptbl.el wg21-cite.el wg21-wording.el wg21-front.el wg21-code.el wg21org.css emacs.d/export-init.el $(ORG_TRANSCLUSION_SOURCES)
 	$(EXPORT_HTML)
 
+transcode-view.html: $(TRANSCODE_WORDING) transcode-view.bib wg21.bib
+
 EXPORT_LATEX = WG21_BABEL=$(BABEL) $(EMACS) --batch --init-directory=emacs.d \
 	--load emacs.d/export-init.el \
 	--eval '(setq enable-local-variables :all)' \
@@ -48,6 +54,19 @@ EXPORT_LATEX = WG21_BABEL=$(BABEL) $(EMACS) --batch --init-directory=emacs.d \
 
 %.tex: %.org ox-wg21latex.el wg21-links.el wg21-git.el wg21-cmptbl.el wg21-cite.el wg21-wording.el wg21-front.el wg21-code.el wg21org-preamble.tex emacs.d/export-init.el $(ORG_TRANSCLUSION_SOURCES)
 	$(EXPORT_LATEX)
+
+transcode-view.tex: $(TRANSCODE_WORDING) transcode-view.bib wg21.bib
+
+.PHONY: transcode-wording
+transcode-wording:
+	SPECGEN=$(SPECGEN) $(TRANSCODE_WORDING_GENERATOR) --backend org --out wording
+
+.PHONY: transcode-wording-check
+transcode-wording-check:
+	@tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT INT TERM; \
+	SPECGEN=$(SPECGEN) $(TRANSCODE_WORDING_GENERATOR) --backend org --out "$$tmp"; \
+	diff -ru wording "$$tmp"
 
 # A paper must be one self-contained file: anything it would load from
 # elsewhere breaks once it is uploaded, or once the other server changes.
