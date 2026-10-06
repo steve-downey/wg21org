@@ -380,8 +380,8 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
                          "[[mark:][Marked *text*]] and [[replace:new][old]].\n"
                          "#+begin_pnum x+1\nAdded.\n#+end_pnum\n"
                          "#+begin_note :number 5\nA note.\n#+end_note\n"
-                         "#+begin_draftnote :audience LEWG\nReview.\n#+end_draftnote\n"
-                         "#+begin_ednote :audience CWG\nEditorial review.\n#+end_ednote\n"
+                         "#+begin_draftnote :audience LEWG\nFirst paragraph.\n\nSecond paragraph.\n#+end_draftnote\n"
+                         "#+begin_ednote :audience CWG\nEditorial review.\n\n- Check this item.\n#+end_ednote\n"
                          "#+begin_grammar\n@\\grammarterm{statement}@\n#+end_grammar\n"
                          ox-wg21latex-test-cmptbl)))
          (dir (make-temp-file "ox-wg21latex-test" t))
