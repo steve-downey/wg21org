@@ -108,19 +108,22 @@ names.  Repeated derived names receive -2, -3, and so on."
     ("emph" . 1) ("math" . 1) ("sref" . 1)
     ("exposid" . 1) ("exposidnc" . 1) ("placeholder" . 1)
     ("grammarterm" . 1) ("terminal" . 1) ("libconcept" . 1) ("tcode" . 1)
-    ("seebelow" . 0) ("impdef" . 0) ("impdefnc" . 0) ("unspec" . 0))
+    ("seebelow" . 0) ("impdef" . 0) ("impdefnc" . 0) ("unspec" . 0)
+    ("atsign" . 0))
   "Balanced escapes recognized inside raw WG21 code blocks.")
 
-(defun wg21-code-markup--braced (text start &optional base-offset)
-  "Read one balanced braced argument in TEXT at START."
+(defun wg21-code-markup--braced (text start &optional base-offset stop-at-newline)
+  "Read one balanced braced argument in TEXT at START.
+When STOP-AT-NEWLINE is non-nil, an argument cannot cross a line boundary."
   (unless (and (< start (length text)) (= (aref text start) ?{))
     (user-error "WG21 code escape at offset %d needs a braced argument"
                 (+ (or base-offset 0) start)))
-  (let ((depth 1) (position (1+ start)))
-    (while (and (> depth 0) (< position (length text)))
+  (let ((depth 1) (position (1+ start)) stopped)
+    (while (and (> depth 0) (not stopped) (< position (length text)))
       (pcase (aref text position)
         (?{ (setq depth (1+ depth)))
-        (?} (setq depth (1- depth))))
+        (?} (setq depth (1- depth)))
+        (?\n (when stop-at-newline (setq stopped t))))
       (setq position (1+ position)))
     (unless (= depth 0)
       (user-error "Unclosed WG21 code escape argument at offset %d"
@@ -133,7 +136,8 @@ Return (ARGUMENTS . END), or nil when an unknown macro is not balanced."
   (condition-case nil
       (let ((cursor start) arguments)
         (while (and (< cursor (length text)) (= (aref text cursor) ?{))
-          (let ((argument (wg21-code-markup--braced text cursor base-offset)))
+          (let ((argument (wg21-code-markup--braced
+                           text cursor base-offset t)))
             (push (wg21-code-markup-parse
                    (car argument) (+ base-offset cursor 1) raw-context)
                   arguments)

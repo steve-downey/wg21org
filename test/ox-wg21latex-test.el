@@ -298,13 +298,21 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
                         "auto a = u8\"@\\u{00E9}\";\n"
                         "auto b = U'@\\N{LATIN SMALL LETTER A}';\n"
                         "std::format(\"@\\t{}\", x);\n"
+                        "std::format(\"@\\atsign@\\t{}@\\atsign@\", x);\n"
+                        "u8\"@\\atsign@\\u{00E9}@\\atsign@\"; auto c = \"x@\\atsign@y\";\n"
                         "#+end_codeblock\n"))))
     (should (string-match-p
              (regexp-quote "puts(\"mail@\\atsign@\\n\");") latex))
     (dolist (code '("@\\n{" "@\\u{00E9}" "@\\N{LATIN SMALL LETTER A}" "@\\t{}"))
       (should (string-match-p
                (regexp-quote (concat "@\\atsign@" (substring code 1)))
-               latex)))))
+               latex)))
+    (should (string-match-p
+             (regexp-quote "std::format(\"@\\atsign@\\t{}@\\atsign@\", x);")
+             latex))
+    (should (string-match-p
+             (regexp-quote "u8\"@\\atsign@\\u{00E9}@\\atsign@\"; auto c = \"x@\\atsign@y\";")
+             latex))))
 
 (ert-deftest latex-raw-code-local-sref-uses-the-headline-label ()
   (let ((latex (ox-wg21latex-test-export
@@ -432,6 +440,7 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
                          (concat "#+begin_codeblock\n"
                                  "void f(@\\added{x}\\removed{@\\emph{y}@}@);\n"
                                  "puts(\"mail@\\n\");\n"
+                                 "std::format(\"@\\atsign@\\t{}@\\atsign@\", x);\n"
                                  "#+end_codeblock\n")
                          "#+begin_grammar\n@\\grammarterm{statement}@ : email@example\n#+end_grammar\n"
                          ox-wg21latex-test-cmptbl)))

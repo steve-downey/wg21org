@@ -59,7 +59,7 @@ void f(@\added{T{1, 2}, @\emph{term}@}@);
 
 The supported commands are `added`, `removed`, `replace`, `mark`, `emph`,
 `math`, `sref`, `exposid`, `exposidnc`, `placeholder`, `grammarterm`,
-`terminal`, `seebelow`, `impdef`, `impdefnc`, and `unspec`.  Bare `\ref{name}`
+`terminal`, `seebelow`, `impdef`, `impdefnc`, `unspec`, and `atsign`.  Bare `\ref{name}`
 in code comments is also recognized.  Unclosed arguments of these commands and
 missing closing `@` delimiters stop export with a diagnostic.  Any other escape
 (another macro, an optional argument, several macros in one escape) passes
@@ -68,6 +68,11 @@ expanded and have their inner `@` delimiters removed.  HTML export stops with
 a diagnostic naming the unmodelled outer escape.  An unknown `@\...` sequence
 without a closing `@` is treated as literal code, so C++ escapes such as
 `@\u{00E9}` and format strings remain usable.
+
+If a literal `@` shares a line with another `@`, the text is inherently
+ambiguous with an escape.  Spell each literal at-sign as `@\atsign@`; this
+renders as `@` in both HTML and LaTeX.  For example, author
+`"@\atsign@\t{}@\atsign@"` to show the C++ string `"@\t{}@"`.
 
 These escapes do not apply to ordinary `src` blocks.  Those remain literal
 Org source blocks suitable for live or transcluded code.

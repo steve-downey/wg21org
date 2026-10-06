@@ -93,6 +93,7 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
            ((or "seebelow") "<var>see below</var>")
            ((or "impdef" "impdefnc") "<var>implementation-defined</var>")
            ("unspec" "<var>unspecified</var>")
+           ("atsign" "@")
            ("added" (format "<ins>%s</ins>" (funcall render 0)))
            ("removed" (format "<del>%s</del>" (funcall render 0)))
            ("replace" (format "<del>%s</del><ins>%s</ins>"

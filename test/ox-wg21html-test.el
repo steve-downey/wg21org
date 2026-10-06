@@ -602,6 +602,8 @@ Value src_emacs-lisp{(+ 2 3)}.
                        "auto a = u8\"@\\u{00E9}\";\n"
                        "auto b = U'@\\N{LATIN SMALL LETTER A}';\n"
                        "std::format(\"@\\t{}\", x);\n"
+                       "std::format(\"@\\atsign@\\t{}@\\atsign@\", x);\n"
+                       "u8\"@\\atsign@\\u{00E9}@\\atsign@\"; auto c = \"x@\\atsign@y\";\n"
                        "x = \"@\\t\"; if (a) {\n"
                        "work();\n"
                        "} // @\\added{note}@\n"
@@ -611,9 +613,18 @@ Value src_emacs-lisp{(+ 2 3)}.
     (should (string-match-p (regexp-quote "@\\u{00E9}") html))
     (should (string-match-p (regexp-quote "@\\N{LATIN SMALL LETTER A}") html))
     (should (string-match-p (regexp-quote "@\\t{}") html))
+    (should (string-match-p
+             (regexp-quote "std::format(\"@\\t{}@\", x);") html))
+    (should (string-match-p
+             (regexp-quote "u8\"@\\u{00E9}@\"; auto c = \"x@y\";") html))
     (should (string-match-p (regexp-quote "<ins>z</ins>") html))
     (should (string-match-p (regexp-quote "\"@\\t\"") html))
     (should (string-match-p (regexp-quote "<ins>note</ins>") html))))
+
+(ert-deftest unknown-code-arguments-stop-at-newlines ()
+  (should-error
+   (wg21-code-markup--braced "{unfinished\n}" 0 0 t)
+   :type 'user-error))
 
 (ert-deftest nested-wording-code-errors-use-block-offsets ()
   (let ((error (should-error
