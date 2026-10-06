@@ -75,8 +75,11 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
   "Render parsed raw code NODES as HTML using export INFO."
   (mapconcat
    (lambda (node)
-     (if (stringp node)
-         (org-html-encode-plain-text node)
+     (cond
+      ((stringp node) (org-html-encode-plain-text node))
+      ((eq (car node) 'wg21-code-raw)
+       (user-error "WG21 code escape @%s@ is not supported in HTML" (nth 1 node)))
+      (t
        (let* ((command (nth 1 node))
               (arguments (nth 2 node))
               (render (lambda (index)
@@ -110,7 +113,7 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
             (let ((name (funcall render 0)))
               (format "<a class=\"sref\" href=\"%s\">[%s]</a>"
                       (wg21-stable-name-href name info) name)))
-           (_ (user-error "Unknown WG21 code escape \\%s" command))))))
+           (_ (user-error "Unknown WG21 code escape \\%s" command)))))))
    nodes ""))
 
 (defun wg21-html-pnum (block contents)
@@ -1187,6 +1190,8 @@ Export is done in a buffer named \"*Org HTML Export*\", which
 will be displayed when `org-export-show-temporary-export-buffer'
 is non-nil."
   (interactive)
+  (when (fboundp 'wg21org-enable-transclusion)
+    (wg21org-enable-transclusion))
   (org-export-to-buffer 'wg21-html "*WG21 HTML Export*"
     async subtreep visible-only body-only ext-plist
     (lambda () (set-auto-mode t))))
@@ -1253,12 +1258,29 @@ is the property list for the given project.  PUB-DIR is the
 publishing directory.
 
 Return output file name."
-  (org-publish-org-to 'wg21-html filename
-		              (concat (when (> (length org-html-extension) 0) ".")
-			                  (or (plist-get plist :html-extension)
-				                  org-html-extension
-				                  "html"))
-		              plist pub-dir))
+  ;; `org-publish-org-to' exports the buffer already visiting FILENAME when
+  ;; there is one, so materialize transclusions in that buffer first.
+  (let* ((visiting (find-buffer-visiting filename))
+         (buffer (or visiting
+                     (let ((org-inhibit-startup t))
+                       (find-file-noselect filename)))))
+    (unwind-protect
+        (progn
+          (when (fboundp 'wg21org-enable-transclusion)
+            (with-current-buffer buffer
+              (wg21org-enable-transclusion)))
+          (org-publish-org-to 'wg21-html filename
+		                      (concat (when (> (length org-html-extension) 0) ".")
+			                          (or (plist-get plist :html-extension)
+				                          org-html-extension
+				                          "html"))
+		                      plist pub-dir))
+      (unless visiting
+        (with-current-buffer buffer
+          (when (bound-and-true-p org-transclusion-mode)
+            (org-transclusion-mode -1))
+          (set-buffer-modified-p nil))
+        (kill-buffer buffer)))))
 
 
 (provide 'ox-wg21html)

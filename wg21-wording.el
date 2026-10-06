@@ -125,11 +125,37 @@ names.  Repeated derived names receive -2, -3, and so on."
       (user-error "Unclosed WG21 code escape argument at offset %d" start))
     (cons (substring text (1+ start) (1- position)) position)))
 
+(defun wg21-code-markup--arguments (text start)
+  "Parse any braced arguments in TEXT from START.
+Return (ARGUMENTS . END), or nil when an argument is unbalanced."
+  (condition-case nil
+      (let ((cursor start) arguments)
+        (while (and (< cursor (length text)) (= (aref text cursor) ?{))
+          (let ((argument (wg21-code-markup--braced text cursor)))
+            (push (wg21-code-markup-parse (car argument)) arguments)
+            (setq cursor (cdr argument))))
+        (cons (nreverse arguments) cursor))
+    (user-error nil)))
+
+(defun wg21-code-markup--close (text start)
+  "Return the position of the escape-closing @ in TEXT after START, or nil.
+An @ inside braces belongs to a nested escape and does not close."
+  (let ((depth 0) (position start) found)
+    (while (and (not found) (< position (length text)))
+      (pcase (aref text position)
+        (?{ (setq depth (1+ depth)))
+        (?} (setq depth (max 0 (1- depth))))
+        (?@ (when (= depth 0) (setq found position))))
+      (setq position (1+ position)))
+    found))
+
 (defun wg21-code-markup-parse (text)
   "Parse balanced draft escapes in raw code TEXT.
 Nodes have the form (wg21-code COMMAND ARGUMENTS); ordinary text remains a
 string.  Unlike the old regex substitutions, arguments may contain braces or
-nested escapes."
+nested escapes.  An escape that does not take the shape \\cmd{...}...@,
+such as one with an optional argument or several macros, is kept verbatim
+as (wg21-code-raw LATEX), LATEX being the text between the @ delimiters."
   (let ((position 0) nodes)
     (while (string-match "@\\\\\\([[:alpha:]]+\\)\\|\\\\ref{" text position)
       (let ((start (match-beginning 0)))
@@ -142,27 +168,50 @@ nested escapes."
               (setq position (cdr argument)))
           (let* ((command (match-string 1 text))
                  (entry (assoc command wg21-code-markup-commands))
-                 (arity (cdr entry))
-                 (cursor (match-end 0))
-                 arguments)
+                 (cursor (match-end 0)))
             (if entry
-                (dotimes (_ arity)
-                  (let ((argument (wg21-code-markup--braced text cursor)))
-                    (push (wg21-code-markup-parse (car argument)) arguments)
-                    (setq cursor (cdr argument))))
-              (progn
-                (unless (and (< cursor (length text)) (= (aref text cursor) ?{))
-                  (user-error "WG21 code escape \\%s at offset %d needs an argument"
-                              command start))
-                (while (and (< cursor (length text)) (= (aref text cursor) ?{))
-                  (let ((argument (wg21-code-markup--braced text cursor)))
-                    (push (wg21-code-markup-parse (car argument)) arguments)
-                    (setq cursor (cdr argument))))))
-            (unless (and (< cursor (length text)) (= (aref text cursor) ?@))
-              (user-error "WG21 code escape \\%s at offset %d lacks closing @"
-                          command start))
-            (push (list 'wg21-code command (nreverse arguments)) nodes)
-            (setq position (1+ cursor))))))
+                (let (arguments)
+                  (dotimes (_ (cdr entry))
+                    (let ((argument (wg21-code-markup--braced text cursor)))
+                      (push (wg21-code-markup-parse (car argument)) arguments)
+                      (setq cursor (cdr argument))))
+                  (if (and (< cursor (length text)) (= (aref text cursor) ?@))
+                      (progn
+                        (push (list 'wg21-code command (nreverse arguments))
+                              nodes)
+                        (setq position (1+ cursor)))
+                    ;; More LaTeX follows the arguments, as in
+                    ;; @\added{x}\removed{y}@: keep the escape verbatim.
+                    (let ((close (wg21-code-markup--close text cursor)))
+                      (unless close
+                        (user-error "WG21 code escape \\%s at offset %d lacks closing @"
+                                    command start))
+                      (push (list 'wg21-code-raw
+                                  (substring text (1+ start) close))
+                            nodes)
+                      (setq position (1+ close)))))
+              ;; Unknown commands are arbitrary LaTeX.  Keep the common
+              ;; \cmd{...}...@ shape structured so nested escapes render,
+              ;; and keep anything else (optional arguments, several macros)
+              ;; verbatim.  A backend that cannot pass LaTeX through reports
+              ;; the escape when rendering it.
+              (let ((arguments (wg21-code-markup--arguments text cursor)))
+                (if (and arguments
+                         (< (cdr arguments) (length text))
+                         (= (aref text (cdr arguments)) ?@))
+                    (progn
+                      (push (list 'wg21-code command (car arguments)) nodes)
+                      (setq position (1+ (cdr arguments))))
+                  (let ((close (wg21-code-markup--close text cursor)))
+                    (if close
+                        (progn
+                          (push (list 'wg21-code-raw
+                                      (substring text (1+ start) close))
+                                nodes)
+                          (setq position (1+ close)))
+                      ;; No closing @: this is not an escape at all.
+                      (push "@" nodes)
+                      (setq position (1+ start)))))))))))
     (when (< position (length text))
       (push (substring text position) nodes))
     (nreverse nodes)))

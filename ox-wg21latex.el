@@ -86,8 +86,11 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
   "Render parsed raw code NODES as draft LaTeX using export INFO."
   (mapconcat
    (lambda (node)
-     (if (stringp node)
-         node
+     (cond
+      ((stringp node) node)
+      ((eq (car node) 'wg21-code-raw)
+       (if tex-mode (nth 1 node) (concat "@" (nth 1 node) "@")))
+      (t
        (let* ((command (nth 1 node))
               (arguments (nth 2 node))
               (render (lambda (index)
@@ -116,7 +119,7 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
                        (mapconcat (lambda (argument)
                                     (format "{%s}"
                                             (wg21-latex-code-markup argument info t)))
-                                  arguments ""))))))))
+                                  arguments "")))))))))
    nodes ""))
 
 (defun wg21-latex-pnum-marker (element)
@@ -163,8 +166,12 @@ options after \\begin{NAME} is left as it is."
         (audience (wg21-block-option block "audience")))
     (cond
      ((member type '("ednote" "draftnote"))
+      ;; The braces keep a ] in the audience from ending the option.
       (format "\\wg%s%s{%s}\n" type
-              (if audience (format "[%s]" audience) "") contents))
+              (if audience
+                  (format "[{%s}]" (org-latex-plain-text audience nil))
+                "")
+              contents))
      (unnumbered
       (format "\\wgnonnormative{%s}{%s}\n" (capitalize type) contents))
      (t
@@ -771,6 +778,8 @@ Export is done in a buffer named \"*Org WG21 LaTeX Export*\", which
 will be displayed when `org-export-show-temporary-export-buffer'
 is non-nil."
   (interactive)
+  (when (fboundp 'wg21org-enable-transclusion)
+    (wg21org-enable-transclusion))
   (org-export-to-buffer 'wg21-latex "*Org WG21 LaTeX Export*"
     async subtreep visible-only body-only ext-plist (lambda () (if (fboundp 'LaTeX-mode) (LaTeX-mode) (latex-mode)))))
 

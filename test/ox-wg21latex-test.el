@@ -180,8 +180,14 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
                 "#+begin_note :number 5\nN.\n#+end_note\n#+begin_draftnote :audience LEWG\nD.\n#+end_draftnote\n#+begin_ednote :audience CWG\nE.\n#+end_ednote\n")))
     (should (string-match-p "\\\\wgsetcounterifdefined{note}{4}" latex))
     (should (string-match-p "\\\\begin{wgblock}{note}" latex))
-    (should (string-match-p "\\\\wgdraftnote\\[LEWG\\]" latex))
-    (should (string-match-p "\\\\wgednote\\[CWG\\]" latex))))
+    (should (string-match-p (regexp-quote "\\wgdraftnote[{LEWG}]") latex))
+    (should (string-match-p (regexp-quote "\\wgednote[{CWG}]") latex))))
+
+(ert-deftest latex-note-audience-is-escaped ()
+  (let ((latex (ox-wg21latex-test-export
+                "#+begin_ednote :audience \"SG16 & LEWG [late]\"\nE.\n#+end_ednote\n")))
+    (should (string-match-p
+             (regexp-quote "\\wgednote[{SG16 \\& LEWG [late]}]") latex))))
 
 (ert-deftest latex-stable-name-links-choose-local-or-draft-targets ()
   (let ((latex (ox-wg21latex-test-export
@@ -258,6 +264,17 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
                         "#+end_codeblock\n"))))
     (should (string-match-p
              (regexp-quote "@\\added{T{1}, \\textit{term}}@") latex))))
+
+(ert-deftest latex-raw-code-passes-unmodelled-escapes-through ()
+  (let ((latex (ox-wg21latex-test-export
+                (concat "#+begin_codeblock\n"
+                        "a @\\cv@ b @\\opt[x]{y}@ c @\\added{p}\\removed{q}@\n"
+                        "d @\\textsc{e}@ \"mail@\\n\"\n"
+                        "#+end_codeblock\n"))))
+    (should (string-match-p
+             (regexp-quote
+              "a @\\cv@ b @\\opt[x]{y}@ c @\\added{p}\\removed{q}@\nd @\\textsc{e}@ \"mail@\\n\"")
+             latex))))
 
 (ert-deftest latex-raw-code-local-sref-uses-the-headline-label ()
   (let ((latex (ox-wg21latex-test-export
@@ -381,7 +398,7 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
                          "#+begin_pnum x+1\nAdded.\n#+end_pnum\n"
                          "#+begin_note :number 5\nA note.\n#+end_note\n"
                          "#+begin_draftnote :audience LEWG\nFirst paragraph.\n\nSecond paragraph.\n#+end_draftnote\n"
-                         "#+begin_ednote :audience CWG\nEditorial review.\n\n- Check this item.\n#+end_ednote\n"
+                         "#+begin_ednote :audience \"SG16 & CWG [late]\"\nEditorial review.\n\n- Check this item.\n#+end_ednote\n"
                          "#+begin_grammar\n@\\grammarterm{statement}@\n#+end_grammar\n"
                          ox-wg21latex-test-cmptbl)))
          (dir (make-temp-file "ox-wg21latex-test" t))

@@ -1,6 +1,7 @@
 ;;; org-transclusion-test.el --- Tests for source transclusion -*- lexical-binding: t; -*-
 
 (require 'ert)
+(require 'ox-publish)
 
 (ert-deftest source-transclusion-preserves-text-and-omits-markers ()
   (let* ((directory (make-temp-file "wg21org-transclusion-" t))
@@ -54,8 +55,8 @@
           ;; exercises the actual synchronous export entry points instead.
           (setq buffer (find-file-noselect paper))
           (with-current-buffer buffer
-            (dolist (export '(my-wg21-export-to-html my-wg21-export-to-latex))
-              (org-transclusion-mode -1)
+            (dolist (export '(my-wg21-export-to-html my-wg21-export-to-latex
+                              my-wg21-export-as-html my-wg21-export-as-latex))
               (should-error (funcall export)))))
       (when (buffer-live-p buffer) (kill-buffer buffer))
       (delete-directory directory t))))
@@ -76,5 +77,96 @@
      (seq-some (lambda (overlay)
                  (eq (overlay-get overlay 'face) 'org-transclusion))
                (overlays-in (point-min) (point-max))))))
+
+;; Most papers below transclude this one example source.
+(defun wg21org-transclusion-test-paper (directory)
+  "Write a paper with one source transclusion into DIRECTORY; return its name."
+  (let ((source (expand-file-name "example.cpp" directory))
+        (paper (expand-file-name "paper.org" directory))
+        (uuid "5b0f5c8e-2f53-4a43-9a43-0d6c3b8f1e27"))
+    (with-temp-file source
+      (insert "// " uuid "\n"
+              "int transcludedfunction();\n"
+              "// " uuid " end\n"))
+    (with-temp-file paper
+      (insert "#+TITLE: Transclusion\n"
+              (format "#+transclude: [[file:example.cpp::%s]] :lines 2- :src cpp :end \"%s end\"\n"
+                      uuid uuid)))
+    paper))
+
+(ert-deftest transclusion-can-be-enabled-twice-in-one-buffer ()
+  (with-temp-buffer
+    (let ((directory (make-temp-file "wg21org-transclusion-" t)))
+      (unwind-protect
+          (progn
+            (insert-file-contents (wg21org-transclusion-test-paper directory))
+            (setq default-directory (file-name-as-directory directory))
+            (org-mode)
+            (wg21org-enable-transclusion)
+            (wg21org-enable-transclusion)
+            (should (string-match-p "transcludedfunction"
+                                    (buffer-string))))
+        (delete-directory directory t)))))
+
+(ert-deftest html-then-latex-export-in-one-session-transcludes-both ()
+  (let* ((directory (make-temp-file "wg21org-transclusion-export-" t))
+         (paper (wg21org-transclusion-test-paper directory))
+         (org-export-use-babel nil)
+         buffer)
+    (unwind-protect
+        (progn
+          (setq buffer (find-file-noselect paper))
+          (with-current-buffer buffer
+            (let ((html (my-wg21-export-to-html))
+                  (latex (my-wg21-export-to-latex)))
+              (dolist (file (list html latex))
+                (with-temp-buffer
+                  (insert-file-contents (expand-file-name file directory))
+                  (should (string-match-p "transcludedfunction"
+                                          (buffer-string))))))))
+      (when (buffer-live-p buffer)
+        (with-current-buffer buffer (set-buffer-modified-p nil))
+        (kill-buffer buffer))
+      (delete-directory directory t))))
+
+(ert-deftest export-as-buffer-entry-points-transclude ()
+  (let* ((directory (make-temp-file "wg21org-transclusion-export-" t))
+         (paper (wg21org-transclusion-test-paper directory))
+         (org-export-use-babel nil)
+         (org-export-show-temporary-export-buffer nil)
+         buffer)
+    (unwind-protect
+        (progn
+          (setq buffer (find-file-noselect paper))
+          (with-current-buffer buffer
+            (dolist (export '(my-wg21-export-as-html my-wg21-export-as-latex))
+              (let ((output (funcall export nil nil nil t)))
+                (should (string-match-p
+                         "transcludedfunction"
+                         (with-current-buffer output (buffer-string))))
+                (kill-buffer output)))))
+      (when (buffer-live-p buffer)
+        (with-current-buffer buffer (set-buffer-modified-p nil))
+        (kill-buffer buffer))
+      (delete-directory directory t))))
+
+(ert-deftest publish-to-html-transcludes ()
+  (let* ((directory (make-temp-file "wg21org-transclusion-publish-" t))
+         (paper (wg21org-transclusion-test-paper directory))
+         (pub-dir (expand-file-name "out" directory))
+         (org-export-use-babel nil)
+         (org-publish-timestamp-directory
+          (file-name-as-directory (expand-file-name "timestamps" directory)))
+         (org-publish-cache nil))
+    (unwind-protect
+        (progn
+          (org-publish-initialize-cache "wg21org-transclusion-test")
+          (let ((html (my-wg21-publish-to-html '(:body-only t) paper pub-dir)))
+            (with-temp-buffer
+              (insert-file-contents html)
+              (should (string-match-p "transcludedfunction" (buffer-string)))))
+          ;; The paper was not visited before publishing; it is not left open.
+          (should-not (find-buffer-visiting paper)))
+      (delete-directory directory t))))
 
 ;;; org-transclusion-test.el ends here

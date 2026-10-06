@@ -63,8 +63,14 @@
 
 `org-transclusion-add-all' deliberately continues after a bad link for
 interactive use.  Export must be stricter: a stale UUID must not silently
-remove an example from a paper."
+remove an example from a paper.
+
+Calling this again in the same buffer, as when exporting HTML and then
+LaTeX in one session, first removes the earlier transclusions so their
+keywords are counted and materialized afresh from the current sources."
   (when (derived-mode-p 'org-mode)
+    (when (bound-and-true-p org-transclusion-mode)
+      (org-transclusion-mode -1))
     (let ((case-fold-search t)
           (expected
            (length

@@ -60,8 +60,10 @@ void f(@\added{T{1, 2}, @\emph{term}@}@);
 The supported commands are `added`, `removed`, `replace`, `mark`, `emph`,
 `math`, `sref`, `exposid`, `exposidnc`, `placeholder`, `grammarterm`,
 `terminal`, `seebelow`, `impdef`, `impdefnc`, and `unspec`.  Bare `\ref{name}`
-in code comments is also recognized.  Unclosed arguments and missing closing
-`@` delimiters stop export with a diagnostic.
+in code comments is also recognized.  Unclosed arguments of these commands and
+missing closing `@` delimiters stop export with a diagnostic.  Any other escape
+(another macro, an optional argument, several macros in one escape) passes
+through to LaTeX unchanged; HTML export stops with a diagnostic naming it.
 
 These escapes do not apply to ordinary `src` blocks.  Those remain literal
 Org source blocks suitable for live or transcluded code.
