@@ -161,7 +161,10 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
                      (format " style=\"counter-set: wg21-%s %d\""
                              type (1- (string-to-number number)))))
          (attrs (if audience
-                    (format " data-audience=\"%s\"" (org-html-encode-plain-text audience))
+                    (format " data-audience=\"%s\""
+                            (replace-regexp-in-string
+                             "\"" "&quot;"
+                             (org-html-encode-plain-text audience) t t))
                   "")))
     (format "<div class=\"wg21-%s%s\"%s%s>%s</div>\n"
             type (if unnumbered " unnumbered" "") (or style "") attrs contents)))
@@ -1260,15 +1263,20 @@ publishing directory.
 Return output file name."
   ;; `org-publish-org-to' exports the buffer already visiting FILENAME when
   ;; there is one, so materialize transclusions in that buffer first.
-  (let* ((visiting (find-buffer-visiting filename))
+  (let* ((buffers-before (buffer-list))
+         transclusion-buffers
+         (visiting (find-buffer-visiting filename))
          (buffer (or visiting
                      (let ((org-inhibit-startup t))
                        (find-file-noselect filename)))))
     (unwind-protect
         (progn
           (when (fboundp 'wg21org-enable-transclusion)
-            (with-current-buffer buffer
-              (wg21org-enable-transclusion)))
+            (unwind-protect
+                (with-current-buffer buffer
+                  (wg21org-enable-transclusion))
+              (setq transclusion-buffers
+                    (seq-difference (buffer-list) buffers-before))))
           (org-publish-org-to 'wg21-html filename
 		                      (concat (when (> (length org-html-extension) 0) ".")
 			                          (or (plist-get plist :html-extension)
@@ -1280,7 +1288,16 @@ Return output file name."
           (when (bound-and-true-p org-transclusion-mode)
             (org-transclusion-mode -1))
           (set-buffer-modified-p nil))
-        (kill-buffer buffer)))))
+        (kill-buffer buffer))
+      ;; org-transclusion visits source files to materialize their contents.
+      ;; Publishing must not leak buffers it opened, but preserve any source
+      ;; buffer that the user was already visiting.
+      (dolist (opened transclusion-buffers)
+        (when (and (buffer-live-p opened)
+                   (buffer-local-value 'buffer-file-name opened))
+          (with-current-buffer opened
+            (set-buffer-modified-p nil))
+          (kill-buffer opened))))))
 
 
 (provide 'ox-wg21html)

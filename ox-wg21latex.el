@@ -87,7 +87,9 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
   (mapconcat
    (lambda (node)
      (cond
-      ((stringp node) node)
+      ((stringp node)
+       (replace-regexp-in-string
+        "@" (if tex-mode "\\atsign{}" "@\\atsign@") node t t))
       ((eq (car node) 'wg21-code-raw)
        (let ((latex (wg21-latex-code-markup (nth 2 node) info t)))
          (if tex-mode latex (concat "@" latex "@"))))

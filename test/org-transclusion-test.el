@@ -166,7 +166,10 @@
               (insert-file-contents html)
               (should (string-match-p "transcludedfunction" (buffer-string)))))
           ;; The paper was not visited before publishing; it is not left open.
-          (should-not (find-buffer-visiting paper)))
+          (should-not (find-buffer-visiting paper))
+          ;; Neither is a transcluded source opened only for publication.
+          (should-not (find-buffer-visiting
+                       (expand-file-name "example.cpp" directory))))
       (delete-directory directory t))))
 
 ;;; org-transclusion-test.el ends here

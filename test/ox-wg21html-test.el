@@ -574,7 +574,10 @@ Value src_emacs-lisp{(+ 2 3)}.
         (should-not (string-match-p "&amp;lt;" html))))))
 
 (ert-deftest malformed-raw-wording-code-markup-is-an-error ()
-  (dolist (code '("@\\added{unfinished" "@\\foo{x} oops"))
+  (dolist (code '("@\\added{unfinished"
+                  "@\\foo{x} oops"
+                  "@\\foo{unbalanced);"
+                  "@\\added{x} oops more @\\removed{y}@"))
     (should-error
      (ox-wg21html-test-export
       (format "#+begin_codeblock\n%s\n#+end_codeblock\n" code))
@@ -589,14 +592,32 @@ Value src_emacs-lisp{(+ 2 3)}.
 
 (ert-deftest ordinary-at-sign-in-raw-wording-code-is-literal ()
   (let ((html (ox-wg21html-test-export
-               "#+begin_codeblock\n\"mail@\\n\"\n#+end_codeblock\n")))
-    (should (string-match-p (regexp-quote "mail@\\n") html))))
+               (concat "#+begin_codeblock\n"
+                       "printf(\"%s@\\x41\", s); g(@\\added{z}@);\n"
+                       "x = \"@\\t\"; if (a) {\n"
+                       "work();\n"
+                       "} // @\\added{note}@\n"
+                       "#+end_codeblock\n"))))
+    (should (string-match-p (regexp-quote "%s@\\x41") html))
+    (should (string-match-p (regexp-quote "<ins>z</ins>") html))
+    (should (string-match-p (regexp-quote "\"@\\t\"") html))
+    (should (string-match-p (regexp-quote "<ins>note</ins>") html))))
+
+(ert-deftest nested-wording-code-errors-use-block-offsets ()
+  (let ((error (should-error
+                (ox-wg21html-test-export
+                 "#+begin_codeblock\n@\\textsc{@\\added{x}}@\n#+end_codeblock\n")
+                :type 'user-error)))
+    (should (string-match-p "offset 9" (error-message-string error)))))
 
 (ert-deftest note-like-blocks-carry-number-and-audience ()
   (let ((html (ox-wg21html-test-export
-               "#+begin_note :number 5\nN.\n#+end_note\n#+begin_draftnote :audience LEWG\nD.\n#+end_draftnote\n")))
+               (concat "#+begin_note :number 5\nN.\n#+end_note\n"
+                       "#+begin_draftnote :audience LEWG\nD.\n#+end_draftnote\n"
+                       "#+begin_ednote :audience \"SG16 \\\"Core\\\"\"\nE.\n#+end_ednote\n"))))
     (should (string-match-p "class=\"wg21-note\" style=\"counter-set: wg21-note 4\"" html))
-    (should (string-match-p "class=\"wg21-draftnote\" data-audience=\"LEWG\"" html))))
+    (should (string-match-p "class=\"wg21-draftnote\" data-audience=\"LEWG\"" html))
+    (should (string-match-p "data-audience=\"SG16 &quot;Core&quot;\"" html))))
 
 (ert-deftest stable-name-links-choose-local-or-draft-targets ()
   (let ((html (ox-wg21html-test-export

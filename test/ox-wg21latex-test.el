@@ -271,13 +271,21 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
                         "a @\\cv@ b @\\opt[x]{y}@ c @\\added{p}\\removed{q}@\n"
                         "d @\\textsc{e}@ \"mail@\\n\"\n"
                         "e @\\added{x}\\removed{@\\emph{y}@}@\n"
+                        "f @\\opt[@\\added{x}@]{y}@ @\\hyperref[a]{\\ref{b}}@ @\\textsc{\\ref{c}}@\n"
                         "#+end_codeblock\n"))))
     (should (string-match-p
              (regexp-quote
               (concat "a @\\cv@ b @\\opt[x]{y}@ c @\\added{p}\\removed{q}@\n"
-                      "d @\\textsc{e}@ \"mail@\\n\"\n"
-                      "e @\\added{x}\\removed{\\textit{y}}@"))
+                      "d @\\textsc{e}@ \"mail@\\atsign@\\n\"\n"
+                      "e @\\added{x}\\removed{\\textit{y}}@\n"
+                      "f @\\opt[\\added{x}]{y}@ @\\hyperref[a]{\\ref{b}}@ @\\textsc{\\ref{c}}@"))
              latex))))
+
+(ert-deftest latex-raw-code-escapes-literal-at-signs-for-listings ()
+  (let ((latex (ox-wg21latex-test-export
+                "#+begin_codeblock\nputs(\"mail@\\n\");\n#+end_codeblock\n")))
+    (should (string-match-p
+             (regexp-quote "puts(\"mail@\\atsign@\\n\");") latex))))
 
 (ert-deftest latex-raw-code-local-sref-uses-the-headline-label ()
   (let ((latex (ox-wg21latex-test-export
@@ -402,7 +410,10 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
                          "#+begin_note :number 5\nA note.\n#+end_note\n"
                          "#+begin_draftnote :audience LEWG\nFirst paragraph.\n\nSecond paragraph.\n#+end_draftnote\n"
                          "#+begin_ednote :audience \"SG16 & CWG [late]\"\nEditorial review.\n\n- Check this item.\n#+end_ednote\n"
-                         "#+begin_codeblock\nvoid f(@\\added{x}\\removed{@\\emph{y}@}@);\n#+end_codeblock\n"
+                         (concat "#+begin_codeblock\n"
+                                 "void f(@\\added{x}\\removed{@\\emph{y}@}@);\n"
+                                 "puts(\"mail@\\n\");\n"
+                                 "#+end_codeblock\n")
                          "#+begin_grammar\n@\\grammarterm{statement}@\n#+end_grammar\n"
                          ox-wg21latex-test-cmptbl)))
          (dir (make-temp-file "ox-wg21latex-test" t))
