@@ -197,6 +197,12 @@ a();
     (should (= 1 (ox-wg21html-test-count "style=\"width: 18%\"" html)))
     (should (= 2 (ox-wg21html-test-count "style=\"width: 36%\"" html)))))
 
+(ert-deftest table-safe-vertical-bars-expand-inside-code ()
+  (let ((html (ox-wg21html-test-export
+               "| =v\\vert{}ranges= | ~a\\vert{}b~ |\n")))
+    (should (string-match-p (regexp-quote "<code>v|ranges</code>") html))
+    (should (string-match-p (regexp-quote "<code>a|b</code>") html))))
+
 ;; The comparison table last broke in the stylesheet, not the HTML: Org
 ;; 9.8 wraps code blocks in <code>, and wg21org.css made <code> nowrap,
 ;; so each block rendered as one long line that pushed the table past
@@ -575,8 +581,6 @@ Value src_emacs-lisp{(+ 2 3)}.
 
 (ert-deftest malformed-raw-wording-code-markup-is-an-error ()
   (dolist (code '("@\\added{unfinished"
-                  "@\\foo{x} oops"
-                  "@\\foo{unbalanced);"
                   "@\\added{x} oops more @\\removed{y}@"))
     (should-error
      (ox-wg21html-test-export
@@ -594,11 +598,19 @@ Value src_emacs-lisp{(+ 2 3)}.
   (let ((html (ox-wg21html-test-export
                (concat "#+begin_codeblock\n"
                        "printf(\"%s@\\x41\", s); g(@\\added{z}@);\n"
+                       "out << \"@\\n{\";\n"
+                       "auto a = u8\"@\\u{00E9}\";\n"
+                       "auto b = U'@\\N{LATIN SMALL LETTER A}';\n"
+                       "std::format(\"@\\t{}\", x);\n"
                        "x = \"@\\t\"; if (a) {\n"
                        "work();\n"
                        "} // @\\added{note}@\n"
                        "#+end_codeblock\n"))))
     (should (string-match-p (regexp-quote "%s@\\x41") html))
+    (should (string-match-p (regexp-quote "@\\n{") html))
+    (should (string-match-p (regexp-quote "@\\u{00E9}") html))
+    (should (string-match-p (regexp-quote "@\\N{LATIN SMALL LETTER A}") html))
+    (should (string-match-p (regexp-quote "@\\t{}") html))
     (should (string-match-p (regexp-quote "<ins>z</ins>") html))
     (should (string-match-p (regexp-quote "\"@\\t\"") html))
     (should (string-match-p (regexp-quote "<ins>note</ins>") html))))

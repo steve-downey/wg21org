@@ -70,5 +70,18 @@ are merged later by Org and therefore override these defaults."
   (member (downcase (or (org-element-property :language src-block) ""))
           '("text" "fundamental" "raw")))
 
+(defun wg21-code-expand-table-vertical-bars (element)
+  "Return ELEMENT with Org's table-safe vertical bars expanded in code.
+An actual | would end the table cell, while Org does not normally expand the
+`\\vert{}' entity inside code or verbatim markup."
+  (if (and (org-element-lineage element '(table-cell) t)
+           (string-search "\\vert{}" (org-element-property :value element)))
+      (let ((copy (org-element-copy element)))
+        (org-element-put-property
+         copy :value
+         (string-replace "\\vert{}" "|" (org-element-property :value element)))
+        copy)
+    element))
+
 (provide 'wg21-code)
 ;;; wg21-code.el ends here

@@ -12,8 +12,6 @@ ORG_TRANSCLUSION_SOURCES := $(ORG_TRANSCLUSION)/org-transclusion.el \
 	$(ORG_TRANSCLUSION)/text-clone.el
 
 TRANSCODE_WORDING := wording/wording.org
-TRANSCODE_WORDING_GENERATOR := ../wording/generate.sh
-SPECGEN ?= specgen
 
 EXPORT_HTML = WG21_BABEL=$(BABEL) $(EMACS) --batch --init-directory=emacs.d \
 	--load emacs.d/export-init.el \
@@ -56,17 +54,6 @@ EXPORT_LATEX = WG21_BABEL=$(BABEL) $(EMACS) --batch --init-directory=emacs.d \
 	$(EXPORT_LATEX)
 
 transcode-view.tex: $(TRANSCODE_WORDING) transcode-view.bib wg21.bib
-
-.PHONY: transcode-wording
-transcode-wording:
-	SPECGEN=$(SPECGEN) $(TRANSCODE_WORDING_GENERATOR) --backend org --out wording
-
-.PHONY: transcode-wording-check
-transcode-wording-check:
-	@tmp=$$(mktemp -d); \
-	trap 'rm -rf "$$tmp"' EXIT INT TERM; \
-	SPECGEN=$(SPECGEN) $(TRANSCODE_WORDING_GENERATOR) --backend org --out "$$tmp"; \
-	diff -ru wording "$$tmp"
 
 # A paper must be one self-contained file: anything it would load from
 # elsewhere breaks once it is uploaded, or once the other server changes.

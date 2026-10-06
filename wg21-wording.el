@@ -129,15 +129,17 @@ names.  Repeated derived names receive -2, -3, and so on."
 
 (defun wg21-code-markup--arguments (text start base-offset raw-context)
   "Parse any braced arguments in TEXT from START.
-Return (ARGUMENTS . END).  An unbalanced argument is an error."
-  (let ((cursor start) arguments)
-    (while (and (< cursor (length text)) (= (aref text cursor) ?{))
-      (let ((argument (wg21-code-markup--braced text cursor base-offset)))
-        (push (wg21-code-markup-parse
-               (car argument) (+ base-offset cursor 1) raw-context)
-              arguments)
-        (setq cursor (cdr argument))))
-    (cons (nreverse arguments) cursor)))
+Return (ARGUMENTS . END), or nil when an unknown macro is not balanced."
+  (condition-case nil
+      (let ((cursor start) arguments)
+        (while (and (< cursor (length text)) (= (aref text cursor) ?{))
+          (let ((argument (wg21-code-markup--braced text cursor base-offset)))
+            (push (wg21-code-markup-parse
+                   (car argument) (+ base-offset cursor 1) raw-context)
+                  arguments)
+            (setq cursor (cdr argument))))
+        (cons (nreverse arguments) cursor))
+    (user-error nil)))
 
 (defun wg21-code-markup--close (text start)
   "Return the position of the escape-closing @ in TEXT after START, or nil.
@@ -223,7 +225,8 @@ such as one with an optional argument or several macros, is kept as
               ;; the escape when rendering it.
               (let ((arguments (wg21-code-markup--arguments
                                 text cursor base-offset t)))
-                (if (and (< (cdr arguments) (length text))
+                (if (and arguments
+                         (< (cdr arguments) (length text))
                          (= (aref text (cdr arguments)) ?@))
                     (progn
                       (push (list 'wg21-code command (car arguments)) nodes)
@@ -242,13 +245,11 @@ such as one with an optional argument or several macros, is kept as
                                          latex (+ base-offset start 1) t))
                                   nodes))
                           (setq position (1+ close)))
-                      (if (car arguments)
-                          (user-error "WG21 code escape \\%s at offset %d lacks closing @"
-                                      command (+ base-offset start))
-                        ;; An @ followed by a C++ escape such as "mail@\\n"
-                        ;; is ordinary code, not draft markup.
-                        (push "@" nodes)
-                        (setq position (1+ start))))))))))))
+                      ;; An unknown @\\ sequence without a closing delimiter
+                      ;; is ordinary code, including C++ delimited escapes and
+                      ;; format strings such as @\\u{e9} and @\\t{}.
+                      (push "@" nodes)
+                      (setq position (1+ start)))))))))))
     (when (< position (length text))
       (push (substring text position) nodes))
     (nreverse nodes)))

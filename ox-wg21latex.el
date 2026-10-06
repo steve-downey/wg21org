@@ -72,33 +72,36 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
               type
               (wg21-latex-code-markup
                (wg21-code-markup-parse
-                (wg21-special-block-raw-contents special-block)) info)
+                (wg21-special-block-raw-contents special-block)) info nil t)
               type))
      ((string= type "grammar")
       (format "\\begin{wgblock}{ncbnf}\n%s\\end{wgblock}\n"
               (wg21-latex-code-markup
                (wg21-code-markup-parse
-                (wg21-special-block-raw-contents special-block)) info)))
+                (wg21-special-block-raw-contents special-block)) info t nil)))
      (t (wg21-latex--guard-environment
          type (org-latex-special-block special-block contents info))))))
 
-(defun wg21-latex-code-markup (nodes info &optional tex-mode)
-  "Render parsed raw code NODES as draft LaTeX using export INFO."
+(defun wg21-latex-code-markup (nodes info &optional tex-mode escape-at)
+  "Render parsed raw code NODES as draft LaTeX using export INFO.
+TEX-MODE omits listings escape delimiters.  ESCAPE-AT quotes literal at-signs
+for a listings environment whose escape character is @."
   (mapconcat
    (lambda (node)
      (cond
-      ((stringp node)
+      ((and (stringp node) escape-at)
        (replace-regexp-in-string
         "@" (if tex-mode "\\atsign{}" "@\\atsign@") node t t))
+      ((stringp node) node)
       ((eq (car node) 'wg21-code-raw)
-       (let ((latex (wg21-latex-code-markup (nth 2 node) info t)))
+       (let ((latex (wg21-latex-code-markup (nth 2 node) info t escape-at)))
          (if tex-mode latex (concat "@" latex "@"))))
       (t
        (let* ((command (nth 1 node))
               (arguments (nth 2 node))
               (render (lambda (index)
                         (wg21-latex-code-markup
-                         (nth index arguments) info t)))
+                         (nth index arguments) info t escape-at)))
               (escape (lambda (latex)
                         (if tex-mode latex (concat "@" latex "@")))))
          (pcase command
@@ -121,7 +124,7 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
                (format "\\%s%s" command
                        (mapconcat (lambda (argument)
                                     (format "{%s}"
-                                            (wg21-latex-code-markup argument info t)))
+                                            (wg21-latex-code-markup argument info t escape-at)))
                                   arguments "")))))))))
    nodes ""))
 
@@ -145,6 +148,15 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
                 (org-element-contents plain-list))
       contents
     (org-latex-plain-list plain-list contents info)))
+
+(defun wg21-latex-code (code contents info)
+  "Export CODE, expanding table-safe vertical bars."
+  (org-latex-code (wg21-code-expand-table-vertical-bars code) contents info))
+
+(defun wg21-latex-verbatim (verbatim contents info)
+  "Export VERBATIM, expanding table-safe vertical bars."
+  (org-latex-verbatim
+   (wg21-code-expand-table-vertical-bars verbatim) contents info))
 
 (defun wg21-latex--guard-environment (name latex)
   "Set LATEX, the environment NAME, in a wgblock environment.
@@ -624,6 +636,8 @@ the #+TOC keyword."
     (:wg21-toc-command nil nil wg21-toc-command))
 
   :translate-alist '((special-block . my-latex-special-block)
+                     (code . wg21-latex-code)
+                     (verbatim . wg21-latex-verbatim)
                      (item . wg21-latex-item)
                      (plain-list . wg21-latex-plain-list)
                      (headline . wg21-latex-headline)

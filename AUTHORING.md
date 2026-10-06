@@ -65,8 +65,9 @@ missing closing `@` delimiters stop export with a diagnostic.  Any other escape
 (another macro, an optional argument, several macros in one escape) passes
 through to LaTeX unchanged, while supported escapes nested inside it are still
 expanded and have their inner `@` delimiters removed.  HTML export stops with
-a diagnostic naming the unmodelled outer escape.  A braced macro that starts
-an escape still requires its closing `@`.
+a diagnostic naming the unmodelled outer escape.  An unknown `@\...` sequence
+without a closing `@` is treated as literal code, so C++ escapes such as
+`@\u{00E9}` and format strings remain usable.
 
 These escapes do not apply to ordinary `src` blocks.  Those remain literal
 Org source blocks suitable for live or transcluded code.

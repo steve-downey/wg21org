@@ -199,9 +199,12 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
 
 (ert-deftest latex-grammar-is-a-draft-grammar-block ()
   (let ((latex (ox-wg21latex-test-export
-                "#+begin_grammar\n@\\grammarterm{statement}@\n#+end_grammar\n")))
+                "#+begin_grammar\n@\\grammarterm{statement}@ : email@example\n#+end_grammar\n")))
     (should (string-match-p "\\\\begin{wgblock}{ncbnf}" latex))
-    (should (string-match-p (regexp-quote "@\\grammarterm{statement}@") latex))))
+    (should (string-match-p
+             (regexp-quote "\\grammarterm{statement} : email@example") latex))
+    (should-not (string-match-p (regexp-quote "@\\grammarterm{statement}@") latex))
+    (should-not (string-match-p (regexp-quote "@\\atsign@") latex))))
 
 (ert-deftest latex-specgen-code-block-is-raw ()
   (let ((latex (ox-wg21latex-test-export
@@ -222,6 +225,12 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
     (should (string-match-p (regexp-quote "\\caption{\\label{tbl}Cap}") latex))
     (should (string-match-p (regexp-quote "\\toprule") latex))
     (should (string-match-p (regexp-quote "See \\ref{tbl}.") latex))))
+
+(ert-deftest latex-table-safe-vertical-bars-expand-inside-code ()
+  (let ((latex (ox-wg21latex-test-export
+                "| =v\\vert{}ranges= | ~a\\vert{}b~ |\n")))
+    (should (string-match-p (regexp-quote "\\texttt{v|ranges}") latex))
+    (should (string-match-p (regexp-quote "\\texttt{a|b}") latex))))
 
 (ert-deftest latex-wording-change-links ()
   (let ((latex (ox-wg21latex-test-export "a [[insert:][new]] b [[delete:][old]]")))
@@ -283,9 +292,19 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
 
 (ert-deftest latex-raw-code-escapes-literal-at-signs-for-listings ()
   (let ((latex (ox-wg21latex-test-export
-                "#+begin_codeblock\nputs(\"mail@\\n\");\n#+end_codeblock\n")))
+                (concat "#+begin_codeblock\n"
+                        "puts(\"mail@\\n\");\n"
+                        "out << \"@\\n{\";\n"
+                        "auto a = u8\"@\\u{00E9}\";\n"
+                        "auto b = U'@\\N{LATIN SMALL LETTER A}';\n"
+                        "std::format(\"@\\t{}\", x);\n"
+                        "#+end_codeblock\n"))))
     (should (string-match-p
-             (regexp-quote "puts(\"mail@\\atsign@\\n\");") latex))))
+             (regexp-quote "puts(\"mail@\\atsign@\\n\");") latex))
+    (dolist (code '("@\\n{" "@\\u{00E9}" "@\\N{LATIN SMALL LETTER A}" "@\\t{}"))
+      (should (string-match-p
+               (regexp-quote (concat "@\\atsign@" (substring code 1)))
+               latex)))))
 
 (ert-deftest latex-raw-code-local-sref-uses-the-headline-label ()
   (let ((latex (ox-wg21latex-test-export
@@ -414,7 +433,7 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
                                  "void f(@\\added{x}\\removed{@\\emph{y}@}@);\n"
                                  "puts(\"mail@\\n\");\n"
                                  "#+end_codeblock\n")
-                         "#+begin_grammar\n@\\grammarterm{statement}@\n#+end_grammar\n"
+                         "#+begin_grammar\n@\\grammarterm{statement}@ : email@example\n#+end_grammar\n"
                          ox-wg21latex-test-cmptbl)))
          (dir (make-temp-file "ox-wg21latex-test" t))
          (default-directory (file-name-as-directory dir)))

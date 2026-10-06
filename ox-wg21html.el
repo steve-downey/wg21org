@@ -152,6 +152,15 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
       contents
     (org-html-plain-list plain-list contents info)))
 
+(defun wg21-html-code (code contents info)
+  "Export CODE, expanding table-safe vertical bars."
+  (org-html-code (wg21-code-expand-table-vertical-bars code) contents info))
+
+(defun wg21-html-verbatim (verbatim contents info)
+  "Export VERBATIM, expanding table-safe vertical bars."
+  (org-html-verbatim
+   (wg21-code-expand-table-vertical-bars verbatim) contents info))
+
 (defun wg21-html-nonnormative (block type contents)
   "Export a note-like BLOCK of TYPE containing CONTENTS."
   (let* ((unnumbered (wg21-block-flag-p block "unnumbered"))
@@ -842,6 +851,8 @@ INFO is a plist holding export options."
     (:html-wrap-src-lines nil nil org-html-wrap-src-lines))
 
   :translate-alist '((special-block . my-html-special-block)
+                     (code . wg21-html-code)
+                     (verbatim . wg21-html-verbatim)
                      (item . wg21-html-item)
                      (plain-list . wg21-html-plain-list)
                      (table . wg21-html-table)
