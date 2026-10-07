@@ -41,6 +41,7 @@
 \providecolor{remclr}{rgb}{.75,0,0}
 \providecommand{\added}[1]{\textcolor{addclr}{\uline{#1}}}
 \providecommand{\removed}[1]{\textcolor{remclr}{\sout{#1}}}
+\providecommand{\wgmark}[1]{{\setlength{\fboxsep}{1pt}\colorbox{yellow}{#1}}}
 \@ifundefined{addedblock}{\newenvironment{addedblock}{\color{addclr}}{}}{}
 \@ifundefined{removedblock}{\newenvironment{removedblock}{\color{remclr}}{}}{}
 
@@ -59,12 +60,29 @@
      \def\wg@blockend{}}
     {\def\wg@blockend{\end{#1}}\begin{#1}}}
   {\wg@blockend}
+\providecommand{\wgsetcounterifdefined}[2]{%
+  \@ifundefined{c@#1}{}{\setcounter{#1}{#2}}}
 
 %% Footnotes.  The working draft's macros (stdtex/macros.tex, from
 %% common.tex) replace the \footnote command with a footnote
 %% environment; use whichever the document has.
 \providecommand{\wgfootnote}[1]{%
   \@ifundefined{endfootnote}{\footnote{#1}}{\begin{footnote}#1\end{footnote}}}
+
+%% Explicit paragraph labels are needed for edits (`x', `x+1') and for
+%% quoting an existing paragraph without changing every number around it.
+\providecommand{\wgexplicitpnum}[1]{%
+  \noindent\makebox[0pt][l]{\makebox[0pt][r]{%
+    \scriptsize\raisebox{.7ex}{[#1]}\quad}}\ignorespaces}
+
+%% Note-like blocks outside draft wording, and editorial/drafting notes.
+%% \color, unlike \textcolor, does not leave vertical mode itself; a colour
+%% whatsit on the vertical list would let a page break follow a heading.
+\providecommand{\wgnonnormative}[2]{[\textit{#1:} #2\textit{ --- end #1}]}
+\providecommand{\wgednote}[2][]{%
+  \leavevmode{\color{blue}[\textit{Editor's note\if\relax\detokenize{#1}\relax\else\ for #1\fi:} #2]}}
+\providecommand{\wgdraftnote}[2][]{%
+  \leavevmode{\color{blue}[\textit{Drafting note\if\relax\detokenize{#1}\relax\else\ for #1\fi:} #2]}}
 
 %% The table of contents, without memoir's own entry for it in itself;
 %% only memoir has the starred form.
@@ -84,20 +102,21 @@
   {\setcounter{chapter}{\value{wgscratchChapter}}%
    \settocdepth{section}}
 
-%% Comparison tables: before and after columns of equal width, as a
-%% longtable so a long table breaks between rows, with its header row
-%% repeated on each page.
+%% Comparison tables, as a longtable so a long table breaks between rows,
+%% with its header row repeated on each page.  The exporter supplies the
+%% number of columns and their width-aware longtable specification.
 \newlength{\wgcmptblgap}
 \setlength{\wgcmptblgap}{1.5em}
-\newlength{\wgcmptblcol}
-\newenvironment{wgcmptbl}
-  {\setlength{\wgcmptblcol}{\dimexpr(\linewidth-\wgcmptblgap)/2\relax}%
+\newlength{\wgcmptblgaps}
+\newenvironment{wgcmptbl}[2]
+  {\setlength{\wgcmptblgaps}{#1\wgcmptblgap}%
+   \addtolength{\wgcmptblgaps}{-\wgcmptblgap}%
    \setlength{\LTpre}{\medskipamount}%
    \setlength{\LTpost}{\medskipamount}%
    \let\wg@pagebreak\pagebreak
    \let\wg@nopagebreak\nopagebreak
    \let\wg@newpage\newpage
-   \begin{longtable}{@{}p{\wgcmptblcol}@{\hspace{\wgcmptblgap}}p{\wgcmptblcol}@{}}}
+   \begin{longtable}{#2}}
   {\end{longtable}}
 %% A cell.  longtable redefines \pagebreak, \nopagebreak and \newpage
 %% to act between rows, and a breakable code box calls them from inside

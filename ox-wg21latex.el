@@ -42,6 +42,9 @@
 (require 'wg21-front
          (expand-file-name "wg21-front"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-code
+         (expand-file-name "wg21-code"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 ;; Loaded when present; the export falls back to plain verbatim code.
 (require 'engrave-faces nil t)
@@ -56,18 +59,107 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
     (cond
      ((string= type "cmptbl") (wg21-latex-cmptbl special-block info))
      ((string= type "pnum")
-      (concat "\\pnum\n" contents))
+      (let ((label (or (wg21-pnum-resolved-label special-block) "?"))
+            (anchor (or (wg21-pnum-anchor special-block) "pnum")))
+        (format "\\hypertarget{%s}{}\\wgexplicitpnum{%s}\n%s"
+                anchor label contents)))
+     ((member type '("note" "example" "ednote" "draftnote"))
+      (wg21-latex-nonnormative special-block type contents))
      ((member type '("codeblock" "itemdecl"))
       ;; listings environments find their end marker by scanning the input;
       ;; hiding it behind wgblock makes the first block consume the paper.
       (format "\\begin{%s}\n%s\\end{%s}\n"
               type
-              (replace-regexp-in-string
-               "\\\\ref{\\([^}]+\\)}" "[\\1]"
-               (wg21-special-block-raw-contents special-block))
+              (wg21-latex-code-markup
+               (wg21-code-markup-parse
+                (wg21-special-block-raw-contents special-block)) info nil t)
               type))
+     ((string= type "grammar")
+      (format "\\begin{wgblock}{ncbnf}\n%s\\end{wgblock}\n"
+              (wg21-latex-code-markup
+               (wg21-code-markup-parse
+                (wg21-special-block-raw-contents special-block)) info t nil)))
      (t (wg21-latex--guard-environment
          type (org-latex-special-block special-block contents info))))))
+
+(defun wg21-latex-code-markup (nodes info &optional tex-mode escape-at)
+  "Render parsed raw code NODES as draft LaTeX using export INFO.
+TEX-MODE omits listings escape delimiters.  ESCAPE-AT quotes literal at-signs
+for a listings environment whose escape character is @."
+  (mapconcat
+   (lambda (node)
+     (cond
+      ((and (stringp node) escape-at)
+       (replace-regexp-in-string
+        "@" (if tex-mode "\\atsign{}" "@\\atsign@") node t t))
+      ((stringp node) node)
+      ((eq (car node) 'wg21-code-raw)
+       (let ((latex (wg21-latex-code-markup (nth 2 node) info t escape-at)))
+         (if tex-mode latex (concat "@" latex "@"))))
+      (t
+       (let* ((command (nth 1 node))
+              (arguments (nth 2 node))
+              (render (lambda (index)
+                        (wg21-latex-code-markup
+                         (nth index arguments) info t escape-at)))
+              (escape (lambda (latex)
+                        (if tex-mode latex (concat "@" latex "@")))))
+         (pcase command
+           ("ref" (format "[%s]" (funcall render 0)))
+           ("sref"
+            (let ((name (funcall render 0)))
+              (funcall escape
+                       (if (wg21-local-stable-name-p name info)
+                           (format "\\hyperref[%s]{[%s]}" name name)
+                         (format "\\href{%s}{[%s]}"
+                                 (wg21-stable-name-href name info) name)))))
+           ("replace"
+            (concat (funcall escape (format "\\removed{%s}" (funcall render 0)))
+                    (funcall escape (format "\\added{%s}" (funcall render 1)))))
+           ("mark" (funcall escape (format "\\wgmark{%s}" (funcall render 0))))
+           ("emph" (funcall escape (format "\\textit{%s}" (funcall render 0))))
+           ("math" (funcall escape (format "$%s$" (funcall render 0))))
+           (_ (funcall
+               escape
+               (format "\\%s%s" command
+                       (if arguments
+                           (mapconcat (lambda (argument)
+                                        (format "{%s}"
+                                                (wg21-latex-code-markup
+                                                 argument info t escape-at)))
+                                      arguments "")
+                         "{}")))))))))
+   nodes ""))
+
+(defun wg21-latex-pnum-marker (element)
+  "Return ELEMENT's paragraph number and hyperlink target."
+  (format "\\hypertarget{%s}{}\\wgexplicitpnum{%s}\n"
+          (or (wg21-pnum-anchor element) "pnum")
+          (or (wg21-pnum-resolved-label element) "?")))
+
+(defun wg21-latex-item (item contents info)
+  "Export paragraph-numbered ITEM, otherwise use the ordinary exporter."
+  (if (not (org-element-property :WG21_PNUM item))
+      (org-latex-item item contents info)
+    (if (org-element-property :WG21_PNUM_TOP item)
+        (concat (wg21-latex-pnum-marker item) contents "\n")
+      (concat "\\item " (wg21-latex-pnum-marker item) contents "\n"))))
+
+(defun wg21-latex-plain-list (plain-list contents info)
+  "Flatten a top-level paragraph-numbered PLAIN-LIST."
+  (if (seq-some (lambda (item) (org-element-property :WG21_PNUM_TOP item))
+                (org-element-contents plain-list))
+      contents
+    (org-latex-plain-list plain-list contents info)))
+
+(defun wg21-latex-code (code contents info)
+  "Export CODE, expanding table-safe vertical bars."
+  (org-latex-code (wg21-code-expand-table-vertical-bars code) contents info))
+
+(defun wg21-latex-verbatim (verbatim contents info)
+  "Export VERBATIM, expanding table-safe vertical bars."
+  (org-latex-verbatim
+   (wg21-code-expand-table-vertical-bars verbatim) contents info))
 
 (defun wg21-latex--guard-environment (name latex)
   "Set LATEX, the environment NAME, in a wgblock environment.
@@ -85,27 +177,59 @@ options after \\begin{NAME} is left as it is."
                 (match-string 1 latex))
       latex)))
 
+(defun wg21-latex-nonnormative (block type contents)
+  "Export a note-like BLOCK of TYPE containing CONTENTS."
+  (let ((unnumbered (wg21-block-flag-p block "unnumbered"))
+        (number (wg21-block-option block "number"))
+        (audience (wg21-block-option block "audience")))
+    (cond
+     ((member type '("ednote" "draftnote"))
+      ;; The braces keep a ] in the audience from ending the option.
+      (format "\\wg%s%s{%s}\n" type
+              (if audience
+                  (format "[{%s}]" (org-latex-plain-text audience nil))
+                "")
+              contents))
+     (unnumbered
+      (format "\\wgnonnormative{%s}{%s}\n" (capitalize type) contents))
+     (t
+      (concat (and number
+                   (format "\\wgsetcounterifdefined{%s}{%d}\n" type (1- (string-to-number number))))
+              (format "\\begin{wgblock}{%s}\n%s\\end{wgblock}\n" type contents))))))
+
 (defun wg21-latex-headline (headline contents info)
   "Export HEADLINE, wrapping a generated wording root around its subtree."
-  (let ((latex (org-latex-headline headline contents info)))
-    (if (org-element-property :WG21_WORDING headline)
-        (concat "\\begin{wgwording}\n" latex "\\end{wgwording}\n")
-      latex)))
+  (let ((wg21-code-current-cpp-keywords (plist-get info :wg21-cpp-keywords))
+        (latex nil))
+    (setq latex (org-latex-headline headline contents info))
+    (when (org-element-property :WG21_WORDING headline)
+      (setq latex (concat "\\begin{wgwording}\n" latex "\\end{wgwording}\n")))
+    (when (equal (org-element-property :WG21_CHANGE headline) "add")
+      (setq latex (concat "\\begin{addedblock}\n" latex "\\end{addedblock}\n")))
+    latex))
 
 (defun wg21-latex-table (table contents info)
   "Export TABLE, applying target-neutral WG21 column proportions."
   (let ((widths (wg21-table-columns table)))
     (if (not widths)
         (org-latex-table table contents info)
-      (let ((copy (org-element-copy table)))
-        (org-element-put-property
-         copy :attr_latex
-         (list (concat ":environment longtable :align @{}"
-                       (mapconcat (lambda (width)
-                                    (format "p{.%s\\linewidth}" width))
-                                  widths "")
-                       "@{}")))
-        (org-latex-table copy contents info)))))
+      (let* ((original (org-element-property :attr_latex table))
+             (override
+              (concat ":environment longtable :align @{}"
+                      (mapconcat
+                       (lambda (width)
+                         (format "p{%.2f\\linewidth}"
+                                 (/ (string-to-number width) 100.0)))
+                       widths "")
+                      "@{}")))
+        (unwind-protect
+            (progn
+              ;; Keep TABLE itself so Org's reference cache and author-supplied
+              ;; ATTR_LATEX options still apply.  First occurrence wins.
+              (org-element-put-property table :attr_latex
+                                        (cons override original))
+              (org-latex-table table contents info))
+          (org-element-put-property table :attr_latex original))))))
 
 ;;; Wording
 
@@ -129,7 +253,21 @@ is nil.  INFO is the export plist."
                 environment code
                 (if (string-suffix-p "\n" code) "" "\n")
                 environment))
-    (org-latex-src-block src-block contents info)))
+    (let ((wg21-code-current-cpp-keywords (plist-get info :wg21-cpp-keywords))
+          (info (if (wg21-code-raw-p src-block)
+                    (plist-put (copy-sequence info) :latex-src-block-backend 'verbatim)
+                  info)))
+      (org-latex-src-block src-block contents info))))
+
+(defun wg21-latex-inline-src-block (inline-src-block contents info)
+  "Transcode INLINE-SRC-BLOCK with WG21 code defaults and keywords.
+CONTENTS and INFO have their usual Org exporter meanings."
+  (let ((org-babel-default-inline-header-args
+         (wg21-code-inline-header-args))
+        (wg21-code-current-cpp-keywords
+         (or (plist-get info :wg21-cpp-keywords)
+             wg21-code-current-cpp-keywords)))
+    (org-latex-inline-src-block inline-src-block contents info)))
 
 ;;; Comparison tables
 
@@ -143,7 +281,9 @@ breakable code box sit in a longtable cell.  COLUMNS is the width of
 the table.  INFO is the export plist."
   (let ((cells (mapcar (lambda (cell)
                          (format "\\begin{wgcmptblcell}\n%s\n\\end{wgcmptblcell}"
-                                 (org-trim (org-export-data (org-element-contents cell) info))))
+                                 (org-trim
+                                  (org-export-data
+                                   (wg21-cmptbl-cell-contents cell) info))))
                        row)))
     (mapconcat #'identity
                (append cells (make-list (max 0 (- columns (length cells))) ""))
@@ -173,18 +313,49 @@ COLUMNS is the width of the table.  INFO is the export plist."
   "Transcode the comparison table CMPTBL into a wgcmptbl environment.
 INFO is a plist holding export options."
   (let* ((rows (wg21-cmptbl-rows cmptbl))
-         (columns (apply #'max 2 (mapcar (lambda (row)
-                                           (if (wg21-cmptbl-cell-p (car row)) (length row) 1))
-                                         rows)))
-         (head (and (wg21-cmptbl-header-p (car rows)) (pop rows)))
+         (headers (wg21-cmptbl-headers cmptbl))
+         (given-widths (wg21-cmptbl-widths cmptbl))
+         (columns (apply #'max (if headers (length headers) 2)
+                         (mapcar (lambda (row)
+                                   (if (wg21-cmptbl-any-cell-p (car row)) (length row) 1))
+                                 rows)))
+         (widths (or given-widths
+                     (let* ((width (/ 100 columns))
+                            (last (- 100 (* width (1- columns)))))
+                       (append (make-list (1- columns) (number-to-string width))
+                               (list (number-to-string last))))))
+         (head (and (not headers) (wg21-cmptbl-header-p (car rows)) (pop rows)))
+         (caption (org-export-get-caption cmptbl))
+         (column-spec
+          (concat "@{}"
+                  (mapconcat
+                   (lambda (width)
+                     (format "p{\\dimexpr \\linewidth/100*%s-\\wgcmptblgaps/100*%s\\relax}"
+                             width width))
+                   widths
+                   "@{\\hspace{\\wgcmptblgap}}")
+                  "@{}"))
          (body (delq nil
                      (mapcar (lambda (row)
-                               (if (wg21-cmptbl-cell-p (car row))
+                               (if (wg21-cmptbl-any-cell-p (car row))
                                    (wg21-latex--cmptbl-cells row columns info)
                                  (wg21-latex--cmptbl-note row columns info)))
                              rows))))
+    (when (and given-widths (/= (length given-widths) columns))
+      (user-error "Comparison table has %d columns but %d widths"
+                  columns (length given-widths)))
     (concat
-     "\\begin{wgcmptbl}\n\\toprule\n"
+     (format "\\begin{wgcmptbl}{%d}{%s}\n" columns column-spec)
+     (and caption
+          (format "\\caption{%s} \\\\\n" (org-export-data caption info)))
+     "\\toprule\n"
+     (and headers
+          (concat
+           (mapconcat (lambda (header)
+                        (format "\\multicolumn{1}{c}{\\textbf{%s}}"
+                                (org-latex-plain-text header info)))
+                      headers " & ")
+           " \\\\\n\\midrule\n\\endhead\n"))
      (when head
        (concat (wg21-latex--cmptbl-head head columns info)
                " \\\\\n\\midrule\n\\endhead\n"))
@@ -309,6 +480,7 @@ prolog is already there.  INFO is the export plist; return it."
                           (format "^[ \t]*\\\\\\(?:include\\|input\\){%s\\(?:\\.tex\\)?}[ \t]*\n?"
                                   (regexp-quote name))
                           "" (or (plist-get info :latex-header) ""))))))
+  (wg21-cite-default-options info)
   info)
 
 (defun wg21-latex--preamble (info)
@@ -455,23 +627,35 @@ the #+TOC keyword."
     (:wg21-latex-prolog "WG21_LATEX_PROLOG" nil wg21-latex-prolog t)
     (:latex-class "LATEX_CLASS" nil wg21-latex-class t)
     (:latex-class-options "LATEX_CLASS_OPTIONS" nil wg21-latex-class-options t)
+    (:latex-prefer-user-labels nil nil t)
     ;; Only an address the paper gives, not the exporting user's.
     (:email "EMAIL" nil "" t)
     ;; Code set as in the editor; see `wg21-latex-engraved-theme'.
     (:latex-src-block-backend nil nil
      (if (featurep 'engrave-faces) 'engraved org-latex-src-block-backend))
     (:latex-engraved-theme "LATEX_ENGRAVED_THEME" nil wg21-latex-engraved-theme)
+    (:wg21-code-language "WG21_CODE_LANGUAGE" nil wg21-code-language nil)
+    (:wg21-cpp-keywords "WG21_CPP_KEYWORDS" nil nil split)
     (:wg21-toc-command nil nil wg21-toc-command))
 
   :translate-alist '((special-block . my-latex-special-block)
+                     (code . wg21-latex-code)
+                     (verbatim . wg21-latex-verbatim)
+                     (item . wg21-latex-item)
+                     (plain-list . wg21-latex-plain-list)
                      (headline . wg21-latex-headline)
                      (table . wg21-latex-table)
                      (src-block . wg21-latex-src-block)
+                     (inline-src-block . wg21-latex-inline-src-block)
                      (footnote-reference . wg21-latex-footnote-reference)
                      (template . my-wg21-latex-template))
 
   :filters-alist '((:filter-options . wg21-latex-filter-options)
-                   (:filter-parse-tree . (wg21-seed-headline-references
+                   (:filter-parse-tree . (wg21-code-apply-default-language
+                                          wg21-cite-add-bibliography
+                                          wg21-resolve-paragraph-numbers
+                                          wg21-seed-headline-references
+                                          wg21-cite-diagnose-paper-revisions
                                           wg21-cite-drop-empty-bibliography)))
 
   :menu-entry '(?w "WG21 Papers"
@@ -614,6 +798,8 @@ Export is done in a buffer named \"*Org WG21 LaTeX Export*\", which
 will be displayed when `org-export-show-temporary-export-buffer'
 is non-nil."
   (interactive)
+  (when (fboundp 'wg21org-enable-transclusion)
+    (wg21org-enable-transclusion))
   (org-export-to-buffer 'wg21-latex "*Org WG21 LaTeX Export*"
     async subtreep visible-only body-only ext-plist (lambda () (if (fboundp 'LaTeX-mode) (LaTeX-mode) (latex-mode)))))
 
@@ -656,6 +842,8 @@ EXT-PLIST, when provided, is a property list with external
 parameters overriding Org default settings, but still inferior to
 file-local settings."
   (interactive)
+  (when (fboundp 'wg21org-enable-transclusion)
+    (wg21org-enable-transclusion))
   (let ((outfile (org-export-output-file-name ".tex" subtreep)))
     (org-export-to-file 'wg21-latex outfile
       async subtreep visible-only body-only ext-plist)))
@@ -690,6 +878,8 @@ file-local settings.
 
 Return PDF file's name."
   (interactive)
+  (when (fboundp 'wg21org-enable-transclusion)
+    (wg21org-enable-transclusion))
   (let ((outfile (org-export-output-file-name ".tex" subtreep)))
     (org-export-to-file 'wg21-latex outfile
       async subtreep visible-only body-only ext-plist

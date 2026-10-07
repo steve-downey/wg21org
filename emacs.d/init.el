@@ -254,7 +254,14 @@ This is a spin off https://stackoverflow.com/a/66911315/519827, but REFRESH is s
 
 
 (use-package org-transclusion
-  :after org)
+  :ensure nil
+  :load-path "../packages/org-transclusion"
+  :after org
+  :init
+  (setq org-transclusion-extensions '(org-transclusion-src-lines))
+  :bind (:map
+         org-mode-map
+         ("C-c C-x T" . org-transclusion-mode)))
 
 (use-package engrave-faces
   :init

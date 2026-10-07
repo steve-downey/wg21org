@@ -385,7 +385,7 @@ qplot(speed, dist, data = cars) + geom_smooth()
 
 ** Inline code
 
-You can also evaluate code inline as follows: 1 + 1 is src_R{1 + 1}.
+You can also evaluate code inline as follows: 1 + 1 is src_R[:exports results :eval yes]{1 + 1}.
 
 ** Notes at the footer
 

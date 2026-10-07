@@ -1,0 +1,4 @@
+[submodule "packages/org-transclusion"]
+	path = packages/org-transclusion
+	url = https://github.com/nobiot/org-transclusion.git
+	branch = main

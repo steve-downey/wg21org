@@ -14,6 +14,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'package)
 
 (setq package-user-dir
@@ -40,6 +41,66 @@
 (require 'ox-html)
 (require 'htmlize)
 (require 'engrave-faces)
+
+;; Keep org-transclusion at a known upstream revision.  The src-lines
+;; extension supplies the :src, :lines, and :end syntax emitted by surround.
+(defconst wg21org-root-directory
+  (file-name-directory (directory-file-name user-emacs-directory))
+  "Root of the wg21org exporter checkout.")
+(defconst wg21org-org-transclusion-directory
+  (expand-file-name "packages/org-transclusion" wg21org-root-directory)
+  "Pinned org-transclusion submodule used by batch export.")
+(unless (file-exists-p
+         (expand-file-name "org-transclusion.el"
+                           wg21org-org-transclusion-directory))
+  (error "org-transclusion is missing; run: git submodule update --init packages/org-transclusion"))
+(add-to-list 'load-path wg21org-org-transclusion-directory)
+(setq org-transclusion-extensions '(org-transclusion-src-lines))
+(require 'org-transclusion)
+
+(defun wg21org-enable-transclusion ()
+  "Materialize every transclusion in the current Org buffer, or fail.
+
+`org-transclusion-add-all' deliberately continues after a bad link for
+interactive use.  Export must be stricter: a stale UUID must not silently
+remove an example from a paper.
+
+Calling this again in the same buffer, as when exporting HTML and then
+LaTeX in one session, first removes the earlier transclusions so their
+keywords are counted and materialized afresh from the current sources."
+  (when (derived-mode-p 'org-mode)
+    (when (bound-and-true-p org-transclusion-mode)
+      (org-transclusion-mode -1))
+    (let ((case-fold-search t)
+          (expected
+           (length
+            (delq
+             nil
+             (org-element-map (org-element-parse-buffer) 'keyword
+               (lambda (keyword)
+                 (when (string-equal-ignore-case
+                        (org-element-property :key keyword) "transclude")
+                   (save-excursion
+                     (goto-char (org-element-property :begin keyword))
+                     (unless (plist-get
+                              (org-transclusion-keyword-string-to-plist)
+                              :disable-auto)
+                       t)))))))))
+      ;; org-transclusion normally calls `org-indent-region' after insertion.
+      ;; For source transclusions that also invokes the language indenter and
+      ;; changes the spelling shown in the paper.  These directives are at
+      ;; column zero, so insertion needs no Org indentation adjustment.
+      (cl-letf (((symbol-function 'org-indent-region)
+                 (lambda (&rest _) nil)))
+        (org-transclusion-mode +1))
+      (let ((materialized
+             (seq-count
+              (lambda (overlay)
+                (eq (overlay-get overlay 'face) 'org-transclusion))
+              (overlays-in (point-min) (point-max)))))
+        (unless (= expected materialized)
+          (error "Materialized %d of %d transclusions in %s; check file paths and UUID markers"
+                 materialized expected (or buffer-file-name (buffer-name))))))))
 
 ;; Source blocks are fontified by their major mode, so code faces
 ;; follow the editor: rainbow-delimiters colours brackets by depth.
@@ -80,6 +141,7 @@
         modus-themes-italic-constructs t)
   (load-theme 'modus-operandi-tinted t))
 
+(setq org-adapt-indentation nil)
 (setq org-src-preserve-indentation t)
 (setq org-src-fontify-natively t)
 

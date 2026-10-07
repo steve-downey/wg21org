@@ -28,6 +28,8 @@
 ;;; Code:
 
 (require 'org-element)
+(require 'cl-lib)
+(require 'seq)
 (defun wg21--headline-slug (headline info)
   "Return a readable anchor derived from HEADLINE's title.
 INFO is the current export state.  The spelling follows Pandoc's
@@ -83,6 +85,16 @@ names.  Repeated derived names receive -2, -3, and so on."
             ancestor (org-element-parent ancestor)))
     found))
 
+(defun wg21-raw-code-block-p (element)
+  "Non-nil if ELEMENT is inside a raw WG21 code or grammar block."
+  (let ((ancestor (org-element-parent element)) found)
+    (while (and ancestor (not found))
+      (setq found (and (eq (org-element-type ancestor) 'special-block)
+                       (member (downcase (org-element-property :type ancestor))
+                               '("codeblock" "itemdecl" "grammar")))
+            ancestor (org-element-parent ancestor)))
+    found))
+
 (defun wg21-special-block-raw-contents (block)
   "Return BLOCK's contents exactly as written, without Org interpretation."
   (let ((begin (org-element-property :contents-begin block))
@@ -91,15 +103,328 @@ names.  Repeated derived names receive -2, -3, and so on."
         (buffer-substring-no-properties begin end)
       "")))
 
+(defconst wg21-code-markup-commands
+  '(("added" . 1) ("removed" . 1) ("replace" . 2) ("mark" . 1)
+    ("emph" . 1) ("math" . 1) ("sref" . 1)
+    ("exposid" . 1) ("exposidnc" . 1) ("placeholder" . 1)
+    ("grammarterm" . 1) ("terminal" . 1) ("libconcept" . 1) ("tcode" . 1)
+    ("seebelow" . 0) ("impdef" . 0) ("impdefnc" . 0) ("unspec" . 0)
+    ("atsign" . 0))
+  "Balanced escapes recognized inside raw WG21 code blocks.")
+
+(defun wg21-code-markup--braced (text start &optional base-offset stop-at-newline)
+  "Read one balanced braced argument in TEXT at START.
+When STOP-AT-NEWLINE is non-nil, an argument cannot cross a line boundary."
+  (unless (and (< start (length text)) (= (aref text start) ?{))
+    (user-error "WG21 code escape at offset %d needs a braced argument"
+                (+ (or base-offset 0) start)))
+  (let ((depth 1) (position (1+ start)) stopped)
+    (while (and (> depth 0) (not stopped) (< position (length text)))
+      (pcase (aref text position)
+        (?{ (setq depth (1+ depth)))
+        (?} (setq depth (1- depth)))
+        (?\n (when stop-at-newline (setq stopped t))))
+      (setq position (1+ position)))
+    (unless (= depth 0)
+      (user-error "Unclosed WG21 code escape argument at offset %d"
+                  (+ (or base-offset 0) start)))
+    (cons (substring text (1+ start) (1- position)) position)))
+
+(defun wg21-code-markup--arguments (text start base-offset raw-context)
+  "Parse any braced arguments in TEXT from START.
+Return (ARGUMENTS . END), or nil when an unknown macro is not balanced."
+  (condition-case nil
+      (let ((cursor start) arguments)
+        (while (and (< cursor (length text)) (= (aref text cursor) ?{))
+          (let ((argument (wg21-code-markup--braced
+                           text cursor base-offset t)))
+            (push (wg21-code-markup-parse
+                   (car argument) (+ base-offset cursor 1) raw-context)
+                  arguments)
+            (setq cursor (cdr argument))))
+        (cons (nreverse arguments) cursor))
+    (user-error nil)))
+
+(defun wg21-code-markup--close (text start)
+  "Return the position of the escape-closing @ in TEXT after START, or nil.
+An @ inside braces or brackets belongs to a nested escape and does not close.
+An escape cannot continue onto another code line or consume a new top-level
+escape opener."
+  (let ((brace-depth 0) (bracket-depth 0) (position start) found stopped)
+    (while (and (not found) (not stopped) (< position (length text)))
+      (pcase (aref text position)
+        (?{ (setq brace-depth (1+ brace-depth)))
+        (?} (setq brace-depth (max 0 (1- brace-depth))))
+        (?\[ (setq bracket-depth (1+ bracket-depth)))
+        (?\] (setq bracket-depth (max 0 (1- bracket-depth))))
+        (?\n (setq stopped t))
+        (?@ (when (and (= brace-depth 0) (= bracket-depth 0))
+              (if (and (< (1+ position) (length text))
+                       (= (aref text (1+ position)) ?\\))
+                  (setq stopped t)
+                (setq found position)))))
+      (setq position (1+ position)))
+    found))
+
+(defun wg21-code-markup-parse (text &optional base-offset raw-context)
+  "Parse balanced draft escapes in raw code TEXT.
+Nodes have the form (wg21-code COMMAND ARGUMENTS); ordinary text remains a
+string.  Unlike the old regex substitutions, arguments may contain braces or
+nested escapes.  An escape that does not take the shape \\cmd{...}...@,
+such as one with an optional argument or several macros, is kept as
+(wg21-code-raw LATEX NODES), where LATEX is the original text between the
+@ delimiters and NODES parses any nested escapes inside it."
+  (let ((position 0) (base-offset (or base-offset 0)) nodes)
+    (while (string-match
+            (if raw-context
+                "@\\\\\\([[:alpha:]]+\\)"
+              "@\\\\\\([[:alpha:]]+\\)\\|\\\\ref{")
+            text position)
+      (let ((start (match-beginning 0)))
+        (when (> start position)
+          (push (substring text position start) nodes))
+        (if (string-prefix-p "\\ref{" (match-string 0 text))
+            (let* ((argument (wg21-code-markup--braced
+                              text (+ start 4) base-offset)))
+              (push (list 'wg21-code "ref"
+                          (list (wg21-code-markup-parse
+                                 (car argument) (+ base-offset start 5)
+                                 raw-context)))
+                    nodes)
+              (setq position (cdr argument)))
+          (let* ((command (match-string 1 text))
+                 (entry (assoc command wg21-code-markup-commands))
+                 (cursor (match-end 0)))
+            (if entry
+                (let (arguments)
+                  (dotimes (_ (cdr entry))
+                    (let ((argument (wg21-code-markup--braced
+                                     text cursor base-offset)))
+                      (push (wg21-code-markup-parse
+                             (car argument) (+ base-offset cursor 1)
+                             raw-context)
+                            arguments)
+                      (setq cursor (cdr argument))))
+                  (if (and (< cursor (length text)) (= (aref text cursor) ?@))
+                      (progn
+                        (push (list 'wg21-code command (nreverse arguments))
+                              nodes)
+                        (setq position (1+ cursor)))
+                    ;; More LaTeX follows the arguments, as in
+                    ;; @\added{x}\removed{y}@: keep the escape verbatim.
+                    (let ((close (wg21-code-markup--close text cursor)))
+                      (unless close
+                        (user-error "WG21 code escape \\%s at offset %d lacks closing @"
+                                    command (+ base-offset start)))
+                      (let ((latex (substring text (1+ start) close)))
+                        (push (list 'wg21-code-raw latex
+                                    (wg21-code-markup-parse
+                                     latex (+ base-offset start 1) t))
+                              nodes))
+                      (setq position (1+ close)))))
+              ;; Unknown commands are arbitrary LaTeX.  Keep the common
+              ;; \cmd{...}...@ shape structured so nested escapes render,
+              ;; and keep anything else (optional arguments, several macros)
+              ;; verbatim.  A backend that cannot pass LaTeX through reports
+              ;; the escape when rendering it.
+              (let ((arguments (wg21-code-markup--arguments
+                                text cursor base-offset t)))
+                (if (and arguments
+                         (< (cdr arguments) (length text))
+                         (= (aref text (cdr arguments)) ?@))
+                    (progn
+                      (push (list 'wg21-code command (car arguments)) nodes)
+                      (setq position (1+ (cdr arguments))))
+                  (let ((close
+                         ;; With no argument or option, this is ordinary code
+                         ;; such as "mail@\\n", not an unbounded escape.
+                         (when (and (< cursor (length text))
+                                    (memq (aref text cursor) '(?{ ?\[)))
+                           (wg21-code-markup--close text cursor))))
+                    (if close
+                        (progn
+                          (let ((latex (substring text (1+ start) close)))
+                            (push (list 'wg21-code-raw latex
+                                        (wg21-code-markup-parse
+                                         latex (+ base-offset start 1) t))
+                                  nodes))
+                          (setq position (1+ close)))
+                      ;; An unknown @\\ sequence without a closing delimiter
+                      ;; is ordinary code, including C++ delimited escapes and
+                      ;; format strings such as @\\u{e9} and @\\t{}.
+                      (push "@" nodes)
+                      (setq position (1+ start)))))))))))
+    (when (< position (length text))
+      (push (substring text position) nodes))
+    (nreverse nodes)))
+
+(defun wg21-block-arguments (block)
+  "Return BLOCK's whitespace-separated parameters.
+Quoting follows ordinary Emacs command-line quoting, which is enough for
+values such as an editorial note's audience."
+  (split-string-and-unquote (or (org-element-property :parameters block) "")))
+
+(defun wg21-block-option (block name)
+  "Return option NAME from BLOCK's parameters, or nil.
+Both `:name value' and `name=value' are accepted."
+  (let ((args (wg21-block-arguments block)) value)
+    (while args
+      (let ((arg (pop args)))
+        (cond
+         ((string= arg (concat ":" name))
+          (setq value (pop args) args nil))
+         ((string-prefix-p (concat name "=") arg)
+          (setq value (substring arg (1+ (length name))) args nil)))))
+    value))
+
+(defun wg21-block-flag-p (block name)
+  "Non-nil when BLOCK has the flag NAME."
+  (member name (wg21-block-arguments block)))
+
+(defun wg21-pnum-label (block)
+  "Return BLOCK's explicit paragraph label, or nil for automatic numbering.
+The compact `#+begin_pnum x+1' form and `:number x+1' are equivalent."
+  (or (wg21-block-option block "number")
+      (seq-find (lambda (arg) (not (string-prefix-p ":" arg)))
+                (wg21-block-arguments block))))
+
+(defun wg21-pnum-resolved-label (block)
+  "Return BLOCK's export-time resolved paragraph label."
+  (or (org-element-property :WG21_PNUM block) (wg21-pnum-label block)))
+
+(defun wg21-pnum-anchor (block)
+  "Return BLOCK's export-time paragraph anchor."
+  (org-element-property :WG21_PNUM_ANCHOR block))
+
+(defun wg21-wording-scope (element)
+  "Return ELEMENT's nearest wording block or wording headline."
+  (let ((ancestor (org-element-parent element)) found)
+    (while (and ancestor (not found))
+      (when (or (and (eq (org-element-type ancestor) 'special-block)
+                     (string= (downcase (org-element-property :type ancestor))
+                              "wording"))
+                (and (eq (org-element-type ancestor) 'headline)
+                     (org-element-property :WG21_WORDING ancestor)))
+        (setq found ancestor))
+      (setq ancestor (org-element-parent ancestor)))
+    found))
+
+(defun wg21-pnum--resolve (label state)
+  "Resolve dotted LABEL against numbering STATE.
+Return (RESOLVED . NEW-STATE)."
+  (let* ((parts (split-string label "\\." nil))
+         (part-count (length parts))
+         (state (append (seq-take state part-count)
+                        (make-list (max 0 (- part-count (length state))) '(0))))
+         (index 0))
+    (dolist (part parts)
+      (let* ((old (or (nth index state) '(0)))
+             (previous (car old))
+             (previous-literal (cadr old))
+             (current previous)
+             literal)
+        (cond
+         ((string-match-p "\\`[0-9]+\\'" part)
+          (setq current (string-to-number part)))
+         ((string= part "#")
+          (when (or (= index (1- part-count)) (= current 0) previous-literal)
+            (setq current (1+ current))))
+         (t (setq literal part)))
+        (setf (nth index state) (list current literal))
+        (unless (and (= current previous) (equal literal previous-literal))
+          (let ((deeper (1+ index)))
+            (while (< deeper part-count)
+              (setf (nth deeper state) '(0))
+              (setq deeper (1+ deeper)))))
+        (setq index (1+ index))))
+    (cons (mapconcat (lambda (entry)
+                       (or (cadr entry) (number-to-string (car entry))))
+                     state ".")
+          state)))
+
+(defun wg21-pnum-list-mode-p (scope)
+  "Non-nil when SCOPE opts into paragraph-numbered Org lists."
+  (and scope
+       (if (eq (org-element-type scope) 'headline)
+           (org-element-property :WG21_PNUM_LISTS scope)
+         (string= (or (wg21-block-option scope "pnums") "") "lists"))))
+
+(defun wg21-pnum-list-item (item)
+  "Return (SCOPE PARENT-ITEM) when ITEM is a paragraph-numbered list item."
+  (let ((scope (wg21-wording-scope item))
+        (ancestor (org-element-parent item))
+        parent-item outer-list)
+    (when (wg21-pnum-list-mode-p scope)
+      (while (and ancestor (not (eq ancestor scope)))
+        (when (eq (org-element-type ancestor) 'item)
+          (unless parent-item (setq parent-item ancestor)))
+        (when (eq (org-element-type ancestor) 'plain-list)
+          (setq outer-list ancestor))
+        (setq ancestor (org-element-parent ancestor)))
+      (when (and outer-list
+                 (or (and parent-item
+                          (org-element-property :WG21_PNUM parent-item))
+                     (eq (org-element-property :type outer-list) 'ordered)))
+        (list scope parent-item)))))
+
+(defun wg21-resolve-paragraph-numbers (tree _backend _info)
+  "Resolve automatic paragraph labels and anchors in TREE."
+  (let ((states (make-hash-table :test #'eq))
+        (used (make-hash-table :test #'equal))
+        (serial 0))
+    (cl-labels
+        ((assign (element scope source-label &optional top)
+           (let* ((result (wg21-pnum--resolve source-label
+                                              (gethash scope states)))
+                 (label (car result))
+                 (stable-name (and scope
+                                   (eq (org-element-type scope) 'headline)
+                                   (org-element-property :CUSTOM_ID scope)))
+                 (base (if stable-name
+                           (format "%s-%s" stable-name label)
+                         (format "pnum-%d" (setq serial (1+ serial)))))
+                 (count (1+ (gethash base used 0)))
+                 (anchor (if (= count 1) base (format "%s-%d" base count))))
+            (puthash scope (cdr result) states)
+            (puthash base count used)
+            (org-element-put-property element :WG21_PNUM label)
+            (org-element-put-property element :WG21_PNUM_ANCHOR anchor)
+            (when top (org-element-put-property element :WG21_PNUM_TOP t)))))
+      (org-element-map tree '(special-block item)
+        (lambda (element)
+          (pcase (org-element-type element)
+            ('special-block
+             (when (string= (downcase (org-element-property :type element)) "pnum")
+               (assign element (wg21-wording-scope element)
+                       (or (wg21-pnum-label element) "#"))))
+            ('item
+             (when-let* ((context (wg21-pnum-list-item element)))
+               (let* ((scope (car context))
+                      (parent (cadr context))
+                      (component (if-let* ((counter (org-element-property
+                                                      :counter element)))
+                                     (number-to-string counter)
+                                   "#"))
+                      (label (if parent
+                                 (concat (org-element-property :WG21_PNUM parent)
+                                         "." component)
+                               component)))
+                 (assign element scope label (null parent)))))))))
+    tree))
+
+(defun wg21-local-stable-name-p (stable-name info)
+  "Non-nil when INFO's document defines STABLE-NAME as a CUSTOM_ID."
+  (org-element-map
+      (plist-get info :parse-tree) 'headline
+    (lambda (headline)
+      (equal stable-name (org-element-property :CUSTOM_ID headline)))
+    info t))
+
 (defun wg21-stable-name-href (stable-name info)
   "Return the HTML target for STABLE-NAME in export context INFO.
 Use a local CUSTOM_ID when this paper defines the stable name, and the
 current working draft otherwise."
-  (if (org-element-map
-          (plist-get info :parse-tree) 'headline
-        (lambda (headline)
-          (equal stable-name (org-element-property :CUSTOM_ID headline)))
-        info t)
+  (if (wg21-local-stable-name-p stable-name info)
       (concat "#" stable-name)
     (concat "https://eel.is/c++draft/" stable-name)))
 

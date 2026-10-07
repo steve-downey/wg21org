@@ -43,6 +43,9 @@
 (require 'wg21-front
          (expand-file-name "wg21-front"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-code
+         (expand-file-name "wg21-code"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 (defun my-html-special-block (special-block contents info)
   "Process my special block.  SPECIAL-BLOCK CONTENTS INFO.
@@ -53,32 +56,128 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
   (let ((type (org-element-property :type special-block)))
     (cond
      ((string= type "cmptbl") (wg21-html-cmptbl special-block info))
-     ((string= type "pnum")
-      (format "<div class=\"pnum\">%s</div>\n" contents))
-     ((member type '("codeblock" "itemdecl"))
+     ((string= type "pnum") (wg21-html-pnum special-block contents))
+     ((member type '("note" "example" "ednote" "draftnote"))
+      (wg21-html-nonnormative special-block type contents))
+     ((member type '("codeblock" "itemdecl" "grammar"))
       (wg21-html-raw-code-special-block special-block type info))
      (t (org-html-special-block special-block contents info)))))
 
 (defun wg21-html-raw-code-special-block (block type info)
-  "Export specgen BLOCK of TYPE as uninterpreted C++ code."
-  (let ((code (org-html-encode-plain-text
-               (wg21-special-block-raw-contents block))))
-    (dolist (macro '("exposid" "exposidnc" "placeholder"))
-      (setq code
-            (replace-regexp-in-string
-             (format "@\\\\%s{\\([^}]+\\)}@" macro)
-             "<var>\\1</var>" code)))
-    (setq code (replace-regexp-in-string "@\\\\seebelow@" "<var>see below</var>" code)
-          code (replace-regexp-in-string "@\\\\impdef@" "<var>implementation-defined</var>" code)
-          code (replace-regexp-in-string
-                "\\\\ref{\\([^}]+\\)}"
-                (lambda (match)
-                  (let ((name (match-string 1 match)))
-                    (format "<a href=\"%s\">[%s]</a>"
-                            (wg21-stable-name-href name info) name)))
-                code))
-    (format "<div class=\"%s\"><pre class=\"src src-C++\">%s</pre></div>\n"
-            type code)))
+  "Export specgen BLOCK of TYPE with balanced embedded wording markup."
+  (let ((code (wg21-html-code-markup
+               (wg21-code-markup-parse
+                (wg21-special-block-raw-contents block)) info)))
+    (format "<div class=\"%s\"><pre class=\"%s\">%s</pre></div>\n"
+            type (if (string= type "grammar") "grammar" "src src-C++") code)))
+
+(defun wg21-html-code-markup (nodes info)
+  "Render parsed raw code NODES as HTML using export INFO."
+  (mapconcat
+   (lambda (node)
+     (cond
+      ((stringp node) (org-html-encode-plain-text node))
+      ((eq (car node) 'wg21-code-raw)
+       (user-error "WG21 code escape @%s@ is not supported in HTML" (nth 1 node)))
+      (t
+       (let* ((command (nth 1 node))
+              (arguments (nth 2 node))
+              (render (lambda (index)
+                        (wg21-html-code-markup (nth index arguments) info))))
+         (pcase command
+           ((or "exposid" "exposidnc" "placeholder" "grammarterm" "emph"
+                "libconcept")
+            (format "<var>%s</var>" (funcall render 0)))
+           ((or "terminal" "tcode")
+            (format "<code>%s</code>" (funcall render 0)))
+           ((or "seebelow") "<var>see below</var>")
+           ((or "impdef" "impdefnc") "<var>implementation-defined</var>")
+           ("unspec" "<var>unspecified</var>")
+           ("atsign" "@")
+           ("added" (format "<ins>%s</ins>" (funcall render 0)))
+           ("removed" (format "<del>%s</del>" (funcall render 0)))
+           ("replace" (format "<del>%s</del><ins>%s</ins>"
+                              (funcall render 0) (funcall render 1)))
+           ("mark" (format "<mark>%s</mark>" (funcall render 0)))
+           ("math"
+            (let ((tex
+                   (mapconcat
+                    (lambda (part)
+                      (if (stringp part)
+                          part
+                        (user-error "Nested WG21 markup inside math")))
+                    (nth 0 arguments) "")))
+              (or (wg21-html--mathml (format "$%s$" tex))
+                  (format "<var>%s</var>"
+                          (org-html-encode-plain-text tex)))))
+           ((or "ref" "sref")
+            (let ((name (funcall render 0)))
+              (format "<a class=\"sref\" href=\"%s\">[%s]</a>"
+                      (wg21-stable-name-href name info) name)))
+           (_ (user-error "Unknown WG21 code escape \\%s" command)))))))
+   nodes ""))
+
+(defun wg21-html-pnum (block contents)
+  "Export paragraph-number BLOCK with a self-link around its number."
+  (format "<div class=\"pnum pnum-explicit\">%s%s</div>\n"
+          (wg21-html-pnum-marker block) contents))
+
+(defun wg21-html-pnum-marker (element)
+  "Return ELEMENT's linked paragraph-number marker."
+  (let ((label (or (wg21-pnum-resolved-label element) "?"))
+        (anchor (or (wg21-pnum-anchor element) "pnum")))
+    (format (concat "<a class=\"pnum-number\" id=\"%s\" href=\"#%s\" "
+                    "data-pnum=\"%s\" aria-label=\"Paragraph %s\"></a>")
+            anchor anchor
+            (org-html-encode-plain-text label)
+            (org-html-encode-plain-text label))))
+
+(defun wg21-html-item (item contents info)
+  "Export paragraph-numbered ITEM, otherwise use the ordinary exporter."
+  (if (not (org-element-property :WG21_PNUM item))
+      (org-html-item item contents info)
+    (let ((marker (wg21-html-pnum-marker item)))
+      (if (org-element-property :WG21_PNUM_TOP item)
+          (format "<div class=\"pnum pnum-list-paragraph\">%s%s</div>\n"
+                  marker contents)
+        (let ((html (org-html-item item contents info)))
+          (if (string-match "<li[^>]*>" html)
+              (concat (substring html 0 (match-end 0)) marker
+                      (substring html (match-end 0)))
+            html))))))
+
+(defun wg21-html-plain-list (plain-list contents info)
+  "Flatten a top-level paragraph-numbered PLAIN-LIST."
+  (if (seq-some (lambda (item) (org-element-property :WG21_PNUM_TOP item))
+                (org-element-contents plain-list))
+      contents
+    (org-html-plain-list plain-list contents info)))
+
+(defun wg21-html-code (code contents info)
+  "Export CODE, expanding table-safe vertical bars."
+  (org-html-code (wg21-code-expand-table-vertical-bars code) contents info))
+
+(defun wg21-html-verbatim (verbatim contents info)
+  "Export VERBATIM, expanding table-safe vertical bars."
+  (org-html-verbatim
+   (wg21-code-expand-table-vertical-bars verbatim) contents info))
+
+(defun wg21-html-nonnormative (block type contents)
+  "Export a note-like BLOCK of TYPE containing CONTENTS."
+  (let* ((unnumbered (wg21-block-flag-p block "unnumbered"))
+         (number (wg21-block-option block "number"))
+         (audience (wg21-block-option block "audience"))
+         (style (and number
+                     (format " style=\"counter-set: wg21-%s %d\""
+                             type (1- (string-to-number number)))))
+         (attrs (if audience
+                    (format " data-audience=\"%s\""
+                            (replace-regexp-in-string
+                             "\"" "&quot;"
+                             (org-html-encode-plain-text audience) t t))
+                  "")))
+    (format "<div class=\"wg21-%s%s\"%s%s>%s</div>\n"
+            type (if unnumbered " unnumbered" "") (or style "") attrs contents)))
 
 (defun wg21-html-table (table contents info)
   "Export TABLE, applying target-neutral WG21 column proportions."
@@ -121,16 +220,29 @@ plist."
                (format "<%s>%s</%s>" tag (match-string 2 edit) tag))))
          (org-html-src-block src-block contents info)
          t t))
-    (org-html-src-block src-block contents info)))
+    (let ((wg21-code-current-cpp-keywords (plist-get info :wg21-cpp-keywords))
+          (org-html-htmlize-output-type
+           (if (wg21-code-raw-p src-block) nil org-html-htmlize-output-type)))
+      (org-html-src-block src-block contents info))))
+
+(defun wg21-html-inline-src-block (inline-src-block contents info)
+  "Transcode INLINE-SRC-BLOCK with WG21 code defaults and keywords.
+CONTENTS and INFO have their usual Org exporter meanings."
+  (let ((org-babel-default-inline-header-args
+         (wg21-code-inline-header-args))
+        (wg21-code-current-cpp-keywords
+         (or (plist-get info :wg21-cpp-keywords)
+             wg21-code-current-cpp-keywords)))
+    (org-html-inline-src-block inline-src-block contents info)))
 
 ;;; Comparison tables
 
 ;; Rows are grouped by wg21-cmptbl.el, shared with the LaTeX exporter.
 
-(defun wg21-html--cmptbl-row (row tag columns info)
+(defun wg21-html--cmptbl-row (row tag columns headers info)
   "Return ROW as a <tr>, with cells as TAG elements.
 COLUMNS is the width of the table.  INFO is the export plist."
-  (if (not (wg21-cmptbl-cell-p (car row)))
+  (if (not (wg21-cmptbl-any-cell-p (car row)))
       (let ((note (org-trim (org-export-data (car row) info))))
         (if (string-empty-p note) ""
           (format "<tr><td class=\"cmptbl-note\" colspan=\"%d\">%s</td></tr>\n"
@@ -139,11 +251,12 @@ COLUMNS is the width of the table.  INFO is the export plist."
      "<tr>"
      (mapconcat
       (lambda (cell)
-        (let ((side (wg21-cmptbl-side cell)))
+        (let* ((column (cl-position cell row :test #'eq))
+               (side (wg21-cmptbl-column-class cell column headers)))
           (format "<%s%s>%s</%s>"
                   tag
                   (if side (format " class=\"cmptbl-%s\"" side) "")
-                  (org-trim (org-export-data (org-element-contents cell) info))
+                  (org-trim (org-export-data (wg21-cmptbl-cell-contents cell) info))
                   tag)))
       row "")
      ;; A row missing its after cell still spans the table.
@@ -156,17 +269,38 @@ COLUMNS is the width of the table.  INFO is the export plist."
   "Transcode the comparison table CMPTBL into an HTML table.
 INFO is a plist holding export options."
   (let* ((rows (wg21-cmptbl-rows cmptbl))
-         (columns (apply #'max 1 (mapcar (lambda (row) (if (wg21-cmptbl-cell-p (car row)) (length row) 1))
-                                         rows)))
-         (head (and (wg21-cmptbl-header-p (car rows)) (pop rows)))
+         (headers (wg21-cmptbl-headers cmptbl))
+         (widths (wg21-cmptbl-widths cmptbl))
+         (columns (apply #'max (if headers (length headers) 1)
+                         (mapcar (lambda (row)
+                                   (if (wg21-cmptbl-any-cell-p (car row)) (length row) 1))
+                                 rows)))
+         (head (and (not headers) (wg21-cmptbl-header-p (car rows)) (pop rows)))
+         (caption (org-export-get-caption cmptbl))
          (name (org-element-property :name cmptbl)))
+    (when (and widths (/= (length widths) columns))
+      (user-error "Comparison table has %d columns but %d widths"
+                  columns (length widths)))
     (concat
      (format "<table class=\"cmptbl\"%s>\n"
              (if name (format " id=\"%s\"" (org-html--reference cmptbl info)) ""))
+     (and caption (format "<caption>%s</caption>\n" (org-export-data caption info)))
+     (and widths
+          (concat "<colgroup>"
+                  (mapconcat (lambda (width)
+                               (format "<col style=\"width: %s%%\">" width))
+                             widths "")
+                  "</colgroup>\n"))
+     (and headers
+          (concat "<thead>\n<tr>"
+                  (mapconcat (lambda (header)
+                               (format "<th>%s</th>" (org-html-encode-plain-text header)))
+                             headers "")
+                  "</tr>\n</thead>\n"))
      (and head
-          (concat "<thead>\n" (wg21-html--cmptbl-row head "th" columns info) "</thead>\n"))
+          (concat "<thead>\n" (wg21-html--cmptbl-row head "th" columns headers info) "</thead>\n"))
      "<tbody>\n"
-     (mapconcat (lambda (row) (wg21-html--cmptbl-row row "td" columns info)) rows "")
+     (mapconcat (lambda (row) (wg21-html--cmptbl-row row "td" columns headers info)) rows "")
      "</tbody>\n</table>\n")))
 
 
@@ -240,7 +374,11 @@ CONTENTS is the transcoded body.  INFO is a plist holding export options."
          (version (plist-get git :version)))
     (concat
      "<div data-fill-with=\"spec-metadata\">\n<dl>\n"
-     "<dt>Document #:</dt><dd>" (org-export-data docnumber info) "</dd>\n"
+     "<dt>Document #:</dt><dd>" (org-export-data docnumber info)
+     (when-let* ((number (wg21-front-paper-number docnumber)))
+       (format " [<a href=\"https://wg21.link/P%s\">Latest</a>] [<a href=\"https://wg21.link/P%s/status\">Status</a>]"
+               number number))
+     "</dd>\n"
      "<dt>Date:</dt><dd>" (org-export-data date info) "</dd>\n"
      "<dt>Project:</dt><dd>" (org-export-data (plist-get info :project) info) "</dd>\n"
      "<dt>Audience:</dt><dd>" (org-export-data audience info) "</dd>\n"
@@ -285,6 +423,7 @@ Org's default style, and papers carry no scripts; an html-style or
 html-scripts item in #+OPTIONS would otherwise turn them back on.
 Return INFO."
   (setq-local org-html-htmlize-output-type wg21-html-htmlize-output-type)
+  (wg21-cite-default-options info)
   (plist-put info :html-head-include-default-style nil)
   (plist-put info :html-head-include-scripts nil)
   info)
@@ -384,11 +523,17 @@ Set it to nil to leave math to Org, which uses MathJax."
   "Transcode the LaTeX ELEMENT as MathML, or else with FALLBACK.
 FALLBACK is Org's transcoder, called with ELEMENT, CONTENTS and INFO.
 Using it is recorded in INFO, so the template adds MathJax."
-  (let ((mathml (and (memq (plist-get info :with-latex) '(t mathjax))
-                     (wg21-html--mathml (org-element-property :value element)))))
-    (or mathml
-        (progn (plist-put info :wg21-mathjax t)
-               (funcall fallback element contents info)))))
+  ;; A raw WG21 block reads its bytes from the source buffer and ignores the
+  ;; recursively exported CONTENTS.  Org still visits those children first;
+  ;; draft @\exposid{...}@ escapes look like LaTeX fragments there and would
+  ;; spuriously turn on MathJax for a page which contains no unconverted math.
+  (if (wg21-raw-code-block-p element)
+      ""
+    (let ((mathml (and (memq (plist-get info :with-latex) '(t mathjax))
+                       (wg21-html--mathml (org-element-property :value element)))))
+      (or mathml
+          (progn (plist-put info :wg21-mathjax t)
+                 (funcall fallback element contents info))))))
 
 (defun wg21-html-latex-fragment (fragment contents info)
   "Transcode a LaTeX FRAGMENT to MathML.  CONTENTS is nil.  INFO is the plist."
@@ -699,14 +844,21 @@ INFO is a plist holding export options."
     (:toc-div-id "TOC_DIV_ID" nil wg21-toc-div-id nil)
     (:wg21-style "WG21_STYLE" nil wg21-html-style split)
     (:wg21-code-style "WG21_CODE_STYLE" nil wg21-html-code-style split)
+    (:wg21-code-language "WG21_CODE_LANGUAGE" nil wg21-code-language nil)
+    (:wg21-cpp-keywords "WG21_CPP_KEYWORDS" nil nil split)
     ;; Only an address the paper gives, not the exporting user's.
     (:email "EMAIL" nil "" t)
     (:html-self-link-headlines nil nil t)
     (:html-wrap-src-lines nil nil org-html-wrap-src-lines))
 
   :translate-alist '((special-block . my-html-special-block)
+                     (code . wg21-html-code)
+                     (verbatim . wg21-html-verbatim)
+                     (item . wg21-html-item)
+                     (plain-list . wg21-html-plain-list)
                      (table . wg21-html-table)
                      (src-block . wg21-html-src-block)
+                     (inline-src-block . wg21-html-inline-src-block)
                      (latex-fragment . wg21-html-latex-fragment)
                      (latex-environment . wg21-html-latex-environment)
                      (inner-template . my-wg21-html-inner-template)
@@ -715,7 +867,11 @@ INFO is a plist holding export options."
                      (template . my-wg21-html-template))
 
   :filters-alist '((:filter-options . wg21-html-filter-options)
-                   (:filter-parse-tree . (wg21-seed-headline-references
+                   (:filter-parse-tree . (wg21-code-apply-default-language
+                                          wg21-cite-add-bibliography
+                                          wg21-resolve-paragraph-numbers
+                                          wg21-seed-headline-references
+                                          wg21-cite-diagnose-paper-revisions
                                           wg21-cite-drop-empty-bibliography)))
 
   :menu-entry '(?w "Export WG21 Paper"
@@ -966,7 +1122,9 @@ holding contextual information."
                    (delq nil (list (format "outline-%d" level)
                                    extra-class
                                    (and (org-element-property :WG21_WORDING headline)
-                                        "wg21-wording")))
+                                        "wg21-wording")
+                                   (and (equal (org-element-property :WG21_CHANGE headline) "add")
+                                        "wg21-addition")))
                    " ")
                   (format "\n<h%d class=\"heading%s\" id=\"%s\">%s</h%d>\n"
                           level
@@ -1047,6 +1205,8 @@ Export is done in a buffer named \"*Org HTML Export*\", which
 will be displayed when `org-export-show-temporary-export-buffer'
 is non-nil."
   (interactive)
+  (when (fboundp 'wg21org-enable-transclusion)
+    (wg21org-enable-transclusion))
   (org-export-to-buffer 'wg21-html "*WG21 HTML Export*"
     async subtreep visible-only body-only ext-plist
     (lambda () (set-auto-mode t))))
@@ -1092,6 +1252,8 @@ file-local settings.
 
 Return output file's name."
   (interactive)
+  (when (fboundp 'wg21org-enable-transclusion)
+    (wg21org-enable-transclusion))
   (let* ((extension (concat
 		             (when (> (length org-html-extension) 0) ".")
 		             (or (plist-get ext-plist :html-extension)
@@ -1111,12 +1273,43 @@ is the property list for the given project.  PUB-DIR is the
 publishing directory.
 
 Return output file name."
-  (org-publish-org-to 'wg21-html filename
-		              (concat (when (> (length org-html-extension) 0) ".")
-			                  (or (plist-get plist :html-extension)
-				                  org-html-extension
-				                  "html"))
-		              plist pub-dir))
+  ;; `org-publish-org-to' exports the buffer already visiting FILENAME when
+  ;; there is one, so materialize transclusions in that buffer first.
+  (let* ((buffers-before (buffer-list))
+         transclusion-buffers
+         (visiting (find-buffer-visiting filename))
+         (buffer (or visiting
+                     (let ((org-inhibit-startup t))
+                       (find-file-noselect filename)))))
+    (unwind-protect
+        (progn
+          (when (fboundp 'wg21org-enable-transclusion)
+            (unwind-protect
+                (with-current-buffer buffer
+                  (wg21org-enable-transclusion))
+              (setq transclusion-buffers
+                    (seq-difference (buffer-list) buffers-before))))
+          (org-publish-org-to 'wg21-html filename
+		                      (concat (when (> (length org-html-extension) 0) ".")
+			                          (or (plist-get plist :html-extension)
+				                          org-html-extension
+				                          "html"))
+		                      plist pub-dir))
+      (unless visiting
+        (with-current-buffer buffer
+          (when (bound-and-true-p org-transclusion-mode)
+            (org-transclusion-mode -1))
+          (set-buffer-modified-p nil))
+        (kill-buffer buffer))
+      ;; org-transclusion visits source files to materialize their contents.
+      ;; Publishing must not leak buffers it opened, but preserve any source
+      ;; buffer that the user was already visiting.
+      (dolist (opened transclusion-buffers)
+        (when (and (buffer-live-p opened)
+                   (buffer-local-value 'buffer-file-name opened))
+          (with-current-buffer opened
+            (set-buffer-modified-p nil))
+          (kill-buffer opened))))))
 
 
 (provide 'ox-wg21html)

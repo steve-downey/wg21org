@@ -1,9 +1,9 @@
 ** Header ~<transcode>~ synopsis [transcode.syn]
 :PROPERTIES:
 :CUSTOM_ID: transcode.syn
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{transcode.syn}
 
 #+begin_codeblock
 // \ref{transcode.errors}, error types
@@ -495,11 +495,11 @@ constexpr auto size() const;
 #+end_pnum
 
 #+begin_pnum
-/Remarks/: ~decode_view<Codec, R, E>~ is ~whatwg_decode_view~ ([[#transcode.whatwg.decode][[transcode.whatwg.decode]]]) with the codec supplied as a value rather than named by an enumerator: it presents the bytes of ~R~ as the Unicode scalar values ~Codec~ decodes them to, reports a decoding error as ~E~ says, and decodes lazily.  Everything that clause says about the value type, the error kind and the laziness holds here, of a codec the program wrote rather than one the Encoding Standard defines.  The view does not validate a successful ~code_point~; the program-supplied ~Codec~ is responsible for returning Unicode scalar values as required by ~decode_codec~.
+/Remarks/: ~decode_view<Codec, R, E>~ is ~whatwg_decode_view~ ([[#transcode.whatwg.decode][@@html:[transcode.whatwg.decode]@@@@latex:{[}transcode.whatwg.decode{]}@@]]) with the codec supplied as a value rather than named by an enumerator: it presents the bytes of ~R~ as the Unicode scalar values ~Codec~ decodes them to, reports a decoding error as ~E~ says, and decodes lazily.  Everything that clause says about the value type, the error kind and the laziness holds here, of a codec the program wrote rather than one the Encoding Standard defines.  The view does not validate a successful ~code_point~; the program-supplied ~Codec~ is responsible for returning Unicode scalar values as required by ~decode_codec~.
 #+end_pnum
 
 #+begin_pnum
-The view models ~random_access_range~ when ~Codec~ models ~random_access_decode_codec_type~ and ~R~ models ~random_access_range~. When it does, a byte whose value is ~0x80~ or above and for which ~Codec::decode_byte~ returns U+FFFD is reported as ~whatwg_error::invalid_byte~ in expected mode and yields U+FFFD in replacement mode.  This follows from the U+FFFD reservation required by ~random_access_decode_codec_type~ ([[#transcode.custom.reqs][[transcode.custom.reqs]]]).
+The view models ~random_access_range~ when ~Codec~ models ~random_access_decode_codec_type~ and ~R~ models ~random_access_range~. When it does, a byte whose value is ~0x80~ or above and for which ~Codec::decode_byte~ returns U+FFFD is reported as ~whatwg_error::invalid_byte~ in expected mode and yields U+FFFD in replacement mode.  This follows from the U+FFFD reservation required by ~random_access_decode_codec_type~ ([[#transcode.custom.reqs][@@html:[transcode.custom.reqs]@@@@latex:{[}transcode.custom.reqs{]}@@]]).
 #+end_pnum
 
 #+begin_itemdecl
@@ -511,7 +511,7 @@ static constexpr @\exposidnc{iterator}@ @\exposidnc{terminal}@();
 #+end_pnum
 
 #+begin_pnum
-/Remarks/: ~encode_view<Codec, R, E>~ is ~whatwg_encode_view~ ([[#transcode.whatwg.encode][[transcode.whatwg.encode]]]) with the codec supplied as a value rather than named by an enumerator: it validates the ~char32_t~ elements of ~R~ as UTF-32, presents the resulting scalar values as the bytes ~Codec~ encodes them to, reports an error as ~E~ says, and encodes lazily.  Ill-formed UTF-32 is replaced with U+FFFD before ~Codec::encode_one~ is called in replacement mode and is reported without calling the codec in expected mode.  A custom codec therefore receives only Unicode scalar values.
+/Remarks/: ~encode_view<Codec, R, E>~ is ~whatwg_encode_view~ ([[#transcode.whatwg.encode][@@html:[transcode.whatwg.encode]@@@@latex:{[}transcode.whatwg.encode{]}@@]]) with the codec supplied as a value rather than named by an enumerator: it validates the ~char32_t~ elements of ~R~ as UTF-32, presents the resulting scalar values as the bytes ~Codec~ encodes them to, reports an error as ~E~ says, and encodes lazily.  Ill-formed UTF-32 is replaced with U+FFFD before ~Codec::encode_one~ is called in replacement mode and is reported without calling the codec in expected mode.  A custom codec therefore receives only Unicode scalar values.
 #+end_pnum
 
 #+begin_itemdecl
@@ -539,7 +539,7 @@ What the encoding names mean, which pairs convert, and what a conversion does wi
 #+end_pnum
 
 #+begin_pnum
-A conversion failure is reported as ~iconv_error~ ([[#transcode.errors][[transcode.errors]]]), which is the granularity POSIX reports at: ~EILSEQ~, ~EINVAL~ and ~E2BIG~ say *that* a byte sequence is not valid, not why, so the WHATWG error vocabulary the other views use would be claiming knowledge the OS does not return.
+A conversion failure is reported as ~iconv_error~ ([[#transcode.errors][@@html:[transcode.errors]@@@@latex:{[}transcode.errors{]}@@]]), which is the granularity POSIX reports at: ~EILSEQ~, ~EINVAL~ and ~E2BIG~ say *that* a byte sequence is not valid, not why, so the WHATWG error vocabulary the other views use would be claiming knowledge the OS does not return.
 #+end_pnum
 
 #+begin_pnum
@@ -547,15 +547,15 @@ The output buffer is the caller's, and is not owned by the view. Its contents be
 #+end_pnum
 
 #+begin_pnum
-/Remarks/: ~iconv_transcode_or_error_view<IconvFns, R>~ is ~iconv_transcode_view~ ([[#transcode.iconv][[transcode.iconv]]]) with the errors reported rather than skipped: its value type is ~expected<char, iconv_error>~, and a conversion failure is an element holding the ~iconv_error~ POSIX reported rather than input the range passes over. The buffer has no minimum-size precondition.  If it cannot hold one indivisible conversion or flush unit, the view reports ~iconv_error::output_full~.
+/Remarks/: ~iconv_transcode_or_error_view<IconvFns, R>~ is ~iconv_transcode_view~ ([[#transcode.iconv][@@html:[transcode.iconv]@@@@latex:{[}transcode.iconv{]}@@]]) with the errors reported rather than skipped: its value type is ~expected<char, iconv_error>~, and a conversion failure is an element holding the ~iconv_error~ POSIX reported rather than input the range passes over. The buffer has no minimum-size precondition.  If it cannot hold one indivisible conversion or flush unit, the view reports ~iconv_error::output_full~.
 #+end_pnum
 
 ** Error types [transcode.errors]
 :PROPERTIES:
 :CUSTOM_ID: transcode.errors
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{transcode.errors}
 
 #+begin_itemdecl
 enum class whatwg_error {
@@ -631,9 +631,9 @@ enum class transcode_error_kind {
 ** Range requirements [transcode.reqs]
 :PROPERTIES:
 :CUSTOM_ID: transcode.reqs
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{transcode.reqs}
 
 #+begin_itemdecl
 template<typename R>
@@ -659,9 +659,9 @@ concept unicode_scalar_range =
 ** Encodings [transcode.codec]
 :PROPERTIES:
 :CUSTOM_ID: transcode.codec
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{transcode.codec}
 
 #+begin_itemdecl
 enum class codec {
@@ -715,8 +715,8 @@ enum class codec {
 *** Label lookup [transcode.codec.label]
 :PROPERTIES:
 :CUSTOM_ID: transcode.codec.label
+:UNNUMBERED: t
 :END:
-#+latex: \label{transcode.codec.label}
 
 #+begin_itemdecl
 constexpr optional<codec> get_encoding(string_view label) noexcept;
@@ -733,8 +733,8 @@ constexpr optional<codec> get_encoding(string_view label) noexcept;
 *** Byte order mark sniffing [transcode.codec.sniff]
 :PROPERTIES:
 :CUSTOM_ID: transcode.codec.sniff
+:UNNUMBERED: t
 :END:
-#+latex: \label{transcode.codec.sniff}
 
 #+begin_itemdecl
 template<legacy_byte_range R> constexpr optional<codec> sniff_encoding(R&& r) noexcept;
@@ -764,9 +764,9 @@ template<legacy_byte_range R> constexpr optional<codec> sniff_encoding(R&& r) no
 ** Decoding views [transcode.whatwg.decode]
 :PROPERTIES:
 :CUSTOM_ID: transcode.whatwg.decode
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{transcode.whatwg.decode}
 
 #+begin_itemdecl
 constexpr const R& base() const& noexcept;
@@ -862,7 +862,7 @@ template<codec C> inline constexpr @\placeholder{unspecified}@ whatwg_decode;
 #+end_itemdecl
 
 #+begin_pnum
-/Remarks/: The name ~whatwg_decode<C>~ denotes a range adaptor object.  Given a subexpression ~E~ that models ~legacy_byte_range~, the expression ~whatwg_decode<C>(E)~ and ~E | whatwg_decode<C>~ are each expression-equivalent to a ~whatwg_decode_view<C, views::all_t<decltype((E))>>~ over ~E~.  An ~E~ of array type is ill-formed: a string literal carries a terminating null character that a decode would render, and ~views::null_term~ ([[#null.term.adaptor][[null.term.adaptor]]]) is how a null-terminated sequence becomes a range.
+/Remarks/: The name ~whatwg_decode<C>~ denotes a range adaptor object.  Given a subexpression ~E~ that models ~legacy_byte_range~, the expression ~whatwg_decode<C>(E)~ and ~E | whatwg_decode<C>~ are each expression-equivalent to a ~whatwg_decode_view<C, views::all_t<decltype((E))>>~ over ~E~.  An ~E~ of array type is ill-formed: a string literal carries a terminating null character that a decode would render, and ~views::null_term~ ([[#null.term.adaptor][@@html:[null.term.adaptor]@@@@latex:{[}null.term.adaptor{]}@@]]) is how a null-terminated sequence becomes a range.
 #+end_pnum
 
 #+begin_itemdecl
@@ -876,8 +876,8 @@ template<codec C> inline constexpr @\placeholder{unspecified}@ whatwg_decode_or_
 *** Class ~whatwg_decode_view::iterator~ [transcode.whatwg.decode.iterator]
 :PROPERTIES:
 :CUSTOM_ID: transcode.whatwg.decode.iterator
+:UNNUMBERED: t
 :END:
-#+latex: \label{transcode.whatwg.decode.iterator}
 
 #+begin_itemdecl
 constexpr iterator(base_iter current, base_sent end);
@@ -948,9 +948,9 @@ constexpr void operator++(int);
 ** Encoding views [transcode.whatwg.encode]
 :PROPERTIES:
 :CUSTOM_ID: transcode.whatwg.encode
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{transcode.whatwg.encode}
 
 #+begin_itemdecl
 constexpr const R& base() const& noexcept;
@@ -1060,8 +1060,8 @@ template<codec C> inline constexpr @\placeholder{unspecified}@ whatwg_encode_or_
 *** Class ~whatwg_encode_view::iterator~ [transcode.whatwg.encode.iterator]
 :PROPERTIES:
 :CUSTOM_ID: transcode.whatwg.encode.iterator
+:UNNUMBERED: t
 :END:
-#+latex: \label{transcode.whatwg.encode.iterator}
 
 #+begin_itemdecl
 constexpr iterator(base_iter current, base_sent end);
@@ -1128,9 +1128,9 @@ constexpr void operator++(int);
 ** Codec requirements [transcode.custom.reqs]
 :PROPERTIES:
 :CUSTOM_ID: transcode.custom.reqs
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{transcode.custom.reqs}
 
 #+begin_itemdecl
 template<typename C>
@@ -1185,9 +1185,9 @@ concept flushable_decode_codec = decode_codec<C> && requires(C& c) {
 ** Class template ~decode_view~ [transcode.custom.decode]
 :PROPERTIES:
 :CUSTOM_ID: transcode.custom.decode
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{transcode.custom.decode}
 
 #+begin_itemdecl
 constexpr const R& base() const& noexcept;
@@ -1297,8 +1297,8 @@ template<decode_codec Codec> constexpr @\seebelow@ decode_or_error(Codec codec =
 *** Class ~decode_view::iterator~ [transcode.custom.decode.iterator]
 :PROPERTIES:
 :CUSTOM_ID: transcode.custom.decode.iterator
+:UNNUMBERED: t
 :END:
-#+latex: \label{transcode.custom.decode.iterator}
 
 #+begin_itemdecl
 constexpr iterator(base_iter current, base_sent end, Codec codec);
@@ -1369,9 +1369,9 @@ constexpr void operator++(int);
 ** Class template ~encode_view~ [transcode.custom.encode]
 :PROPERTIES:
 :CUSTOM_ID: transcode.custom.encode
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{transcode.custom.encode}
 
 #+begin_itemdecl
 constexpr const R& base() const& noexcept;
@@ -1481,8 +1481,8 @@ template<encode_codec Codec> constexpr @\seebelow@ encode_or_error(Codec codec =
 *** Class ~encode_view::iterator~ [transcode.custom.encode.iterator]
 :PROPERTIES:
 :CUSTOM_ID: transcode.custom.encode.iterator
+:UNNUMBERED: t
 :END:
-#+latex: \label{transcode.custom.encode.iterator}
 
 #+begin_itemdecl
 constexpr iterator(base_iter current, base_sent end, Codec codec);
@@ -1531,9 +1531,9 @@ constexpr void operator++(int);
 ** Transcoding pipelines [transcode.pipeline]
 :PROPERTIES:
 :CUSTOM_ID: transcode.pipeline
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{transcode.pipeline}
 
 #+begin_itemdecl
 template<codec From, codec To> inline constexpr @\placeholder{unspecified}@ transcode;
@@ -1557,15 +1557,15 @@ constexpr @\seebelow@ pluggable_transcode(From from, To to);
 #+end_pnum
 
 #+begin_pnum
-/Remarks/: This is ~transcode~ ([[#transcode.pipeline][[transcode.pipeline]]]) with codecs supplied as values rather than named by enumerators.
+/Remarks/: This is ~transcode~ ([[#transcode.pipeline][@@html:[transcode.pipeline]@@@@latex:{[}transcode.pipeline{]}@@]]) with codecs supplied as values rather than named by enumerators.
 #+end_pnum
 
 ** Eager transcoding [transcode.string]
 :PROPERTIES:
 :CUSTOM_ID: transcode.string
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{transcode.string}
 
 #+begin_itemdecl
 constexpr bool has_whatwg_encoder(codec encoding) noexcept;
@@ -1584,7 +1584,7 @@ optional<string> transcode_string(span<const char> src, codec from, codec to);
 #+end_pnum
 
 #+begin_pnum
-/Remarks/: This is ~transcode~ ([[#transcode.pipeline][[transcode.pipeline]]]) run to completion into a ~string~, which is what a caller who wants the whole result and not a view writes.  ~src | transcode<From, To> | ranges::to<string>()~ is the same thing with the codecs known at compile time.
+/Remarks/: This is ~transcode~ ([[#transcode.pipeline][@@html:[transcode.pipeline]@@@@latex:{[}transcode.pipeline{]}@@]]) run to completion into a ~string~, which is what a caller who wants the whole result and not a view writes.  ~src | transcode<From, To> | ranges::to<string>()~ is the same thing with the codecs known at compile time.
 #+end_pnum
 
 #+begin_itemdecl
@@ -1593,7 +1593,7 @@ optional<string> transcode_string(span<const char> src, string_view from_label,
 #+end_itemdecl
 
 #+begin_pnum
-/Returns/: ~transcode_string(src, *get_encoding(from_label), *get_encoding(to_label))~, and ~nullopt~ if either label names no encoding ([[#transcode.codec.label][[transcode.codec.label]]]) or the target encoding has no WHATWG encoder.
+/Returns/: ~transcode_string(src, *get_encoding(from_label), *get_encoding(to_label))~, and ~nullopt~ if either label names no encoding ([[#transcode.codec.label][@@html:[transcode.codec.label]@@@@latex:{[}transcode.codec.label{]}@@]]) or the target encoding has no WHATWG encoder.
 #+end_pnum
 
 #+begin_pnum
@@ -1603,9 +1603,9 @@ optional<string> transcode_string(span<const char> src, string_view from_label,
 ** Eager bulk conversion [transcode.bulk]
 :PROPERTIES:
 :CUSTOM_ID: transcode.bulk
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{transcode.bulk}
 
 #+begin_itemdecl
 template<codec C, legacy_byte_range R> constexpr vector<char32_t> decode_to(R&& source);
@@ -1620,7 +1620,7 @@ return forward<R>(source) | whatwg_decode<C> | ranges::to<vector<char32_t>>();
 #+end_pnum
 
 #+begin_pnum
-/Remarks/: Each of these is the pipeline it names, run to completion.  They add no behaviour to it: the errors are the decoding view's, substituted rather than reported ([[#transcode.whatwg.decode][[transcode.whatwg.decode]]]), and a caller who wants them reported writes the pipeline with ~whatwg_decode_or_error~ instead. What they add is the name, for the case a caller wants the whole result rather than a view over it.
+/Remarks/: Each of these is the pipeline it names, run to completion.  They add no behaviour to it: the errors are the decoding view's, substituted rather than reported ([[#transcode.whatwg.decode][@@html:[transcode.whatwg.decode]@@@@latex:{[}transcode.whatwg.decode{]}@@]]), and a caller who wants them reported writes the pipeline with ~whatwg_decode_or_error~ instead. What they add is the name, for the case a caller wants the whole result rather than a view over it.
 #+end_pnum
 
 #+begin_itemdecl
@@ -1680,7 +1680,7 @@ return forward<R>(source) | decode(codec) | ranges::to<vector<char32_t>>();
 #+end_pnum
 
 #+begin_pnum
-/Remarks/: The same four operations over a codec supplied as a value ([[#transcode.custom.reqs][[transcode.custom.reqs]]]), for a codec chosen at run time or one the ~codec~ enumeration does not name.
+/Remarks/: The same four operations over a codec supplied as a value ([[#transcode.custom.reqs][@@html:[transcode.custom.reqs]@@@@latex:{[}transcode.custom.reqs{]}@@]]), for a codec chosen at run time or one the ~codec~ enumeration does not name.
 #+end_pnum
 
 #+begin_itemdecl
@@ -1725,9 +1725,9 @@ ranges::copy(forward<R>(source) | encode(codec), output);
 ** iconv adaptors [transcode.iconv]
 :PROPERTIES:
 :CUSTOM_ID: transcode.iconv
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{transcode.iconv}
 
 #+begin_itemdecl
 const R& base() const& noexcept;
@@ -1860,7 +1860,7 @@ inline @\seebelow@ iconv_transcode(const char* from, const char* to, span<char> 
 #+end_pnum
 
 #+begin_pnum
-/Returns/: A range adaptor object.  Given a subexpression ~E~ that models ~legacy_byte_range~, ~iconv_transcode(from, to, buf)(E)~ and ~E | iconv_transcode(from, to, buf)~ are each expression-equivalent to an ~iconv_transcode_view~ ([[#transcode.iconv][[transcode.iconv]]]) over ~E~, ~make_real_iconv_fns()~, ~from~, ~to~ and ~buf~.
+/Returns/: A range adaptor object.  Given a subexpression ~E~ that models ~legacy_byte_range~, ~iconv_transcode(from, to, buf)(E)~ and ~E | iconv_transcode(from, to, buf)~ are each expression-equivalent to an ~iconv_transcode_view~ ([[#transcode.iconv][@@html:[transcode.iconv]@@@@latex:{[}transcode.iconv{]}@@]]) over ~E~, ~make_real_iconv_fns()~, ~from~, ~to~ and ~buf~.
 #+end_pnum
 
 #+begin_pnum
@@ -1887,7 +1887,7 @@ Container iconv_transcode_to(R&& source, const char* from, const char* to,
 #+end_itemdecl
 
 #+begin_pnum
-/Returns/: A ~Container~ holding the bytes of ~source~ converted from ~from~ to ~to~ by ~fns~.  Input the conversion does not accept is skipped, as it is by ~iconv_transcode_view~ ([[#transcode.iconv][[transcode.iconv]]]).  The result is empty when the conversion descriptor cannot be opened -- which is what ~iconv_open~ failing means, and is not distinguishable here from an empty input.  An unexpected system failure ends conversion and returns the bytes produced before the failure.  Use ~iconv_transcode_to_or_error~ when either distinction matters.
+/Returns/: A ~Container~ holding the bytes of ~source~ converted from ~from~ to ~to~ by ~fns~.  Input the conversion does not accept is skipped, as it is by ~iconv_transcode_view~ ([[#transcode.iconv][@@html:[transcode.iconv]@@@@latex:{[}transcode.iconv{]}@@]]).  The result is empty when the conversion descriptor cannot be opened -- which is what ~iconv_open~ failing means, and is not distinguishable here from an empty input.  An unexpected system failure ends conversion and returns the bytes produced before the failure.  Use ~iconv_transcode_to_or_error~ when either distinction matters.
 #+end_pnum
 
 #+begin_itemdecl
@@ -1950,7 +1950,7 @@ expected<Container, iconv_error> iconv_transcode_to_or_error(R&& source,
 #+end_pnum
 
 #+begin_pnum
-/Remarks/: This is the eager form of ~iconv_transcode_or_error~ ([[#transcode.iconv][[transcode.iconv]]]): it stops at the first failure rather than skipping it, which is the difference between a conversion a program wants to know about and one it wants to get through.
+/Remarks/: This is the eager form of ~iconv_transcode_or_error~ ([[#transcode.iconv][@@html:[transcode.iconv]@@@@latex:{[}transcode.iconv{]}@@]]): it stops at the first failure rather than skipping it, which is the difference between a conversion a program wants to know about and one it wants to get through.
 #+end_pnum
 
 #+begin_itemdecl
@@ -1972,8 +1972,8 @@ return iconv_transcode_to_or_error<Container>(forward<R>(source), from, to,
 *** Classes ~iconv_transcode_view::iterator~ and ~iconv_transcode_or_error_view::iterator~ [transcode.iconv.iterator]
 :PROPERTIES:
 :CUSTOM_ID: transcode.iconv.iterator
+:UNNUMBERED: t
 :END:
-#+latex: \label{transcode.iconv.iterator}
 
 #+begin_itemdecl
 iterator(@\exposidnc{iterator}@&&) noexcept;
@@ -2028,7 +2028,7 @@ char operator*() const;
 #+end_pnum
 
 #+begin_pnum
-/Remarks/: Input the conversion does not accept is skipped one byte at a time -- what POSIX reports as ~EILSEQ~ -- so the range ends where the input does rather than at the first byte a converter refuses.  A program that needs to know *that* it happened uses ~iconv_transcode_or_error~ ([[#transcode.iconv][[transcode.iconv]]]).
+/Remarks/: Input the conversion does not accept is skipped one byte at a time -- what POSIX reports as ~EILSEQ~ -- so the range ends where the input does rather than at the first byte a converter refuses.  A program that needs to know *that* it happened uses ~iconv_transcode_or_error~ ([[#transcode.iconv][@@html:[transcode.iconv]@@@@latex:{[}transcode.iconv{]}@@]]).
 #+end_pnum
 
 #+begin_itemdecl
@@ -2106,9 +2106,9 @@ void operator++(int);
 ** Header ~<null_term>~ synopsis [null.term.syn]
 :PROPERTIES:
 :CUSTOM_ID: null.term.syn
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{null.term.syn}
 
 #+begin_codeblock
 struct null_sentinel_t {
@@ -2143,9 +2143,9 @@ inline constexpr @\placeholder{unspecified}@ null_term;
 ** Class ~null_sentinel_t~ [null.term.sentinel]
 :PROPERTIES:
 :CUSTOM_ID: null.term.sentinel
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{null.term.sentinel}
 
 #+begin_itemdecl
 template<input_iterator I>
@@ -2163,9 +2163,9 @@ friend constexpr bool operator==(const I& it, null_sentinel_t);
 ** Class template ~null_term_view~ [null.term.view]
 :PROPERTIES:
 :CUSTOM_ID: null.term.view
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{null.term.view}
 
 #+begin_itemdecl
 constexpr null_term_view() = default;
@@ -2210,9 +2210,9 @@ constexpr null_sentinel_t end() const;
 ** ~views::null_term~ [null.term.adaptor]
 :PROPERTIES:
 :CUSTOM_ID: null.term.adaptor
+:UNNUMBERED: t
 :WG21_WORDING: t
 :END:
-#+latex: \label{null.term.adaptor}
 
 #+begin_itemdecl
 inline constexpr @\placeholder{unspecified}@ null_term;

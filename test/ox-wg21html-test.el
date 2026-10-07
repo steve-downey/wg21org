@@ -97,6 +97,41 @@ y();
              "int</span> <span[^>]*>a</span> = 1;\n<span[^>]*>int</span>"
              html))))
 
+(ert-deftest cmptbl-compact-form-has-caption-widths-and-general-columns ()
+  (let ((html (ox-wg21html-test-export
+               "#+caption: Three choices
+#+attr_wg21: :columns 20 30 50
+#+begin_cmptbl :headers \"Portable | POSIX | Native\"
+#+begin_src C++ :exports code
+a();
+#+end_src
+#+begin_src C++
+b();
+#+end_src
+#+begin_src C++
+c();
+#+end_src
+#+end_cmptbl
+")))
+    (should (string-match-p "<caption>Three choices</caption>" html))
+    (should (string-match-p "<col style=\"width: 20%\">" html))
+    (should (string-match-p "<th>Portable</th><th>POSIX</th><th>Native</th>" html))
+    (dolist (column '("portable" "posix" "native"))
+      (should (string-match-p (format "<td class=\"cmptbl-%s\"" column) html)))
+    (should-not (string-match-p "cmptbl-:exports" html))))
+
+(ert-deftest cmptbl-rejects-a-width-count-mismatch ()
+  (should-error
+   (ox-wg21html-test-export
+    "#+attr_wg21: :columns 60 40
+#+begin_cmptbl :headers \"A | B | C\"
+#+begin_src C++
+a();
+#+end_src
+#+end_cmptbl
+")
+   :type 'user-error))
+
 (ert-deftest specgen-code-block-is-raw-code ()
   (let ((html (ox-wg21html-test-export
                "#+begin_codeblock\nT @\\exposidnc{value}@; // *not emphasis*\n#+end_codeblock\n")))
@@ -106,15 +141,32 @@ y();
              html))
     (should-not (string-match-p "@\\\\exposidnc" html))))
 
+(ert-deftest draft-code-macros-are-rendered-or-rejected-in-html ()
+  (let ((html (ox-wg21html-test-export
+               "#+begin_codeblock\n@\\libconcept{sentinel_for}@<@\\tcode{I}@>\n#+end_codeblock\n")))
+    (should (string-match-p
+             (regexp-quote "<var>sentinel_for</var>&lt;<code>I</code>&gt;") html))
+    (should-not (string-search "@\\libconcept" html))
+    (should-not (string-search "@\\tcode" html)))
+  (should-error
+   (ox-wg21html-test-export
+    "#+begin_codeblock\n@\\notawordingmacro{x}@\n#+end_codeblock\n")
+   :type 'user-error))
+
+(ert-deftest draft-escapes-in-raw-code-do-not-enable-mathjax ()
+  (let ((html (ox-wg21html-test-export
+               "#+begin_codeblock\nT @\\exposidnc{value}@;\n#+end_codeblock\n")))
+    (should-not (string-match-p "MathJax" html))))
+
 (ert-deftest specgen-code-block-references-are-links ()
   (let ((html (ox-wg21html-test-export
                "* Proposed\n:PROPERTIES:\n:CUSTOM_ID: proposed.clause\n:END:\n#+begin_codeblock\n// \\ref{proposed.clause}, \\ref{optional.general}\n#+end_codeblock\n")))
     (should (string-match-p
-             (regexp-quote "<a href=\"#proposed.clause\">[proposed.clause]</a>")
+             (regexp-quote "<a class=\"sref\" href=\"#proposed.clause\">[proposed.clause]</a>")
              html))
     (should (string-match-p
              (regexp-quote
-              "<a href=\"https://eel.is/c++draft/optional.general\">[optional.general]</a>")
+              "<a class=\"sref\" href=\"https://eel.is/c++draft/optional.general\">[optional.general]</a>")
              html))))
 
 (ert-deftest ordinary-headlines-have-readable-stable-anchors ()
@@ -144,6 +196,12 @@ y();
     (should-not (string-match-p "<col style=[^>]*group>" html))
     (should (= 1 (ox-wg21html-test-count "style=\"width: 18%\"" html)))
     (should (= 2 (ox-wg21html-test-count "style=\"width: 36%\"" html)))))
+
+(ert-deftest table-safe-vertical-bars-expand-inside-code ()
+  (let ((html (ox-wg21html-test-export
+               "| =v\\vert{}ranges= | ~a\\vert{}b~ |\n")))
+    (should (string-match-p (regexp-quote "<code>v|ranges</code>") html))
+    (should (string-match-p (regexp-quote "<code>a|b</code>") html))))
 
 ;; The comparison table last broke in the stylesheet, not the HTML: Org
 ;; 9.8 wraps code blocks in <code>, and wg21org.css made <code> nowrap,
@@ -224,6 +282,17 @@ With DARK, the browser reports a dark system colour scheme."
     (should (string-match-p "<ins>new</ins>" html))
     (should (string-match-p "<del>old</del>" html))))
 
+(ert-deftest substitution-and-mark-links ()
+  (let ((html (ox-wg21html-test-export
+               "Use [[replace:%2Fnew%20text%2F][old /text/]] and [[mark:][important *text*]].\n")))
+    (should (string-match-p "<del>old <i>text</i></del><ins><i>new text</i></ins>" html))
+    (should (string-match-p "<mark>important <b>text</b></mark>" html))))
+
+(ert-deftest substitution-without-original-text-is-an-insertion ()
+  (let ((html (ox-wg21html-test-export "Use [[replace:new]].\n")))
+    (should (string-match-p "<del></del><ins>new</ins>" html))
+    (should-not (string-match-p "nil" html))))
+
 (ert-deftest code-uses-face-classes ()
   (let* ((org-html-htmlize-output-type 'inline-css)
          (html (ox-wg21html-test-export
@@ -231,6 +300,64 @@ With DARK, the browser reports a dark system colour scheme."
     (should (string-match-p "class=\"org-keyword\"" html))
     (should (string-match-p "class=\"org-rainbow-delimiters-depth-1\"" html))
     (should-not (string-match-p "style=\"" html))))
+
+(ert-deftest document-code-default-keywords-and-raw-override ()
+  (let ((html (ox-wg21html-test-export
+               "#+WG21_CPP_KEYWORDS: inspect
+#+begin_src
+inspect (value) {}
+#+end_src
+#+begin_src text
+inspect (plain)
+#+end_src
+")))
+    (should (string-match-p "org-keyword[^>]*>inspect" html))
+    (should (string-match-p
+             "<pre class=\"src src-text\"><code>inspect (plain)" html))))
+
+(ert-deftest document-code-language-overrides-cpp-default ()
+  (let ((html (ox-wg21html-test-export
+               "#+WG21_CODE_LANGUAGE: text
+#+begin_src
+inspect (plain)
+#+end_src
+")))
+    (should (string-match-p
+             "<pre class=\"src src-text\"><code>inspect (plain)" html))))
+
+(ert-deftest inline-source-defaults-to-unevaluated-highlighted-code ()
+  (let ((html (ox-wg21html-test-export
+               "#+WG21_CPP_KEYWORDS: inspect
+* Heading src_cpp{inspect(value);}
+Paragraph src_cpp{inspect(value);} and ~inspect~.
+")))
+    (should (string-match-p
+             "Heading <code class=\"src src-cpp\"><span class=\"org-keyword\">inspect"
+             html))
+    (should (string-match-p
+             "Paragraph <code class=\"src src-cpp\"><span class=\"org-keyword\">inspect"
+             html))
+    (should (string-match-p "and <code>inspect</code>" html))))
+
+(ert-deftest inline-source-paper-properties-override-wg21-defaults ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "#+PROPERTY: header-args:emacs-lisp :exports results :eval yes
+Value src_emacs-lisp{(+ 2 3)}.
+")
+    (let ((org-export-use-babel t)
+          (html (org-export-as 'wg21-html nil nil t)))
+      (should (string-match-p "Value <code>5</code>" html))
+      (should-not (string-match-p "(+ 2 3)" html)))))
+
+(ert-deftest inline-source-element-parameters-override-wg21-defaults ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "Value src_emacs-lisp[:exports results :eval yes]{(+ 3 4)}.\n")
+    (let ((org-export-use-babel t)
+          (html (org-export-as 'wg21-html nil nil t)))
+      (should (string-match-p "Value <code>7</code>" html))
+      (should-not (string-match-p "(+ 3 4)" html)))))
 
 (ert-deftest git-remote-web-url ()
   (dolist (case '(("git@github.com:steve-downey/wg21org.git"
@@ -353,6 +480,27 @@ With DARK, the browser reports a dark system colour scheme."
              html))
     (should-not (string-match-p "href=\"#citeproc_bib_item" html))))
 
+(ert-deftest title-citation-uses-the-default-wg21-index ()
+  (let ((html (ox-wg21html-test-export "See [[cite-title:P2996R8]].")))
+    (should (string-match-p
+             "href=\"https://wg21.link/p2996r8\">\\[P2996R8\\] (.*Reflection"
+             html))
+    (should (string-match-p ">References<" html))
+    (should (string-match-p "P2996R8: Reflection" html))))
+
+(ert-deftest wg21-citation-needs-no-bibliography-boilerplate ()
+  (let ((html (ox-wg21html-test-export-file
+               "#+TITLE: T\n* Intro\nSee [cite:@P2996R13].\n")))
+    (should (string-match-p ">References<" html))
+    (should (string-match-p "id=\"references\"" html))
+    (should (string-match-p "Reflection for C.*26" html))))
+
+(ert-deftest recognized-paper-number-has-latest-and-status-links ()
+  (let ((html (ox-wg21html-test-export-file
+               "#+TITLE: T\n#+DOCNUMBER: D4246R1\n* A\n")))
+    (should (string-match-p "https://wg21.link/P4246\">Latest" html))
+    (should (string-match-p "https://wg21.link/P4246/status\">Status" html))))
+
 (ert-deftest wording-code-is-not-highlighted ()
   (let ((html (ox-wg21html-test-export-file wg21-test-wording-paper)))
     (should (string-match-p "<span class=\"org-function-name\">outside</span>" html))
@@ -362,7 +510,150 @@ With DARK, the browser reports a dark system colour scheme."
   (let ((html (ox-wg21html-test-export
                "* Clause\n:PROPERTIES:\n:WG21_WORDING: t\n:END:\n#+begin_pnum\n/Effects/: text.\n#+end_pnum\n")))
     (should (string-match-p "class=\"[^\"]*wg21-wording" html))
-    (should (string-match-p "class=\"pnum\"" html))))
+    (should (string-match-p "class=\"pnum pnum-explicit\"" html))
+    (should (string-match-p "data-pnum=\"1\"" html))))
+
+(ert-deftest added-wording-root-carries-an-html-addition-scope ()
+  (let ((html (ox-wg21html-test-export
+               "* Clause\n:PROPERTIES:\n:WG21_WORDING: t\n:WG21_CHANGE: add\n:END:\nText.\n")))
+    (should (string-match-p "class=\"[^\"]*wg21-addition" html))))
+
+(ert-deftest explicit-paragraph-numbers-survive-html-export ()
+  (let ((html (ox-wg21html-test-export
+               "#+begin_pnum x+2\nAdded wording.\n#+end_pnum\n")))
+    (should (string-match-p "class=\"pnum pnum-explicit\"" html))
+    (should (string-search "data-pnum=\"x+2\"" html))))
+
+(ert-deftest automatic-paragraph-number-paths-and-local-links ()
+  (let ((html (ox-wg21html-test-export
+               (concat "* Clause\n:PROPERTIES:\n:CUSTOM_ID: example.clause\n"
+                       ":WG21_WORDING: t\n:END:\n"
+                       "#+begin_pnum 2\nPinned.\n#+end_pnum\n"
+                       "#+begin_pnum #.#\nNested.\n#+end_pnum\n"
+                       "#+begin_pnum #.#\nNested again.\n#+end_pnum\n"
+                       "#+begin_pnum #\nNext.\n#+end_pnum\n"
+                       "See [[sref:example.clause/2.2]].\n"))))
+    (dolist (label '("2" "2.1" "2.2" "3"))
+      (should (string-match-p (format "data-pnum=\"%s\"" label) html)))
+    (should (string-match-p
+             "href=\"#example.clause-2.2\".*>\\[example.clause\\]/2.2</a>"
+             html))))
+
+(ert-deftest wording-lists-can-be-paragraph-numbered ()
+  (let ((html (ox-wg21html-test-export
+               (concat "#+begin_wording :pnums lists\n"
+                       "1. First.\n"
+                       "2. Second.\n"
+                       "   - Nested.\n"
+                       "   1. [@5] Pinned nested.\n"
+                       "3. Third.\n"
+                       "#+end_wording\n"))))
+    (dolist (label '("1" "2" "2.1" "2.5" "3"))
+      (should (string-match-p (format "data-pnum=\"%s\"" label) html)))
+    (should-not (string-match-p "<ol" html))))
+
+(ert-deftest nested-list-needs-a-numbered-parent ()
+  (let ((html (ox-wg21html-test-export
+               "#+begin_wording :pnums lists\n- Unnumbered.\n  1. Nested.\n#+end_wording\n")))
+    (should-not (string-match-p "data-pnum=\".1\"" html))
+    (should-not (string-match-p "class=\"pnum-number\"" html))))
+
+(ert-deftest raw-wording-code-markup-is-balanced-and-nestable ()
+  (let ((html (ox-wg21html-test-export
+               (concat "#+begin_codeblock\n"
+                       "f(@\\added{T{1, 2}, @\\emph{term}@}@);\n"
+                       "@\\replace{old<T>{}}{new<T>{}}@\n"
+                       "#+end_codeblock\n"))))
+    (should (string-match-p
+             (regexp-quote "f(<ins>T{1, 2}, <var>term</var></ins>);") html))
+    (should (string-match-p
+             (regexp-quote "<del>old&lt;T&gt;{}</del><ins>new&lt;T&gt;{}</ins>") html))))
+
+(ert-deftest raw-wording-code-math-is-escaped-exactly-once ()
+  (let (input)
+    (cl-letf (((symbol-function 'wg21-html--mathml)
+               (lambda (tex) (setq input tex) nil)))
+      (let ((html (ox-wg21html-test-export
+                   "#+begin_codeblock\n@\\math{a < b}@\n#+end_codeblock\n")))
+        (should (equal input "$a < b$"))
+        (should (string-match-p (regexp-quote "<var>a &lt; b</var>") html))
+        (should-not (string-match-p "&amp;lt;" html))))))
+
+(ert-deftest malformed-raw-wording-code-markup-is-an-error ()
+  (dolist (code '("@\\added{unfinished"
+                  "@\\added{x} oops more @\\removed{y}@"))
+    (should-error
+     (ox-wg21html-test-export
+      (format "#+begin_codeblock\n%s\n#+end_codeblock\n" code))
+     :type 'user-error)))
+
+(ert-deftest unmodelled-raw-wording-code-escape-is-an-html-error ()
+  (dolist (code '("@\\opt[x]{y}@" "@\\added{p}\\removed{q}@" "@\\textsc{e}@"))
+    (should-error
+     (ox-wg21html-test-export
+      (format "#+begin_codeblock\n%s\n#+end_codeblock\n" code))
+     :type 'user-error)))
+
+(ert-deftest ordinary-at-sign-in-raw-wording-code-is-literal ()
+  (let ((html (ox-wg21html-test-export
+               (concat "#+begin_codeblock\n"
+                       "printf(\"%s@\\x41\", s); g(@\\added{z}@);\n"
+                       "out << \"@\\n{\";\n"
+                       "auto a = u8\"@\\u{00E9}\";\n"
+                       "auto b = U'@\\N{LATIN SMALL LETTER A}';\n"
+                       "std::format(\"@\\t{}\", x);\n"
+                       "std::format(\"@\\atsign@\\t{}@\\atsign@\", x);\n"
+                       "u8\"@\\atsign@\\u{00E9}@\\atsign@\"; auto c = \"x@\\atsign@y\";\n"
+                       "x = \"@\\t\"; if (a) {\n"
+                       "work();\n"
+                       "} // @\\added{note}@\n"
+                       "#+end_codeblock\n"))))
+    (should (string-match-p (regexp-quote "%s@\\x41") html))
+    (should (string-match-p (regexp-quote "@\\n{") html))
+    (should (string-match-p (regexp-quote "@\\u{00E9}") html))
+    (should (string-match-p (regexp-quote "@\\N{LATIN SMALL LETTER A}") html))
+    (should (string-match-p (regexp-quote "@\\t{}") html))
+    (should (string-match-p
+             (regexp-quote "std::format(\"@\\t{}@\", x);") html))
+    (should (string-match-p
+             (regexp-quote "u8\"@\\u{00E9}@\"; auto c = \"x@y\";") html))
+    (should (string-match-p (regexp-quote "<ins>z</ins>") html))
+    (should (string-match-p (regexp-quote "\"@\\t\"") html))
+    (should (string-match-p (regexp-quote "<ins>note</ins>") html))))
+
+(ert-deftest unknown-code-arguments-stop-at-newlines ()
+  (should-error
+   (wg21-code-markup--braced "{unfinished\n}" 0 0 t)
+   :type 'user-error))
+
+(ert-deftest nested-wording-code-errors-use-block-offsets ()
+  (let ((error (should-error
+                (ox-wg21html-test-export
+                 "#+begin_codeblock\n@\\textsc{@\\added{x}}@\n#+end_codeblock\n")
+                :type 'user-error)))
+    (should (string-match-p "offset 9" (error-message-string error)))))
+
+(ert-deftest note-like-blocks-carry-number-and-audience ()
+  (let ((html (ox-wg21html-test-export
+               (concat "#+begin_note :number 5\nN.\n#+end_note\n"
+                       "#+begin_draftnote :audience LEWG\nD.\n#+end_draftnote\n"
+                       "#+begin_ednote :audience \"SG16 \\\"Core\\\"\"\nE.\n#+end_ednote\n"))))
+    (should (string-match-p "class=\"wg21-note\" style=\"counter-set: wg21-note 4\"" html))
+    (should (string-match-p "class=\"wg21-draftnote\" data-audience=\"LEWG\"" html))
+    (should (string-match-p "data-audience=\"SG16 &quot;Core&quot;\"" html))))
+
+(ert-deftest stable-name-links-choose-local-or-draft-targets ()
+  (let ((html (ox-wg21html-test-export
+               "* Proposed\n:PROPERTIES:\n:CUSTOM_ID: proposed.clause\n:END:\n[[sref:proposed.clause]] [[sref:basic.life/2.1]]\n")))
+    (should (string-match-p (regexp-quote "href=\"#proposed.clause\">[proposed.clause]</a>") html))
+    (should (string-match-p
+             (regexp-quote "href=\"https://eel.is/c++draft/basic.life#2.1\">[basic.life]/2.1</a>") html))))
+
+(ert-deftest raw-wording-code-supports-edits-and-grammar ()
+  (let ((html (ox-wg21html-test-export
+               "#+begin_codeblock\nint @\\added{x}@ = @\\removed{y}@;\n#+end_codeblock\n#+begin_grammar\n@\\grammarterm{statement}@ : @\\terminal{break}@\n#+end_grammar\n")))
+    (should (string-match-p "int <ins>x</ins> = <del>y</del>;" html))
+    (should (string-match-p "<pre class=\"grammar\"><var>statement</var> : <code>break</code>" html))))
 
 (ert-deftest abstract-comes-before-contents ()
   (let ((html (ox-wg21html-test-export-file (wg21-test-paper-with-abstract)
