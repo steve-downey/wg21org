@@ -122,10 +122,13 @@ for a listings environment whose escape character is @."
            (_ (funcall
                escape
                (format "\\%s%s" command
-                       (mapconcat (lambda (argument)
-                                    (format "{%s}"
-                                            (wg21-latex-code-markup argument info t escape-at)))
-                                  arguments "")))))))))
+                       (if arguments
+                           (mapconcat (lambda (argument)
+                                        (format "{%s}"
+                                                (wg21-latex-code-markup
+                                                 argument info t escape-at)))
+                                      arguments "")
+                         "{}")))))))))
    nodes ""))
 
 (defun wg21-latex-pnum-marker (element)
