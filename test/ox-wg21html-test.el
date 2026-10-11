@@ -651,9 +651,50 @@ Value src_emacs-lisp{(+ 2 3)}.
 
 (ert-deftest raw-wording-code-supports-edits-and-grammar ()
   (let ((html (ox-wg21html-test-export
-               "#+begin_codeblock\nint @\\added{x}@ = @\\removed{y}@;\n#+end_codeblock\n#+begin_grammar\n@\\grammarterm{statement}@ : @\\terminal{break}@\n#+end_grammar\n")))
+               "#+begin_codeblock\nint @\\added{x}@ = @\\removed{y}@;\n#+end_codeblock\n#+begin_grammar\njump-statement:\n    @\\terminal{break}@ ;\n#+end_grammar\n")))
     (should (string-match-p "int <ins>x</ins> = <del>y</del>;" html))
-    (should (string-match-p "<pre class=\"grammar\"><var>statement</var> : <code>break</code>" html))))
+    (should (string-match-p "<pre class=\"grammar\">jump-statement:\n    <code>break</code> <code>;</code>" html))))
+
+(ert-deftest grammar-sets-words-as-nonterminals-and-punctuation-as-terminals ()
+  (let ((html (ox-wg21html-test-export
+               (concat "#+begin_grammar\n"
+                       "escaped-identifier:\n"
+                       "    ` identifier `\n"
+                       "    ~typename~_{opt} nested-name-specifier_{opt} type-name\n"
+                       "    ...\n"
+                       "\n"
+                       "pm-expression:\n"
+                       "    pm-expression ->* [[delete:][cast-expression]] [[insert:][user-infix-expression]]\n"
+                       "    [[replace:new-name][old-name]] @\\descr{any character}@\n"
+                       "#+end_grammar\n"))))
+    (should (string-match-p
+             (regexp-quote "escaped-identifier:\n    <code>`</code> identifier <code>`</code>\n") html))
+    (should (string-match-p
+             (regexp-quote "<code>typename</code><sub class=\"opt\">opt</sub> nested-name-specifier<sub class=\"opt\">opt</sub> type-name") html))
+    (should (string-match-p (regexp-quote "    <span class=\"descr\">...</span>\n\npm-expression:") html))
+    (should (string-match-p
+             (regexp-quote "pm-expression <code>-&gt;*</code> <del>cast-expression</del> <ins>user-infix-expression</ins>") html))
+    (should (string-match-p
+             (regexp-quote "<del>old-name</del><ins>new-name</ins> <span class=\"descr\">any character</span>") html))))
+
+(ert-deftest grammar-one-of-makes-every-token-a-terminal ()
+  (let ((html (ox-wg21html-test-export
+               "#+begin_grammar\nsign: one of\n    +  -  and\n#+end_grammar\n")))
+    (should (string-match-p
+             (regexp-quote "sign: <span class=\"descr\">one of</span>\n    <code>+</code><code>  </code><code>-</code><code>  </code><code>and</code>") html))))
+
+(ert-deftest wgexample-is-a-draft-example ()
+  (let ((html (ox-wg21html-test-export
+               "#+begin_wgexample :number 3\nAn example.\n#+end_wgexample\n")))
+    (should (string-match-p "class=\"wg21-example\" style=\"counter-set: wg21-example 2\"" html))))
+
+(ert-deftest bind-keywords-set-export-options ()
+  (let ((html (ox-wg21html-test-export-file
+               (concat "#+TITLE: T\n#+bind: org-export-with-toc nil\n"
+                       "#+bind: org-export-with-sub-superscripts nil\n"
+                       "* A\nPattern_Syntax\n"))))
+    (should-not (string-match-p "id=\"toc\"" html))
+    (should (string-match-p "Pattern_Syntax" html))))
 
 (ert-deftest abstract-comes-before-contents ()
   (let ((html (ox-wg21html-test-export-file (wg21-test-paper-with-abstract)

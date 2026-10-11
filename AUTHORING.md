@@ -44,9 +44,9 @@ URL-encode characters that have link syntax in the replacement; for example,
 Use `[[mark:][highlighted text]]` for neutral highlighting.  Org markup is
 allowed in the displayed text.
 
-### Wording code and grammar
+### Wording code
 
-`codeblock`, `itemdecl`, and `grammar` blocks are literal draft code, not Org
+`codeblock` and `itemdecl` blocks are literal draft code, not Org
 source blocks.  They recognize balanced draft escapes, including nested
 escapes and C++ braces:
 
@@ -59,7 +59,7 @@ void f(@\added{T{1, 2}, @\emph{term}@}@);
 
 The supported commands are `added`, `removed`, `replace`, `mark`, `emph`,
 `math`, `sref`, `exposid`, `exposidnc`, `placeholder`, `grammarterm`,
-`terminal`, `seebelow`, `impdef`, `impdefnc`, `unspec`, and `atsign`.  Bare `\ref{name}`
+`terminal`, `descr`, `seebelow`, `impdef`, `impdefnc`, `unspec`, and `atsign`.  Bare `\ref{name}`
 in code comments is also recognized.  Unclosed arguments of these commands and
 missing closing `@` delimiters stop export with a diagnostic.  Any other escape
 (another macro, an optional argument, several macros in one escape) passes
@@ -76,6 +76,83 @@ renders as `@` in both HTML and LaTeX.  For example, author
 
 These escapes do not apply to ordinary `src` blocks.  Those remain literal
 Org source blocks suitable for live or transcluded code.
+
+### Grammar
+
+A `grammar` block holds productions written the way the working draft prints
+them, and sets them the way it does:
+
+```org
+#+begin_grammar
+escaped-identifier:
+    ` identifier `
+
+operator-function-id:
+    ~operator~ operator
+    ~typename~_{opt} nested-name-specifier_{opt} type-name
+
+sign: one of
+    +  -
+#+end_grammar
+```
+
+- A line at the left margin ending in `:` names the nonterminal being
+  defined; `: one of` gives a "one of" production.
+- Each indented line is one alternative.  A blank line starts the next
+  production.
+- Words, including hyphenated ones, are nonterminals.  Runs of punctuation
+  are terminals.
+- A terminal that looks like a word, such as a keyword, is written as inline
+  code: `~typename~`.  `=typename=` means the same, but `~` is the house
+  spelling.  In a "one of" production every token is a terminal, and the
+  spacing between them is kept so rows line up.
+- `name_{opt}` marks an optional element.
+- A line that is only `...` stands for alternatives not shown.
+- `[[insert:][…]]`, `[[delete:][…]]`, `[[replace:new][old]]` and
+  `[[mark:][…]]` work inside a line, as do the draft escapes above.  Use
+  `@\descr{…}@` for prose, such as "any member of the basic character set".
+
+## Notes and examples
+
+Draft notes use `#+begin_note`.  A draft example is spelled
+`#+begin_wgexample`, because Org always reads `#+begin_example` as its own
+literal block:
+
+```org
+#+begin_wgexample
+An example.
+#+end_wgexample
+```
+
+Both are numbered inside wording.  `:number N` pins the number and
+`:unnumbered` drops it.
+
+## Converting from mpark/wg21 markdown
+
+Pandoc writes mpark/wg21 constructs as generic Org that does not carry their
+meaning.  Rewrite them in the native forms:
+
+- A `bnf` grammar becomes a `#+begin_verse` block.  Use `#+begin_grammar`, and
+  mark keywords that pandoc left as plain words, such as `~operator~`.
+- Inline code becomes `=code=`, because pandoc's Org writer uses verbatim for
+  it.  It exports the same as `~code~`, but rewrite it as `~code~` to match the
+  house spelling.
+- An example becomes the text `[/Example/: … — /end example/]`, which Org will
+  not italicise.  Use `#+begin_wgexample`.
+
+## Export options
+
+Export options may be set with `#+OPTIONS:` or with `#+bind:` and the option's
+variable name, one per line:
+
+```org
+#+bind: org-export-with-toc nil
+#+bind: org-export-with-sub-superscripts nil
+```
+
+The `make` export honours `#+bind:`.  The values are read, never evaluated.
+An interactive Emacs needs `org-export-allow-bind-keywords` set to `t` to
+export such a paper the same way.
 
 ## Comparison tables
 

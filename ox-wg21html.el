@@ -46,6 +46,9 @@
 (require 'wg21-code
          (expand-file-name "wg21-code"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-grammar
+         (expand-file-name "wg21-grammar"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 (defun my-html-special-block (special-block contents info)
   "Process my special block.  SPECIAL-BLOCK CONTENTS INFO.
@@ -59,7 +62,11 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
      ((string= type "pnum") (wg21-html-pnum special-block contents))
      ((member type '("note" "example" "ednote" "draftnote"))
       (wg21-html-nonnormative special-block type contents))
-     ((member type '("codeblock" "itemdecl" "grammar"))
+     ;; Org always reads #+begin_example as a literal block.
+     ((string= type "wgexample")
+      (wg21-html-nonnormative special-block "example" contents))
+     ((string= type "grammar") (wg21-html-grammar special-block info))
+     ((member type '("codeblock" "itemdecl"))
       (wg21-html-raw-code-special-block special-block type info))
      (t (org-html-special-block special-block contents info)))))
 
@@ -68,8 +75,27 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
   (let ((code (wg21-html-code-markup
                (wg21-code-markup-parse
                 (wg21-special-block-raw-contents block)) info)))
-    (format "<div class=\"%s\"><pre class=\"%s\">%s</pre></div>\n"
-            type (if (string= type "grammar") "grammar" "src src-C++") code)))
+    (format "<div class=\"%s\"><pre class=\"src src-C++\">%s</pre></div>\n"
+            type code)))
+
+(defun wg21-html-grammar (block info)
+  "Export grammar BLOCK as productions, one line to an alternative."
+  (format
+   "<div class=\"grammar\"><pre class=\"grammar\">%s</pre></div>\n"
+   (mapconcat
+    (lambda (production)
+      (mapconcat
+       (lambda (line)
+         (pcase line
+           (`(definition ,nodes ,one-of)
+            (concat (wg21-html-code-markup nodes info) ":"
+                    (and one-of " <span class=\"descr\">one of</span>")))
+           (`(alternative ,nodes)
+            (concat "    " (wg21-html-code-markup nodes info)))
+           ('(elision) "    <span class=\"descr\">...</span>")))
+       production "\n"))
+    (wg21-grammar-parse (wg21-special-block-raw-contents block))
+    "\n\n")))
 
 (defun wg21-html-code-markup (nodes info)
   "Render parsed raw code NODES as HTML using export INFO."
@@ -79,6 +105,15 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
       ((stringp node) (org-html-encode-plain-text node))
       ((eq (car node) 'wg21-code-raw)
        (user-error "WG21 code escape @%s@ is not supported in HTML" (nth 1 node)))
+      ((eq (car node) 'wg21-grammar-nonterminal)
+       (org-html-encode-plain-text (nth 1 node)))
+      ((eq (car node) 'wg21-grammar-terminal)
+       (format "<code>%s</code>" (org-html-encode-plain-text (nth 1 node))))
+      ((eq (car node) 'wg21-grammar-space)
+       (if (nth 2 node) (format "<code>%s</code>" (nth 1 node)) " "))
+      ((eq (car node) 'wg21-grammar-opt)
+       (concat (wg21-html-code-markup (list (nth 1 node)) info)
+               "<sub class=\"opt\">opt</sub>"))
       (t
        (let* ((command (nth 1 node))
               (arguments (nth 2 node))
@@ -93,6 +128,7 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
            ((or "seebelow") "<var>see below</var>")
            ((or "impdef" "impdefnc") "<var>implementation-defined</var>")
            ("unspec" "<var>unspecified</var>")
+           ("descr" (format "<span class=\"descr\">%s</span>" (funcall render 0)))
            ("atsign" "@")
            ("added" (format "<ins>%s</ins>" (funcall render 0)))
            ("removed" (format "<del>%s</del>" (funcall render 0)))

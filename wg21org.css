@@ -365,6 +365,8 @@ pre.grammar {
     white-space: pre-wrap;
 }
 pre.grammar code { font-style: normal; }
+pre.grammar .descr { font-family: var(--serif); font-style: normal; }
+pre.grammar sub.opt { font-size: 70%; }
 
 .heading [class^="section-number-"] {
     margin-right: .35em;

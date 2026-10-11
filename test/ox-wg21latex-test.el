@@ -199,12 +199,34 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
 
 (ert-deftest latex-grammar-is-a-draft-grammar-block ()
   (let ((latex (ox-wg21latex-test-export
-                "#+begin_grammar\n@\\grammarterm{statement}@ : email@\\atsign@example\n#+end_grammar\n")))
+                (concat "#+begin_grammar\n"
+                        "mail-address:\n"
+                        "    local-part @\\atsign@ domain\n"
+                        "    =typename=_{opt} ~ { } [[insert:][user-name]]\n"
+                        "\n"
+                        "sign: one of\n"
+                        "    +  -\n"
+                        "    ...\n"
+                        "#+end_grammar\n"))))
     (should (string-match-p "\\\\begin{wgblock}{ncbnf}" latex))
     (should (string-match-p
-             (regexp-quote "\\grammarterm{statement} : email\\atsign{}example") latex))
-    (should-not (string-match-p (regexp-quote "@\\grammarterm{statement}@") latex))
+             (regexp-quote "\\nontermdef{mail-address}\\br\nlocal-part \\atsign{} domain\\br\n") latex))
+    (should (string-match-p
+             (regexp-quote "\\opt{\\terminal{typename}} \\terminal{\\textasciitilde{}} \\terminal{\\{} \\terminal{\\}} \\added{user-name}\n\n") latex))
+    (should (string-match-p
+             (regexp-quote "\\nontermdef{sign} \\textnormal{one of}\\br\n\\terminal{+}\\terminal{\\ \\ }\\terminal{-{}}\\br\n\\descr{\\ldots}\n\\end{wgblock}") latex))
     (should-not (string-match-p (regexp-quote "@\\atsign@") latex))))
+
+(ert-deftest latex-wgexample-is-a-draft-example ()
+  (let ((latex (ox-wg21latex-test-export
+                "#+begin_wgexample\nAn example.\n#+end_wgexample\n")))
+    (should (string-match-p (regexp-quote "\\begin{wgblock}{example}\nAn example.") latex))))
+
+(ert-deftest latex-verse-has-no-break-after-its-last-line ()
+  (let ((latex (ox-wg21latex-test-export
+                "#+begin_verse\nfirst line\n    last line\n#+end_verse\nA paragraph.\n")))
+    (should (string-match-p (regexp-quote "first line\\\\\n") latex))
+    (should (string-match-p "last line\n\\\\end{verse}" latex))))
 
 (ert-deftest latex-specgen-code-block-is-raw ()
   (let ((latex (ox-wg21latex-test-export
@@ -444,7 +466,19 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
                                  "puts(\"mail@\\n\");\n"
                                  "std::format(\"@\\atsign@\\t{}@\\atsign@\", x);\n"
                                  "#+end_codeblock\n")
-                         "#+begin_grammar\n@\\grammarterm{statement}@ : email@\\atsign@example\n#+end_grammar\n"
+                         (concat "#+begin_grammar\n"
+                                 "escaped-identifier:\n"
+                                 "    ` identifier `\n"
+                                 "    =typename=_{opt} ~ ^^ # % & _ \\ ' \" <=> -> [[insert:][x]]\n"
+                                 "    [ [ attribute-list ] ]\n"
+                                 "\n"
+                                 "sign: one of\n"
+                                 "    +  -  ->  <<  >>  --\n"
+                                 "    ...\n"
+                                 "#+end_grammar\n"
+                                 "A paragraph after the grammar.\n")
+                         "#+begin_verse\nproduction:\n    alternative\n#+end_verse\nA paragraph after the verse.\n"
+                         "#+begin_wgexample\nAn example.\n#+end_wgexample\n"
                          ox-wg21latex-test-cmptbl)))
          (dir (make-temp-file "ox-wg21latex-test" t))
          (default-directory (file-name-as-directory dir)))
