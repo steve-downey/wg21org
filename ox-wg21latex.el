@@ -45,6 +45,9 @@
 (require 'wg21-code
          (expand-file-name "wg21-code"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
+(require 'wg21-grammar
+         (expand-file-name "wg21-grammar"
+                           (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
 ;; Loaded when present; the export falls back to plain verbatim code.
 (require 'engrave-faces nil t)
@@ -65,6 +68,9 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
                 anchor label contents)))
      ((member type '("note" "example" "ednote" "draftnote"))
       (wg21-latex-nonnormative special-block type contents))
+     ;; Org always reads #+begin_example as a literal block.
+     ((string= type "wgexample")
+      (wg21-latex-nonnormative special-block "example" contents))
      ((member type '("codeblock" "itemdecl"))
       ;; listings environments find their end marker by scanning the input;
       ;; hiding it behind wgblock makes the first block consume the paper.
@@ -74,13 +80,49 @@ after one is not, so #+BEGIN_ABSTRACT becomes \\begin{abstract}."
                (wg21-code-markup-parse
                 (wg21-special-block-raw-contents special-block)) info nil t)
               type))
-     ((string= type "grammar")
-      (format "\\begin{wgblock}{ncbnf}\n%s\\end{wgblock}\n"
-              (wg21-latex-code-markup
-               (wg21-code-markup-parse
-                (wg21-special-block-raw-contents special-block)) info t nil)))
+     ((string= type "grammar") (wg21-latex-grammar special-block info))
      (t (wg21-latex--guard-environment
          type (org-latex-special-block special-block contents info))))))
+
+(defun wg21-latex-grammar (block info)
+  "Export grammar BLOCK as the working draft's ncbnf productions.
+Lines of a production are joined by \\br, but the last line has none:
+a trailing line break would pull the next paragraph up onto it."
+  (format
+   "\\begin{wgblock}{ncbnf}\n%s\n\\end{wgblock}\n"
+   (mapconcat
+    (lambda (production)
+      (mapconcat
+       (lambda (line)
+         (pcase line
+           (`(definition ,nodes ,one-of)
+            (concat (format "\\nontermdef{%s}"
+                            (wg21-latex-code-markup nodes info t))
+                    (and one-of " \\textnormal{one of}")))
+           (`(alternative ,nodes) (wg21-latex-code-markup nodes info t))
+           ('(elision) "\\descr{\\ldots}")))
+       production "\\br\n"))
+    (wg21-grammar-parse (wg21-special-block-raw-contents block))
+    "\n\n")))
+
+(defun wg21-latex--grammar-text (text)
+  "Return grammar TEXT with the characters LaTeX treats specially escaped.
+Adjacent - < > and quote characters are kept apart, so that no font
+turns them into a dash, a guillemet or a typographic quote."
+  (replace-regexp-in-string
+   "[][\\{}#$%&_~^`'\"<>-]"
+   (lambda (char)
+     (pcase char
+       ("\\" "\\textbackslash{}")
+       ("~" "\\textasciitilde{}")
+       ("^" "\\textasciicircum{}")
+       ("`" "\\textasciigrave{}")
+       ("'" "\\textquotesingle{}")
+       ("\"" "\\textquotedbl{}")
+       ((or "<" ">" "-") (concat char "{}"))
+       ((or "[" "]") (concat "{" char "}"))
+       (_ (concat "\\" char))))
+   text t t))
 
 (defun wg21-latex-code-markup (nodes info &optional tex-mode escape-at)
   "Render parsed raw code NODES as draft LaTeX using export INFO.
@@ -93,6 +135,18 @@ for a listings environment whose escape character is @."
        (replace-regexp-in-string
         "@" (if tex-mode "\\atsign{}" "@\\atsign@") node t t))
       ((stringp node) node)
+      ((eq (car node) 'wg21-grammar-nonterminal)
+       (replace-regexp-in-string "_" "\\_" (nth 1 node) t t))
+      ((eq (car node) 'wg21-grammar-terminal)
+       (format "\\terminal{%s}" (wg21-latex--grammar-text (nth 1 node))))
+      ((eq (car node) 'wg21-grammar-space)
+       (if (nth 2 node)
+           (format "\\terminal{%s}"
+                   (mapconcat (lambda (_) "\\ ") (nth 1 node) ""))
+         " "))
+      ((eq (car node) 'wg21-grammar-opt)
+       (format "\\opt{%s}"
+               (wg21-latex-code-markup (list (nth 1 node)) info tex-mode escape-at)))
       ((eq (car node) 'wg21-code-raw)
        (let ((latex (wg21-latex-code-markup (nth 2 node) info t escape-at)))
          (if tex-mode latex (concat "@" latex "@"))))
@@ -196,6 +250,14 @@ options after \\begin{NAME} is left as it is."
       (concat (and number
                    (format "\\wgsetcounterifdefined{%s}{%d}\n" type (1- (string-to-number number))))
               (format "\\begin{wgblock}{%s}\n%s\\end{wgblock}\n" type contents))))))
+
+(defun wg21-latex-verse-block (verse-block contents info)
+  "Export VERSE-BLOCK without a line break after its last line.
+Org ends every verse line with \\\\.  On the last line that break pulls
+a following paragraph up onto it, and the two overprint."
+  (replace-regexp-in-string
+   "\\\\\\\\\\(\\[[^]]*\\]\\)?[ \t]*\n\\(\\\\end{verse}\\)" "\n\\2"
+   (org-latex-verse-block verse-block contents info) t))
 
 (defun wg21-latex-headline (headline contents info)
   "Export HEADLINE, wrapping a generated wording root around its subtree."
@@ -644,6 +706,7 @@ the #+TOC keyword."
                      (item . wg21-latex-item)
                      (plain-list . wg21-latex-plain-list)
                      (headline . wg21-latex-headline)
+                     (verse-block . wg21-latex-verse-block)
                      (table . wg21-latex-table)
                      (src-block . wg21-latex-src-block)
                      (inline-src-block . wg21-latex-inline-src-block)

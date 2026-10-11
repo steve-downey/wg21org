@@ -108,6 +108,7 @@ names.  Repeated derived names receive -2, -3, and so on."
     ("emph" . 1) ("math" . 1) ("sref" . 1)
     ("exposid" . 1) ("exposidnc" . 1) ("placeholder" . 1)
     ("grammarterm" . 1) ("terminal" . 1) ("libconcept" . 1) ("tcode" . 1)
+    ("descr" . 1)
     ("seebelow" . 0) ("impdef" . 0) ("impdefnc" . 0) ("unspec" . 0)
     ("atsign" . 0))
   "Balanced escapes recognized inside raw WG21 code blocks.")

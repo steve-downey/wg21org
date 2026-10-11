@@ -141,6 +141,11 @@ keywords are counted and materialized afresh from the current sources."
         modus-themes-italic-constructs t)
   (load-theme 'modus-operandi-tinted t))
 
+;; A paper may set its export options with #+bind:, by each option's
+;; variable name.  Org ignores those lines, silently, unless allowed; the
+;; values are read, never evaluated.
+(setq org-export-allow-bind-keywords t)
+
 (setq org-adapt-indentation nil)
 (setq org-src-preserve-indentation t)
 (setq org-src-fontify-natively t)
