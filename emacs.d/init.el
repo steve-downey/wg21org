@@ -220,10 +220,12 @@ This is a spin off https://stackoverflow.com/a/66911315/519827, but REFRESH is s
 (setq org-support-shift-select 'always)
 
 
-;; Reveal.js + Org mode
+;; Reveal.js + Org mode.  The root is the release `make' pins and
+;; fetches to build a talk; see ox-wg21reveal.el.
 (use-package org-re-reveal
   :config
-  (setq org-re-reveal-root "file:////home/sdowney/bld/reveal.js"))
+  (setq org-re-reveal-root
+        (expand-file-name "../.deps/reveal.js" user-emacs-directory)))
 
 
 

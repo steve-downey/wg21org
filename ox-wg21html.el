@@ -50,10 +50,12 @@
          (expand-file-name "wg21-grammar"
                            (file-name-directory (or (macroexp-file-name) buffer-file-name))))
 
-(defun my-html-special-block (special-block contents info)
+(defun my-html-special-block (special-block contents info &optional fallback)
   "Process my special block.  SPECIAL-BLOCK CONTENTS INFO.
 Block names are case-insensitive in Org, but the class named after
-one is not, so #+BEGIN_ABSTRACT gets the class abstract."
+one is not, so #+BEGIN_ABSTRACT gets the class abstract.  A block
+that is not a WG21 block goes to FALLBACK, by default
+`org-html-special-block'."
   (org-element-put-property special-block :type
                             (downcase (org-element-property :type special-block)))
   (let ((type (org-element-property :type special-block)))
@@ -68,7 +70,8 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
      ((string= type "grammar") (wg21-html-grammar special-block info))
      ((member type '("codeblock" "itemdecl"))
       (wg21-html-raw-code-special-block special-block type info))
-     (t (org-html-special-block special-block contents info)))))
+     (t (funcall (or fallback #'org-html-special-block)
+                 special-block contents info)))))
 
 (defun wg21-html-raw-code-special-block (block type info)
   "Export specgen BLOCK of TYPE with balanced embedded wording markup."
@@ -168,10 +171,11 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
             (org-html-encode-plain-text label)
             (org-html-encode-plain-text label))))
 
-(defun wg21-html-item (item contents info)
-  "Export paragraph-numbered ITEM, otherwise use the ordinary exporter."
+(defun wg21-html-item (item contents info &optional fallback)
+  "Export paragraph-numbered ITEM, otherwise use the ordinary exporter.
+That is FALLBACK, by default `org-html-item'."
   (if (not (org-element-property :WG21_PNUM item))
-      (org-html-item item contents info)
+      (funcall (or fallback #'org-html-item) item contents info)
     (let ((marker (wg21-html-pnum-marker item)))
       (if (org-element-property :WG21_PNUM_TOP item)
           (format "<div class=\"pnum pnum-list-paragraph\">%s%s</div>\n"
@@ -182,12 +186,13 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
                       (substring html (match-end 0)))
             html))))))
 
-(defun wg21-html-plain-list (plain-list contents info)
-  "Flatten a top-level paragraph-numbered PLAIN-LIST."
+(defun wg21-html-plain-list (plain-list contents info &optional fallback)
+  "Flatten a top-level paragraph-numbered PLAIN-LIST.
+Any other list goes to FALLBACK, by default `org-html-plain-list'."
   (if (seq-some (lambda (item) (org-element-property :WG21_PNUM_TOP item))
                 (org-element-contents plain-list))
       contents
-    (org-html-plain-list plain-list contents info)))
+    (funcall (or fallback #'org-html-plain-list) plain-list contents info)))
 
 (defun wg21-html-code (code contents info)
   "Export CODE, expanding table-safe vertical bars."
@@ -239,12 +244,12 @@ one is not, so #+BEGIN_ABSTRACT gets the class abstract."
 
 ;;; Wording
 
-(defun wg21-html-src-block (src-block contents info)
+(defun wg21-html-src-block (src-block contents info &optional fallback)
   "Transcode SRC-BLOCK, without syntax highlighting in wording.
 In wording, edits to code are marked as the LaTeX export marks them,
 with @\\added{...}@ and @\\removed{...}@, and become <ins> and <del>
 here.  See wg21-wording.el.  CONTENTS is nil.  INFO is the export
-plist."
+plist.  FALLBACK, by default `org-html-src-block', sets the block."
   (if (wg21-wording-p src-block)
       (let ((org-html-htmlize-output-type nil))
         (replace-regexp-in-string
@@ -254,12 +259,12 @@ plist."
              (string-match "\\\\\\(added\\|removed\\){\\([^}]*\\)}" edit)
              (let ((tag (if (string= (match-string 1 edit) "added") "ins" "del")))
                (format "<%s>%s</%s>" tag (match-string 2 edit) tag))))
-         (org-html-src-block src-block contents info)
+         (funcall (or fallback #'org-html-src-block) src-block contents info)
          t t))
     (let ((wg21-code-current-cpp-keywords (plist-get info :wg21-cpp-keywords))
           (org-html-htmlize-output-type
            (if (wg21-code-raw-p src-block) nil org-html-htmlize-output-type)))
-      (org-html-src-block src-block contents info))))
+      (funcall (or fallback #'org-html-src-block) src-block contents info))))
 
 (defun wg21-html-inline-src-block (inline-src-block contents info)
   "Transcode INLINE-SRC-BLOCK with WG21 code defaults and keywords.

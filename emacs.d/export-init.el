@@ -29,8 +29,8 @@
                                    ("melpa" . 10)))
 (package-initialize)
 
-(defconst wg21org-export-packages '(htmlize citeproc rainbow-delimiters engrave-faces)
-  "Packages the HTML and LaTeX exports need.")
+(defconst wg21org-export-packages '(htmlize citeproc rainbow-delimiters engrave-faces org-re-reveal)
+  "Packages the HTML, LaTeX, and slide exports need.")
 
 (let ((missing (seq-remove #'package-installed-p wg21org-export-packages)))
   (when missing
