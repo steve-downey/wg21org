@@ -1,0 +1,72 @@
+#+title: Writing WG21 Papers in Org
+#+subtitle: Papers and the talks about them, from one source
+#+author: Steve Downey
+#+email: sdowney@sdowney.org
+#+date: 2026-10-16
+#+DOCNUMBER: DnnnnR0
+#+AUDIENCE: LEWG
+#+OPTIONS: H:2
+
+#+begin_notes
+Speaker notes for the title slide go in a notes block before the first
+headline.  Press =s= for the speaker view.
+#+end_notes
+
+* Why Org
+** One source
+- A paper exports to HTML and to PDF
+- The talk about it exports to reveal.js
+- Both from the same Org, with the same WG21 blocks
+
+#+begin_notes
+A level-one heading starts a section; a level-two heading is a slide
+within it.
+#+end_notes
+
+** Fragments
+#+ATTR_REVEAL: :frag (appear)
+- Lists appear an item at a time
+- With =#+ATTR_REVEAL: :frag (appear)=
+- As in any org-re-reveal talk
+
+* What goes on a slide
+** Code
+#+begin_src C++
+template <class T>
+constexpr auto f(T t) -> optional<T&> {
+    return t ? optional<T&>{*t} : nullopt;
+}
+#+end_src
+
+** Comparison table
+#+begin_cmptbl
+#+begin_cmptblcell before
+*Before*
+#+end_cmptblcell
+#+begin_cmptblcell after
+*After*
+#+end_cmptblcell
+#+begin_cmptblcell before
+#+begin_src C++
+T* p = find(r, x);
+if (p) use(*p);
+#+end_src
+#+end_cmptblcell
+#+begin_cmptblcell after
+#+begin_src C++
+if (auto o = find(r, x))
+    use(*o);
+#+end_src
+#+end_cmptblcell
+#+end_cmptbl
+
+** Wording
+#+begin_wording
+#+begin_pnum
+The function returns [[replace:an ~optional<T&>~][a pointer]] to the
+element.
+#+end_pnum
+#+begin_note
+Inserted and deleted text is marked as it is in the paper.
+#+end_note
+#+end_wording

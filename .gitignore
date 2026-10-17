@@ -23,6 +23,8 @@ tools/sections
 *.synctex*
 wg21.bib
 .deps/
+# Settings for one checkout, such as SERVE_PORT; see the Makefile.
+local.mk
 
 _minted*/
 

@@ -1,0 +1,175 @@
+/* wg21reveal.css --- slide style for WG21 talks exported by ox-wg21reveal.el
+ *
+ * Embedded after the reveal.js theme, so it styles what a paper's
+ * transcoders put on a slide: wording changes, notes and examples,
+ * grammar, comparison tables, and the document block on the title
+ * slide.  Colours come from the theme's variables where it has them.
+ * Like wg21org.css, it must not load anything.
+ */
+
+.reveal {
+    --wg21-muted: color-mix(in srgb, var(--r-main-color) 60%, transparent);
+    --wg21-rule: color-mix(in srgb, var(--r-main-color) 25%, transparent);
+    --wg21-ins-text: #0d5c20;
+    --wg21-ins-bg: #e2f4e4;
+    --wg21-del-text: #9f1a1f;
+    --wg21-del-bg: #fbe3e3;
+}
+
+/** Title slide **************************************************************/
+
+.reveal .subtitle {
+    color: var(--wg21-muted);
+}
+.reveal dl.wg21-slide-meta {
+    display: grid;
+    grid-template-columns: max-content auto;
+    gap: .15em 1em;
+    width: max-content;
+    max-width: 100%;
+    margin: 1.5em auto 0;
+    font-size: .55em;
+    text-align: left;
+}
+.reveal dl.wg21-slide-meta dt {
+    font-weight: bold;
+}
+.reveal dl.wg21-slide-meta dd {
+    margin: 0;
+}
+
+/** Code *********************************************************************/
+
+/* The face stylesheet colours code; the theme only sizes it. */
+.reveal pre {
+    width: 100%;
+    box-sizing: border-box;
+    box-shadow: none;
+    border-radius: 4px;
+    font-size: .5em;
+    line-height: 1.35;
+}
+.reveal pre.src {
+    padding: .6em .8em;
+}
+.reveal .org-src-container {
+    margin: .5em 0;
+}
+
+/** Wording changes **********************************************************/
+
+.reveal ins, .reveal .underline, .reveal .addedblock {
+    color: var(--wg21-ins-text);
+    background: var(--wg21-ins-bg);
+    text-decoration: underline;
+}
+.reveal del, .reveal .removedblock {
+    color: var(--wg21-del-text);
+    background: var(--wg21-del-bg);
+    text-decoration: line-through;
+}
+.reveal ins code, .reveal del code {
+    color: inherit;
+    background: none;
+}
+.reveal .addedblock, .reveal .removedblock {
+    display: block;
+    padding: .2em .6em;
+}
+.reveal .addedblock { border-left: 3px solid var(--wg21-ins-text); }
+.reveal .removedblock { border-left: 3px solid var(--wg21-del-text); }
+
+/** Wording ******************************************************************/
+
+/* Wording reads as it does in the paper, not centred like a slide. */
+.reveal .wording {
+    text-align: left;
+    font-size: .8em;
+    padding-left: 1.5em;
+}
+
+.reveal .pnum {
+    position: relative;
+}
+.reveal li:has(> .pnum-number) {
+    position: relative;
+}
+.reveal .pnum-number::before {
+    content: "[" attr(data-pnum) "]";
+    position: absolute;
+    right: calc(100% + .4em);
+    color: var(--wg21-muted);
+    font-size: .7em;
+}
+.reveal .wg21-note, .reveal .wg21-example,
+.reveal .wg21-ednote, .reveal .wg21-draftnote {
+    display: block;
+    margin: .5em 1em;
+    font-size: .9em;
+}
+.reveal .wg21-note::before { content: "[ Note: "; font-style: italic; }
+.reveal .wg21-example::before { content: "[ Example: "; font-style: italic; }
+.reveal .wg21-note::after { content: " — end note ]"; font-style: italic; }
+.reveal .wg21-example::after { content: " — end example ]"; font-style: italic; }
+.reveal .wg21-ednote, .reveal .wg21-draftnote { color: #2456b3; }
+.reveal .wg21-ednote::before { content: "[ Editor's note: "; font-style: italic; }
+.reveal .wg21-draftnote::before { content: "[ Drafting note: "; font-style: italic; }
+.reveal .wg21-draftnote[data-audience]::before {
+    content: "[ Drafting note for " attr(data-audience) ": ";
+}
+.reveal .wg21-ednote::after, .reveal .wg21-draftnote::after { content: " ]"; }
+/* The brackets run into the note's first and last paragraphs. */
+.reveal :is(.wg21-note, .wg21-example, .wg21-ednote, .wg21-draftnote) > p:first-child,
+.reveal :is(.wg21-note, .wg21-example, .wg21-ednote, .wg21-draftnote) > p:last-child {
+    display: inline;
+}
+
+.reveal pre.grammar {
+    background: transparent;
+    color: var(--wg21-muted);
+    font-family: var(--r-main-font);
+    font-style: italic;
+    white-space: pre-wrap;
+}
+.reveal pre.grammar code { font-style: normal; }
+.reveal pre.grammar sub.opt { font-size: 70%; }
+
+/** Tables *******************************************************************/
+
+.reveal table.wg21-spec-table {
+    table-layout: fixed;
+    width: 100%;
+}
+.reveal table.cmptbl {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+.reveal table.cmptbl th,
+.reveal table.cmptbl td {
+    padding: .2em .4em;
+    vertical-align: top;
+    border-bottom: 0;
+    border-top: 1px solid var(--wg21-rule);
+}
+.reveal table.cmptbl td + td,
+.reveal table.cmptbl th + th {
+    border-left: 1px solid var(--wg21-rule);
+}
+.reveal table.cmptbl thead th {
+    border-top: 0;
+    border-bottom: 2px solid var(--wg21-rule);
+    text-align: center;
+}
+.reveal table.cmptbl pre {
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+/** References ***************************************************************/
+
+.reveal .csl-entry {
+    font-size: .6em;
+    text-align: left;
+    margin-bottom: .4em;
+}

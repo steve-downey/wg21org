@@ -221,3 +221,70 @@ For `#+DOCNUMBER: P2996R13`, and for the pre-publication spelling
 `#+DOCNUMBER: D2996R13`, HTML metadata automatically includes `Latest` and
 `Status` links for the P2996 paper series.  Placeholders and N-paper numbers do
 not get those links.
+
+## Slides
+
+A talk is an Org file named `talk.slides.org`, written like a paper, and
+`make talk.slides.html` exports it as a reveal.js presentation; `make slides`
+builds every talk.  The exporter is org-re-reveal, so its keywords and
+attributes work as usual, and the WG21 blocks work as they do in a paper:
+wording with paragraph numbers and `insert:`/`delete:`/`replace:` links,
+`note` and `wgexample` blocks, comparison tables, grammar, code coloured by
+the same face stylesheets, citations, and math.
+
+```org
+#+title: Optional References
+#+subtitle: An update for LEWG
+#+author: A. Author
+#+email: author@example.com
+#+DOCNUMBER: P1234R2
+#+AUDIENCE: LEWG
+
+#+begin_notes
+Speaker notes for the title slide.
+#+end_notes
+
+* Motivation
+** The problem
+#+ATTR_REVEAL: :frag (appear)
+- One point at a time
+- Then the next
+#+begin_notes
+Speaker notes; press s for the speaker view.
+#+end_notes
+```
+
+- A level-one heading starts a section, and a level-two heading starts a slide
+  within it.  `#+OPTIONS: H:1` makes every heading a slide.
+- The title slide shows the title and subtitle, then the document number,
+  date, audience, and reply-to address.  `#+REVEAL_TITLE_SLIDE:` replaces it.
+- `#+begin_notes` is speaker notes; `#+begin_note` is a WG21 note.
+- The defaults are the `white` theme and the notes, search, and zoom plugins;
+  set `#+REVEAL_THEME:` and `#+REVEAL_PLUGINS:` to change them.  Only the
+  white, black, and contrast themes embed their fonts, so `make check` reports
+  any other.
+- Like a paper, a talk is one self-contained file.  reveal.js itself is not in
+  this repository: the Makefile fetches the release it pins into
+  `.deps/reveal.js`, checks it, and the exporter embeds it.
+
+## Live preview
+
+`make serve` builds the papers and talks, serves them at
+<http://127.0.0.1:8000>, and rebuilds them whenever a source changes, files an
+Org file links to included.  A page open in the browser reloads itself when it
+is rebuilt, keeping its scroll position or its slide.  When a build fails the
+page keeps the last good version and shows the build log over it.
+
+The other goals name what to build and serve:
+
+```sh
+make serve                       # everything
+make serve basic.html            # one paper; / opens it
+make serve talk.slides.html      # one talk
+make serve slides                # every talk
+```
+
+A PDF is rebuilt and served, but does not reload; use a viewer that reloads the
+file itself.  The reload script is added as a page is served, never written
+into the built file.  Set `SERVE_HOST` or `SERVE_PORT` on the command line, or
+in a `local.mk` beside the Makefile, which is not committed.
