@@ -150,9 +150,11 @@ variable name, one per line:
 #+bind: org-export-with-sub-superscripts nil
 ```
 
-The `make` export honours `#+bind:`.  The values are read, never evaluated.
-An interactive Emacs needs `org-export-allow-bind-keywords` set to `t` to
-export such a paper the same way.
+A WG21 export honours `#+bind:`, whether from `make` or from an Emacs that has
+loaded `wg21org.el` (see [Using your own Emacs](#using-your-own-emacs)); no
+global setting is needed, and other exports are unaffected.  The values are
+read, never evaluated.  Set `wg21org-allow-bind-keywords` to `nil` to ignore
+them.
 
 ## Comparison tables
 
@@ -288,3 +290,34 @@ A PDF is rebuilt and served, but does not reload; use a viewer that reloads the
 file itself.  The reload script is added as a page is served, never written
 into the built file.  Set `SERVE_HOST` or `SERVE_PORT` on the command line, or
 in a `local.mk` beside the Makefile, which is not committed.
+
+## Using your own Emacs
+
+`make` runs Emacs with wg21org's own init files.  To write and export papers
+from your everyday Emacs instead, put this directory on the load path and load
+the package entry point; it installs nothing and runs neither init file:
+
+```elisp
+(add-to-list 'load-path "/path/to/wg21org")
+(require 'wg21org)
+```
+
+or, with `use-package`:
+
+```elisp
+(use-package wg21org
+  :load-path "/path/to/wg21org"
+  :after org)
+```
+
+That gives `C-c C-e w` for papers (HTML, LaTeX, PDF) and, when org-re-reveal is
+installed, talks; `C-c '` in a comparison-table cell that names its block; and
+`#+bind:` and transclusion handled as `make` handles them.  The exporters need
+htmlize and citeproc, and org-transclusion to export a paper that transcludes;
+engrave-faces, if installed, sets the LaTeX code in colour.  Install those
+however your Emacs installs packages.
+
+Loading `wg21org.el` changes nothing for other exports: inline source defaults
+and `#+bind:` are set only in a WG21 export's own copy of the buffer.  What it
+does register globally is its backends and the link types a paper uses
+(`insert:`, `delete:`, `replace:`, `mark:`, `sref:`, `cite-title:`).

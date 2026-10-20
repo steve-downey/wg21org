@@ -861,8 +861,8 @@ Export is done in a buffer named \"*Org WG21 LaTeX Export*\", which
 will be displayed when `org-export-show-temporary-export-buffer'
 is non-nil."
   (interactive)
-  (when (fboundp 'wg21org-enable-transclusion)
-    (wg21org-enable-transclusion))
+  (when (fboundp 'wg21org-prepare-export)
+    (wg21org-prepare-export))
   (org-export-to-buffer 'wg21-latex "*Org WG21 LaTeX Export*"
     async subtreep visible-only body-only ext-plist (lambda () (if (fboundp 'LaTeX-mode) (LaTeX-mode) (latex-mode)))))
 
@@ -905,8 +905,8 @@ EXT-PLIST, when provided, is a property list with external
 parameters overriding Org default settings, but still inferior to
 file-local settings."
   (interactive)
-  (when (fboundp 'wg21org-enable-transclusion)
-    (wg21org-enable-transclusion))
+  (when (fboundp 'wg21org-prepare-export)
+    (wg21org-prepare-export))
   (let ((outfile (org-export-output-file-name ".tex" subtreep)))
     (org-export-to-file 'wg21-latex outfile
       async subtreep visible-only body-only ext-plist)))
@@ -941,8 +941,8 @@ file-local settings.
 
 Return PDF file's name."
   (interactive)
-  (when (fboundp 'wg21org-enable-transclusion)
-    (wg21org-enable-transclusion))
+  (when (fboundp 'wg21org-prepare-export)
+    (wg21org-prepare-export))
   (let ((outfile (org-export-output-file-name ".tex" subtreep)))
     (org-export-to-file 'wg21-latex outfile
       async subtreep visible-only body-only ext-plist

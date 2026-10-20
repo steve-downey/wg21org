@@ -1246,8 +1246,8 @@ Export is done in a buffer named \"*Org HTML Export*\", which
 will be displayed when `org-export-show-temporary-export-buffer'
 is non-nil."
   (interactive)
-  (when (fboundp 'wg21org-enable-transclusion)
-    (wg21org-enable-transclusion))
+  (when (fboundp 'wg21org-prepare-export)
+    (wg21org-prepare-export))
   (org-export-to-buffer 'wg21-html "*WG21 HTML Export*"
     async subtreep visible-only body-only ext-plist
     (lambda () (set-auto-mode t))))
@@ -1293,8 +1293,8 @@ file-local settings.
 
 Return output file's name."
   (interactive)
-  (when (fboundp 'wg21org-enable-transclusion)
-    (wg21org-enable-transclusion))
+  (when (fboundp 'wg21org-prepare-export)
+    (wg21org-prepare-export))
   (let* ((extension (concat
 		             (when (> (length org-html-extension) 0) ".")
 		             (or (plist-get ext-plist :html-extension)
@@ -1324,10 +1324,10 @@ Return output file name."
                        (find-file-noselect filename)))))
     (unwind-protect
         (progn
-          (when (fboundp 'wg21org-enable-transclusion)
+          (when (fboundp 'wg21org-prepare-export)
             (unwind-protect
                 (with-current-buffer buffer
-                  (wg21org-enable-transclusion))
+                  (wg21org-prepare-export))
               (setq transclusion-buffers
                     (seq-difference (buffer-list) buffers-before))))
           (org-publish-org-to 'wg21-html filename

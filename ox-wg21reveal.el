@@ -232,8 +232,8 @@ A talk in talk.slides.org becomes talk.slides.html.  ASYNC,
 SUBTREEP, VISIBLE-ONLY, BODY-ONLY, and EXT-PLIST are as for
 `my-wg21-export-to-html'.  Return the output file's name."
   (interactive)
-  (when (fboundp 'wg21org-enable-transclusion)
-    (wg21org-enable-transclusion))
+  (when (fboundp 'wg21org-prepare-export)
+    (wg21org-prepare-export))
   (let ((file (org-export-output-file-name ".html" subtreep))
         (org-export-coding-system org-html-coding-system))
     (org-export-to-file 'wg21-reveal file
