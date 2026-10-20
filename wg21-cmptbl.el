@@ -49,10 +49,32 @@
 ;;
 ;; Direct code blocks fill rows from left to right.  Explicit cmptblcell
 ;; blocks remain useful when a cell needs arbitrary Org contents.
+;;
+;; A cmptblcell that holds nothing but one block can name that block
+;; after its column, and leave out the block's own lines:
+;;
+;;   #+begin_cmptblcell after src C++ :exports code
+;;   auto r = (a ⊠ b) ⊗ (c ⊗ d);
+;;   #+end_cmptblcell
+;;
+;; is exported as if it were
+;;
+;;   #+begin_cmptblcell after
+;;   #+begin_src C++ :exports code
+;;   auto r = (a ⊠ b) ⊗ (c ⊗ d);
+;;   #+end_src
+;;   #+end_cmptblcell
+;;
+;; The rewrite happens before parsing, so both exporters see an ordinary
+;; block.  C-c ' (`org-edit-special') in such a cell edits it as that
+;; block, for src and example blocks, escaping lines Org would read as
+;; its own.
 
 ;;; Code:
 
 (require 'org-element)
+(require 'org-src)
+(require 'ox)
 (require 'seq)
 
 (defun wg21-cmptbl--arguments (cmptbl)
@@ -105,9 +127,100 @@ Org tables.  There must be one positive integer width per column."
   (or (wg21-cmptbl-cell-p element) (wg21-cmptbl-direct-cell-p element)))
 
 (defun wg21-cmptbl-side (cell)
-  "Return the column name of CELL, from its parameter, or nil."
-  (let ((side (org-element-property :parameters cell)))
-    (and side (downcase (org-trim side)))))
+  "Return the column name of CELL, from its first parameter, or nil."
+  (when-let* ((parameters (org-element-property :parameters cell))
+              (side (car (split-string parameters))))
+    (downcase side)))
+
+(defun wg21-cmptbl-embedded-block (cell)
+  "Return (SIDE KIND ARGUMENTS) for a CELL naming the block it holds, or nil.
+KIND is the block's type, such as \"src\", and ARGUMENTS the rest of its
+#+begin_ line, possibly empty."
+  (let ((parameters (org-element-property :parameters cell)))
+    (when (and parameters
+               (string-match "\\`[ \t]*\\(\\S-+\\)[ \t]+\\(\\S-+\\)[ \t]*\\(.*?\\)[ \t]*\\'"
+                             parameters))
+      (list (match-string 1 parameters)
+            (downcase (match-string 2 parameters))
+            (match-string 3 parameters)))))
+
+(defun wg21-cmptbl-expand-embedded-blocks (backend)
+  "Give each cmptblcell that names its block the block's own lines.
+Run from `org-export-before-parsing-functions', in the export copy of
+the buffer, and only when BACKEND is one of the WG21 exporters."
+  (when (org-export-derived-backend-p backend 'wg21-html 'wg21-latex 'wg21-reveal)
+    (org-with-wide-buffer
+     (goto-char (point-max))
+     (let ((case-fold-search t))
+       (while (re-search-backward "^[ \t]*#\\+begin_cmptblcell[ \t]" nil t)
+         (let ((cell (save-match-data (org-element-at-point))))
+           (when-let* (((wg21-cmptbl-cell-p cell))
+                       ((= (point) (org-element-post-affiliated cell)))
+                       (embedded (wg21-cmptbl-embedded-block cell)))
+             (pcase-let ((`(,side ,kind ,arguments) embedded)
+                         (indentation (make-string (current-indentation) ?\s)))
+               (save-excursion
+                 (goto-char (org-element-end cell))
+                 (skip-chars-backward " \r\t\n")
+                 (beginning-of-line)
+                 (insert indentation "#+end_" kind "\n"))
+               (delete-region (point) (line-end-position))
+               (insert indentation "#+begin_cmptblcell " side "\n"
+                       indentation "#+begin_" kind
+                       (if (string-empty-p arguments) "" (concat " " arguments)))))))))))
+
+(add-hook 'org-export-before-parsing-functions
+          #'wg21-cmptbl-expand-embedded-blocks)
+
+(defun wg21-cmptbl--as-block (cell kind arguments)
+  "Return a src or example block element standing in for CELL.
+KIND and ARGUMENTS are from its #+begin_ line, as returned by
+`wg21-cmptbl-embedded-block'.  The element spans CELL, so the
+`org-src' editing machinery writes back between its delimiters."
+  (let* ((begin (org-with-point-at (org-element-post-affiliated cell)
+                  (line-beginning-position 2)))
+         (end (org-with-point-at (org-element-end cell)
+                (skip-chars-backward " \r\t\n")
+                (line-beginning-position)))
+         (value (org-unescape-code-in-string
+                 (buffer-substring-no-properties begin (max begin end))))
+         (words (split-string arguments))
+         (common (list :begin (org-element-begin cell)
+                       :end (org-element-end cell)
+                       :post-affiliated (org-element-post-affiliated cell)
+                       :post-blank (org-element-post-blank cell)
+                       :preserve-indent (and (member "-i" words) t)
+                       :value value)))
+    (pcase kind
+      ("src" (org-element-create
+              'src-block
+              (append (list :language (car words)
+                            :parameters (string-join (cdr words) " "))
+                      common)))
+      ("example" (org-element-create 'example-block common)))))
+
+(defun wg21-cmptbl-edit-embedded-block ()
+  "Edit the block a cmptblcell at point names, in its own buffer.
+Return non-nil if there was one to edit, so this can run before
+`org-edit-special'."
+  (when-let* ((cell (org-element-lineage (org-element-at-point) 'special-block t))
+              ((wg21-cmptbl-cell-p cell))
+              ((org-src--on-datum-p cell))
+              (embedded (wg21-cmptbl-embedded-block cell))
+              (block (wg21-cmptbl--as-block cell (nth 1 embedded) (nth 2 embedded))))
+    (let* ((lang (or (org-element-property :language block) "example"))
+           (mode (and (org-element-type-p block 'src-block)
+                      (org-src-get-lang-mode-if-bound lang #'fundamental-mode lang))))
+      (org-src--edit-element
+       block
+       (org-src--construct-edit-buffer-name (buffer-name) lang)
+       (lambda () (when mode (funcall mode)))
+       (lambda () (org-escape-code-in-region (point-min) (point-max))))
+      t)))
+
+(advice-add 'org-edit-special :before-until
+            (lambda (&rest _) (wg21-cmptbl-edit-embedded-block))
+            '((name . wg21-cmptbl-edit-embedded-block)))
 
 (defun wg21-cmptbl-rows (cmptbl)
   "Group the children of CMPTBL into rows.

@@ -768,4 +768,82 @@ Value src_emacs-lisp{(+ 2 3)}.
     (should (string-match-p "<math display=\"inline\"" html))
     (should-not (string-match-p "MathJax" html))))
 
+
+(defconst ox-wg21html-test-cmptbl-embedded "\
+#+begin_cmptbl
+#+begin_cmptblcell before
+*Before*
+#+end_cmptblcell
+#+begin_cmptblcell after
+*After*
+#+end_cmptblcell
+#+begin_cmptblcell before src C++
+int a = 1;
+int b = 2;
+#+end_cmptblcell
+#+begin_cmptblcell after src C++
+auto [a, b] = pair(1, 2);
+#+end_cmptblcell
+#+begin_cmptblcell before src C++
+x();
+#+end_cmptblcell
+#+begin_cmptblcell after src C++
+y();
+#+end_cmptblcell
+#+end_cmptbl
+"
+  "`ox-wg21html-test-cmptbl', with each code cell naming its block.")
+
+(ert-deftest cmptbl-cell-can-name-its-block ()
+  (should (equal (ox-wg21html-test-export ox-wg21html-test-cmptbl-embedded)
+                 (ox-wg21html-test-export ox-wg21html-test-cmptbl))))
+
+(ert-deftest cmptbl-named-block-keeps-its-arguments ()
+  (let ((html (ox-wg21html-test-export "\
+#+begin_cmptbl
+#+begin_cmptblcell before example
+,* not a heading
+#+end_cmptblcell
+#+begin_cmptblcell after src text
+<b>raw</b>
+#+end_cmptblcell
+#+end_cmptbl
+")))
+    (should (string-match-p "<pre class=\"example\"[^>]*>\n\\* not a heading" html))
+    (should (string-match-p "&lt;b&gt;raw&lt;/b&gt;" html))))
+
+(ert-deftest cmptbl-named-block-is-edited-as-that-block ()
+  (with-temp-buffer
+    (insert "#+begin_cmptbl\n"
+            "#+begin_cmptblcell after src C++\n"
+            "old();\n"
+            "#+end_cmptblcell\n"
+            "#+end_cmptbl\n")
+    (org-mode)
+    (goto-char (point-min))
+    (search-forward "old")
+    (let ((org-src-window-setup 'current-window)
+          (org-src-preserve-indentation t))
+      (org-edit-special)
+      (should (derived-mode-p 'c++-mode 'c++-ts-mode))
+      (should (equal (buffer-string) "old();\n"))
+      (erase-buffer)
+      (insert "#include <x>\n* p = 0;\n")
+      (org-edit-src-exit))
+    (should (equal (buffer-string)
+                   (concat "#+begin_cmptbl\n"
+                           "#+begin_cmptblcell after src C++\n"
+                           "#include <x>\n"
+                           ",* p = 0;\n"
+                           "#+end_cmptblcell\n"
+                           "#+end_cmptbl\n")))))
+
+(ert-deftest cmptbl-plain-cell-is-not-edited-as-a-block ()
+  (with-temp-buffer
+    (insert "#+begin_cmptbl\n#+begin_cmptblcell after\nprose\n#+end_cmptblcell\n#+end_cmptbl\n")
+    (org-mode)
+    (goto-char (point-min))
+    (search-forward "prose")
+    (should-not (wg21-cmptbl-edit-embedded-block))))
+
 ;;; ox-wg21html-test.el ends here
