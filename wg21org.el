@@ -54,6 +54,15 @@
 (require 'cl-lib)
 (require 'seq)
 
+;; Loaded when a paper is exported, not when this file is.
+(declare-function org-element-map "org-element")
+(declare-function org-element-parse-buffer "org-element")
+(declare-function org-element-property "org-element-ast")
+(declare-function org-export-derived-backend-p "ox")
+(declare-function org-transclusion-keyword-string-to-plist "org-transclusion")
+(declare-function org-transclusion-mode "org-transclusion")
+(declare-function org-transclusion-src-lines-mode "org-transclusion-src-lines")
+
 (defgroup wg21org nil
   "Writing WG21 papers in Org."
   :group 'org)
