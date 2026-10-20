@@ -491,4 +491,13 @@ Paragraph src_cpp{inspect(value);} and ~inspect~.
           (should (file-exists-p "paper.pdf")))
       (delete-directory dir t))))
 
+
+(ert-deftest latex-cmptbl-cell-can-name-its-block ()
+  (should (equal
+           (ox-wg21latex-test-export
+            (replace-regexp-in-string
+             "#\\+begin_cmptblcell \\(before\\|after\\)\n#\\+begin_src C\\+\\+\n\\(\\(?:.*\n\\)*?\\)#\\+end_src\n"
+             "#+begin_cmptblcell \\1 src C++\n\\2" ox-wg21latex-test-cmptbl))
+           (ox-wg21latex-test-export ox-wg21latex-test-cmptbl))))
+
 ;;; ox-wg21latex-test.el ends here

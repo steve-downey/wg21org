@@ -178,6 +178,20 @@ and must total 100.  For cells containing prose or multiple Org elements, use
 the explicit `#+begin_cmptblcell before` form demonstrated in `basic.org`;
 existing explicit tables remain supported.
 
+An explicit cell that holds only one block can name the block after its
+column and leave out the block's own lines.  This is exported exactly as
+if the `#+begin_src C++` / `#+end_src` pair were written inside it:
+
+```org
+#+begin_cmptblcell after src C++
+auto r = (a ⊠ b) ⊗ (c ⊗ d);
+#+end_cmptblcell
+```
+
+Any block type works for export, with its arguments after its name.  `C-c '`
+in such a cell edits a `src` or `example` block in its own buffer, in the
+language's mode, as it would inside the block itself.
+
 ## Citations
 
 `wg21.bib` is the default bibliography.  A paper that uses an Org citation such
