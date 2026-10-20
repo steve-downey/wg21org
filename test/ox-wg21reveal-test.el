@@ -116,4 +116,11 @@ int f();
                (string-search "</head>" html)))))
 
 (provide 'ox-wg21reveal-test)
+
+(ert-deftest reveal-cmptbl-cell-can-name-its-block ()
+  (let ((short "#+begin_cmptbl\n#+begin_cmptblcell before src C++\nx();\n#+end_cmptblcell\n#+begin_cmptblcell after src C++\ny();\n#+end_cmptblcell\n#+end_cmptbl\n")
+        (long "#+begin_cmptbl\n#+begin_cmptblcell before\n#+begin_src C++\nx();\n#+end_src\n#+end_cmptblcell\n#+begin_cmptblcell after\n#+begin_src C++\ny();\n#+end_src\n#+end_cmptblcell\n#+end_cmptbl\n"))
+    (should (equal (ox-wg21reveal-test-export short)
+                   (ox-wg21reveal-test-export long)))))
+
 ;;; ox-wg21reveal-test.el ends here

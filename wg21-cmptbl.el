@@ -148,7 +148,7 @@ KIND is the block's type, such as \"src\", and ARGUMENTS the rest of its
   "Give each cmptblcell that names its block the block's own lines.
 Run from `org-export-before-parsing-functions', in the export copy of
 the buffer, and only when BACKEND is one of the WG21 exporters."
-  (when (org-export-derived-backend-p backend 'wg21-html 'wg21-latex)
+  (when (org-export-derived-backend-p backend 'wg21-html 'wg21-latex 'wg21-reveal)
     (org-with-wide-buffer
      (goto-char (point-max))
      (let ((case-fold-search t))
