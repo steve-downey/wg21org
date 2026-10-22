@@ -19,6 +19,7 @@
 (require 'cc-mode)
 (require 'org-element)
 (require 'ob-core)
+(require 'ox)
 
 (defvar wg21-code-language "C++"
   "Default language for otherwise-unlabelled source blocks.")
@@ -37,10 +38,20 @@ are merged later by Org and therefore override these defaults."
    '((:exports . "code") (:eval . "never-export"))))
 
 ;; Babel expands inline source before the backend's element transcoders run,
-;; so establish the presentation-safe defaults as soon as a WG21 backend is
-;; loaded.  Org merges buffer properties and element parameters afterward.
-(setq org-babel-default-inline-header-args
-      (wg21-code-inline-header-args))
+;; so establish the presentation-safe defaults before it does.  They are set
+;; in the export's copy of the buffer only, and only by a WG21 backend, so
+;; loading this file into an editing Emacs leaves every other export alone.
+;; Org merges buffer properties and element parameters afterward.
+(defun wg21-code-set-inline-header-args (backend)
+  "Give inline source WG21 defaults when BACKEND is a WG21 exporter.
+Run from `org-export-before-processing-functions', in the export copy
+of the buffer, before Babel runs."
+  (when (org-export-derived-backend-p backend 'wg21-html 'wg21-latex 'wg21-reveal)
+    (setq-local org-babel-default-inline-header-args
+                (wg21-code-inline-header-args))))
+
+(add-hook 'org-export-before-processing-functions
+          #'wg21-code-set-inline-header-args)
 
 (define-derived-mode wg21-c++-mode c++-mode "WG21 C++"
   "C++ mode with the current paper's proposed keywords highlighted."

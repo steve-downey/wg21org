@@ -265,6 +265,12 @@ This is a spin off https://stackoverflow.com/a/66911315/519827, but REFRESH is s
          org-mode-map
          ("C-c C-x T" . org-transclusion-mode)))
 
+;; The paper exporters, comparison-table editing, and export preparation.
+(use-package wg21org
+  :ensure nil
+  :load-path ".."
+  :after org)
+
 (use-package engrave-faces
   :init
   (setq org-latex-src-block-backend 'engraved)

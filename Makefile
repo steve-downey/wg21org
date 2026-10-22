@@ -52,7 +52,7 @@ LATEXMK_ENGINE = $$(sed -n 's/^% Intended LaTeX compiler: \(pdf\)\{0,1\}\(.*\)la
 	$(SOURCE_VENV) latexmk -interaction=nonstopmode -halt-on-error -shell-escape \
 	  $(LATEXMK_ENGINE) -use-make -deps -deps-out=$(DEPS_DIR)/$@.d -MP $<
 
-%.html: %.org ox-wg21html.el wg21-links.el wg21-git.el wg21-cmptbl.el wg21-cite.el wg21-wording.el wg21-grammar.el wg21-front.el wg21-code.el wg21org.css emacs.d/export-init.el $(ORG_TRANSCLUSION_SOURCES)
+%.html: %.org ox-wg21html.el wg21-links.el wg21-git.el wg21-cmptbl.el wg21-cite.el wg21-wording.el wg21-grammar.el wg21-front.el wg21-code.el wg21org.css wg21org.el emacs.d/export-init.el $(ORG_TRANSCLUSION_SOURCES)
 	$(EXPORT_HTML)
 
 transcode-view.html: $(TRANSCODE_WORDING) transcode-view.bib wg21.bib
@@ -80,7 +80,7 @@ EXPORT_SLIDES = WG21_BABEL=$(BABEL) $(EMACS) --batch --init-directory=emacs.d \
 	--load ox-wg21reveal.el \
 	--visit $< -f wg21-reveal-export-to-html -f wg21org-exit
 
-%.slides.html: %.slides.org ox-wg21reveal.el ox-wg21html.el wg21-links.el wg21-git.el wg21-cmptbl.el wg21-cite.el wg21-wording.el wg21-grammar.el wg21-front.el wg21-code.el wg21reveal.css emacs.d/export-init.el $(ORG_TRANSCLUSION_SOURCES) $(REVEAL_JS_STAMP)
+%.slides.html: %.slides.org ox-wg21reveal.el ox-wg21html.el wg21-links.el wg21-git.el wg21-cmptbl.el wg21-cite.el wg21-wording.el wg21-grammar.el wg21-front.el wg21-code.el wg21reveal.css wg21org.el emacs.d/export-init.el $(ORG_TRANSCLUSION_SOURCES) $(REVEAL_JS_STAMP)
 	$(EXPORT_SLIDES)
 
 EXPORT_LATEX = WG21_BABEL=$(BABEL) $(EMACS) --batch --init-directory=emacs.d \
@@ -89,7 +89,7 @@ EXPORT_LATEX = WG21_BABEL=$(BABEL) $(EMACS) --batch --init-directory=emacs.d \
 	--load ox-wg21latex.el \
 	--visit $< -f my-wg21-export-to-latex -f wg21org-exit
 
-%.tex: %.org ox-wg21latex.el wg21-links.el wg21-git.el wg21-cmptbl.el wg21-cite.el wg21-wording.el wg21-grammar.el wg21-front.el wg21-code.el wg21org-preamble.tex emacs.d/export-init.el $(ORG_TRANSCLUSION_SOURCES)
+%.tex: %.org ox-wg21latex.el wg21-links.el wg21-git.el wg21-cmptbl.el wg21-cite.el wg21-wording.el wg21-grammar.el wg21-front.el wg21-code.el wg21org-preamble.tex wg21org.el emacs.d/export-init.el $(ORG_TRANSCLUSION_SOURCES)
 	$(EXPORT_LATEX)
 
 transcode-view.tex: $(TRANSCODE_WORDING) transcode-view.bib wg21.bib
@@ -169,6 +169,7 @@ test:
 	--load test/ox-wg21html-test.el \
 	--load test/ox-wg21latex-test.el \
 	--load test/ox-wg21reveal-test.el \
+	--load test/wg21org-test.el \
 	-f ert-run-tests-batch-and-exit
 
 .PHONY: clean
